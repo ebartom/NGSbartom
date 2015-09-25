@@ -1,0 +1,1459 @@
+----------------------------------------
+PBS: Begin PBS Prologue Sun Jul 19 00:11:23 CDT 2015 1437282683
+PBS: Job ID:		16149894.qsched02.quest.it.northwestern.edu
+PBS: Username:		etb589
+PBS: Group:		etb589
+PBS: Executing queue:     normal
+PBS: Job name:		downstreamRNAanalysis
+PBS: Account:		b1025
+----------------------------------------
+   The following variables are not
+   guaranteed to be the same in 
+   prologue and the job run script  
+----------------------------------------
+PBS: Temporary Dir($TMPDIR):	/tmp/16149894.qsched02.quest.it.northwestern.edu
+PBS: Master Node($PBS_MSHOST):		qnode4144
+PBS: node file($PBS_NODEFILE):  /hpc/opt/torque/nodes/qnode4144/aux//16149894.qsched02.quest.it.northwestern.edu
+PBS: PATH (in prologue) : /bin:/usr/bin
+PBS: WORKDIR ($PBS_O_WORKDIR) is:  /projects/p20742/tools/fromAshley
+----------------------------------------
+PBS: End PBS Prologue Sun Jul 19 00:11:24 CDT 2015 1437282684
+WARNING: This will work only on the login nodes
+mkdir: cannot create directory `/projects/b1025/etb/testRNAout.full/TANGO_019/analysis': File exists
+During startup - Warning messages:
+1: Setting LC_CTYPE failed, using "C" 
+2: Setting LC_COLLATE failed, using "C" 
+3: Setting LC_TIME failed, using "C" 
+4: Setting LC_MESSAGES failed, using "C" 
+5: Setting LC_MONETARY failed, using "C" 
+6: Setting LC_PAPER failed, using "C" 
+7: Setting LC_MEASUREMENT failed, using "C" 
+[1] 4
+Loading required package: methods
+Loading required package: S4Vectors
+Loading required package: stats4
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: 'BiocGenerics'
+
+The following objects are masked from 'package:parallel':
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following object is masked from 'package:stats':
+
+    xtabs
+
+The following objects are masked from 'package:base':
+
+    Filter, Find, Map, Position, Reduce, anyDuplicated, append,
+    as.data.frame, as.vector, cbind, colnames, do.call, duplicated,
+    eval, evalq, get, intersect, is.unsorted, lapply, mapply, match,
+    mget, order, paste, pmax, pmax.int, pmin, pmin.int, rank, rbind,
+    rep.int, rownames, sapply, setdiff, sort, table, tapply, union,
+    unique, unlist, unsplit
+
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+Loading required package: GenomicRanges
+Loading required package: XVector
+Loading required package: Biostrings
+Loading required package: AnnotationDbi
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+[1] "mm10"
+[1] "BSgenome.Mmusculus.UCSC.mm10"
+Loading required package: BSgenome
+TxDb object:
+# Db type: TxDb
+# Supporting package: GenomicFeatures
+# Data source: BioMart
+# Organism: Mus musculus
+# Resource URL: feb2014.archive.ensembl.org:80
+# BioMart database: ENSEMBL_MART_ENSEMBL
+# BioMart database version: Ensembl Genes 75
+# BioMart dataset: mmusculus_gene_ensembl
+# BioMart dataset description: Mus musculus genes (GRCm38.p2)
+# BioMart dataset version: GRCm38.p2
+# Full dataset: yes
+# miRBase build ID: NA
+# transcript_nrow: 94929
+# exon_nrow: 404385
+# cds_nrow: 226850
+# Db created by: GenomicFeatures package from Bioconductor
+# Creation time: 2015-04-11 15:47:25 -0500 (Sat, 11 Apr 2015)
+# GenomicFeatures version at creation time: 1.18.6
+# RSQLite version at creation time: 1.0.0
+# DBSCHEMAVERSION: 1.0
+[1] "mESc-2i-RNA-DMSO-REP1.bam" "mESc-2i-RNA-DMSO-REP2.bam"
+[3] "mESc-2i-RNA-DMSO-REP3.bam" "mESc-2i-RNA-RA-REP1.bam"  
+[5] "mESc-2i-RNA-RA-REP2.bam"   "mESc-2i-RNA-RA-REP3.bam"  
+Sun Jul 19 00:16:34 CDT 2015
+During startup - Warning messages:
+1: Setting LC_CTYPE failed, using "C" 
+2: Setting LC_COLLATE failed, using "C" 
+3: Setting LC_TIME failed, using "C" 
+4: Setting LC_MESSAGES failed, using "C" 
+5: Setting LC_MONETARY failed, using "C" 
+6: Setting LC_PAPER failed, using "C" 
+7: Setting LC_MEASUREMENT failed, using "C" 
+Loading required package: limma
+Loading required package: methods
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: 'BiocGenerics'
+
+The following objects are masked from 'package:parallel':
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following object is masked from 'package:limma':
+
+    plotMA
+
+The following object is masked from 'package:stats':
+
+    xtabs
+
+The following objects are masked from 'package:base':
+
+    Filter, Find, Map, Position, Reduce, anyDuplicated, append,
+    as.data.frame, as.vector, cbind, colnames, do.call, duplicated,
+    eval, evalq, get, intersect, is.unsorted, lapply, mapply, match,
+    mget, order, paste, pmax, pmax.int, pmin, pmin.int, rank, rbind,
+    rep.int, rownames, sapply, setdiff, sort, table, tapply, union,
+    unique, unlist, unsplit
+
+Loading required package: S4Vectors
+Loading required package: stats4
+Loading required package: IRanges
+Loading required package: GenomeInfoDb
+[1] "Loading count data"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/bam//counts.rda"
+                   seqnames     start       end  width strand
+ENSMUSG00000000001     chr3 108107280 108146146  38867      -
+ENSMUSG00000000003     chrX  77837901  77853623  15723      -
+ENSMUSG00000000028    chr16  18780447  18811987  31541      -
+ENSMUSG00000000031     chr7 142575529 142578143   2615      -
+ENSMUSG00000000037     chrX 161117193 161258213 141021      +
+ENSMUSG00000000049    chr11 108343354 108414396  71043      +
+                   mESc.2i.RNA.DMSO.REP1 mESc.2i.RNA.DMSO.REP2
+ENSMUSG00000000001                  3313                  3020
+ENSMUSG00000000003                     0                     0
+ENSMUSG00000000028                  2624                  2280
+ENSMUSG00000000031                  3423                  3095
+ENSMUSG00000000037                    87                    71
+ENSMUSG00000000049                     1                     0
+                   mESc.2i.RNA.DMSO.REP3 mESc.2i.RNA.RA.REP1
+ENSMUSG00000000001                  2834                3270
+ENSMUSG00000000003                     0                   0
+ENSMUSG00000000028                  1926                2289
+ENSMUSG00000000031                  2513                4136
+ENSMUSG00000000037                    55                 111
+ENSMUSG00000000049                     0                   2
+                   mESc.2i.RNA.RA.REP2 mESc.2i.RNA.RA.REP3
+ENSMUSG00000000001                 813                2226
+ENSMUSG00000000003                   0                   0
+ENSMUSG00000000028                 525                1921
+ENSMUSG00000000031                 917                2215
+ENSMUSG00000000037                  39                 125
+ENSMUSG00000000049                   0                   0
+[1] 38924    11
+[1] "Loading gene model data"
+                   seqnames     start       end  width strand
+ENSMUSG00000000001     chr3 108107280 108146146  38867      -
+ENSMUSG00000000003     chrX  77837901  77853623  15723      -
+ENSMUSG00000000028    chr16  18780447  18811987  31541      -
+ENSMUSG00000000031     chr7 142575529 142578143   2615      -
+ENSMUSG00000000037     chrX 161117193 161258213 141021      +
+ENSMUSG00000000049    chr11 108343354 108414396  71043      +
+[1] "mmusculus"
+               biomart               version
+1 ENSEMBL_MART_ENSEMBL      Ensembl Genes 75
+2     ENSEMBL_MART_SNP  Ensembl Variation 75
+3 ENSEMBL_MART_FUNCGEN Ensembl Regulation 75
+4    ENSEMBL_MART_VEGA               Vega 55
+5                pride        PRIDE (EBI UK)
+character(0)
+[1] "Loading biomart"
+[1] 1
+[1] "Generating MDS plot."
+[1] "/projects/p20742/testRNA/comparisons.csv"
+[1] "mESc.2i.RNA.DMSO.REP1" "mESc.2i.RNA.DMSO.REP2" "mESc.2i.RNA.DMSO.REP3"
+[4] "mESc.2i.RNA.RA.REP1"   "mESc.2i.RNA.RA.REP2"   "mESc.2i.RNA.RA.REP3"  
+[1] "mESc.2i.RNA.DMSO.REP1" "mESc.2i.RNA.DMSO.REP2" "mESc.2i.RNA.DMSO.REP3"
+[4] "mESc.2i.RNA.RA.REP1"   "mESc.2i.RNA.RA.REP2"   "mESc.2i.RNA.RA.REP3"  
+[1] "Running EdgeR comparison"
+[1] "1"  "1"  "1"  "-1" "-1" "-1"
+[1] "RAvDMSO.1"
+[1] "mESc.2i.RNA.DMSO.REP1" "mESc.2i.RNA.DMSO.REP2" "mESc.2i.RNA.DMSO.REP3"
+[1] "mESc.2i.RNA.RA.REP1" "mESc.2i.RNA.RA.REP2" "mESc.2i.RNA.RA.REP3"
+[1] "group1" "group1" "group1" "group2" "group2" "group2"
+                   mESc.2i.RNA.DMSO.REP1 mESc.2i.RNA.DMSO.REP2
+ENSMUSG00000000001                  3313                  3020
+ENSMUSG00000000003                     0                     0
+ENSMUSG00000000028                  2624                  2280
+ENSMUSG00000000031                  3423                  3095
+ENSMUSG00000000037                    87                    71
+ENSMUSG00000000049                     1                     0
+                   mESc.2i.RNA.DMSO.REP3 mESc.2i.RNA.RA.REP1
+ENSMUSG00000000001                  2834                3270
+ENSMUSG00000000003                     0                   0
+ENSMUSG00000000028                  1926                2289
+ENSMUSG00000000031                  2513                4136
+ENSMUSG00000000037                    55                 111
+ENSMUSG00000000049                     0                   2
+                   mESc.2i.RNA.RA.REP2 mESc.2i.RNA.RA.REP3
+ENSMUSG00000000001                 813                2226
+ENSMUSG00000000003                   0                   0
+ENSMUSG00000000028                 525                1921
+ENSMUSG00000000031                 917                2215
+ENSMUSG00000000037                  39                 125
+ENSMUSG00000000049                   0                   0
+adding flags
+[1] "Running EdgeR comparison"
+[1] "1"  "1"  "1"  "-1" "0"  "-1"
+[1] "RAvDMSO.2"
+[1] "mESc.2i.RNA.DMSO.REP1" "mESc.2i.RNA.DMSO.REP2" "mESc.2i.RNA.DMSO.REP3"
+[1] "mESc.2i.RNA.RA.REP1" "mESc.2i.RNA.RA.REP3"
+[1] "group1" "group1" "group1" "group2" "group2"
+                   mESc.2i.RNA.DMSO.REP1 mESc.2i.RNA.DMSO.REP2
+ENSMUSG00000000001                  3313                  3020
+ENSMUSG00000000003                     0                     0
+ENSMUSG00000000028                  2624                  2280
+ENSMUSG00000000031                  3423                  3095
+ENSMUSG00000000037                    87                    71
+ENSMUSG00000000049                     1                     0
+                   mESc.2i.RNA.DMSO.REP3 mESc.2i.RNA.RA.REP1
+ENSMUSG00000000001                  2834                3270
+ENSMUSG00000000003                     0                   0
+ENSMUSG00000000028                  1926                2289
+ENSMUSG00000000031                  2513                4136
+ENSMUSG00000000037                    55                 111
+ENSMUSG00000000049                     0                   2
+                   mESc.2i.RNA.RA.REP3
+ENSMUSG00000000001                2226
+ENSMUSG00000000003                   0
+ENSMUSG00000000028                1921
+ENSMUSG00000000031                2215
+ENSMUSG00000000037                 125
+ENSMUSG00000000049                   0
+adding flags
+Sun Jul 19 00:17:25 CDT 2015
+During startup - Warning messages:
+1: Setting LC_CTYPE failed, using "C" 
+2: Setting LC_COLLATE failed, using "C" 
+3: Setting LC_TIME failed, using "C" 
+4: Setting LC_MESSAGES failed, using "C" 
+5: Setting LC_MONETARY failed, using "C" 
+6: Setting LC_PAPER failed, using "C" 
+7: Setting LC_MEASUREMENT failed, using "C" 
+Loading required package: limma
+Loading required package: methods
+[1] "Loading differential expressed gene table"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.edgeR.txt"
+[1] 14133    22
+[1] 2215
+[1] 1586
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.MAplot.png"
+null device 
+          1 
+Sun Jul 19 00:17:27 CDT 2015
+During startup - Warning messages:
+1: Setting LC_CTYPE failed, using "C" 
+2: Setting LC_COLLATE failed, using "C" 
+3: Setting LC_TIME failed, using "C" 
+4: Setting LC_MESSAGES failed, using "C" 
+5: Setting LC_MONETARY failed, using "C" 
+6: Setting LC_PAPER failed, using "C" 
+7: Setting LC_MEASUREMENT failed, using "C" 
+
+Attaching package: 'gplots'
+
+The following object is masked from 'package:stats':
+
+    lowess
+
+Loading required package: limma
+Loading required package: methods
+[1] "Loading differential expressed gene table"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.edgeR.txt"
+[1] 14133    22
+[1] 6
+                   mESc.2i.RNA.DMSO.REP1 mESc.2i.RNA.DMSO.REP2
+ENSMUSG00000000001            2.62251235            2.44448701
+ENSMUSG00000000028            2.55956109            2.27416096
+ENSMUSG00000000031           40.27284704           37.23494975
+ENSMUSG00000000037            0.01898072            0.01583931
+ENSMUSG00000000056            0.88475816            0.65274385
+ENSMUSG00000000078            4.28415217            4.02040820
+                   mESc.2i.RNA.DMSO.REP3 mESc.2i.RNA.RA.REP1
+ENSMUSG00000000001            2.76534682          2.48846547
+ENSMUSG00000000028            2.31585629          2.14652139
+ENSMUSG00000000031           36.44614320         46.78145488
+ENSMUSG00000000037            0.01479141          0.02328113
+ENSMUSG00000000056            0.78688589          0.63117395
+ENSMUSG00000000078            4.03317287          3.47094118
+                   mESc.2i.RNA.RA.REP2 mESc.2i.RNA.RA.REP3
+ENSMUSG00000000001          1.14818811          1.89153309
+ENSMUSG00000000028          0.91366580          2.01150775
+ENSMUSG00000000031         19.24868938         27.97511243
+ENSMUSG00000000037          0.01518044          0.02927494
+ENSMUSG00000000056          0.25079341          0.47577133
+ENSMUSG00000000078          1.35610176          2.59988356
+[1] 2215
+[1] 1586
+[1] 2215    6
+[1] 1586    6
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.up.heatmap.pdf"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.dn.heatmap.pdf"
+null device 
+          1 
+null device 
+          1 
+Sun Jul 19 00:17:32 CDT 2015
+During startup - Warning messages:
+1: Setting LC_CTYPE failed, using "C" 
+2: Setting LC_COLLATE failed, using "C" 
+3: Setting LC_TIME failed, using "C" 
+4: Setting LC_MESSAGES failed, using "C" 
+5: Setting LC_MONETARY failed, using "C" 
+6: Setting LC_PAPER failed, using "C" 
+7: Setting LC_MEASUREMENT failed, using "C" 
+Loading required package: methods
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: 'BiocGenerics'
+
+The following objects are masked from 'package:parallel':
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following object is masked from 'package:stats':
+
+    xtabs
+
+The following objects are masked from 'package:base':
+
+    Filter, Find, Map, Position, Reduce, anyDuplicated, append,
+    as.data.frame, as.vector, cbind, colnames, do.call, duplicated,
+    eval, evalq, get, intersect, is.unsorted, lapply, mapply, match,
+    mget, order, paste, pmax, pmax.int, pmin, pmin.int, rank, rbind,
+    rep.int, rownames, sapply, setdiff, sort, table, tapply, union,
+    unique, unlist, unsplit
+
+Loading required package: graph
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+Loading required package: GO.db
+Loading required package: AnnotationDbi
+Loading required package: stats4
+Loading required package: GenomeInfoDb
+Loading required package: S4Vectors
+Loading required package: IRanges
+Loading required package: DBI
+
+Loading required package: SparseM
+
+Attaching package: 'SparseM'
+
+The following object is masked from 'package:base':
+
+    backsolve
+
+
+groupGOTerms: 	GOBPTerm, GOMFTerm, GOCCTerm environments built.
+
+Attaching package: 'topGO'
+
+The following object is masked from 'package:IRanges':
+
+    members
+
+[1] "Loading differential expressed gene table"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.edgeR.txt"
+[1] "mmusculus"
+               biomart               version
+1 ENSEMBL_MART_ENSEMBL      Ensembl Genes 75
+2     ENSEMBL_MART_SNP  Ensembl Variation 75
+3 ENSEMBL_MART_FUNCGEN Ensembl Regulation 75
+4    ENSEMBL_MART_VEGA               Vega 55
+5                pride        PRIDE (EBI UK)
+[1] "Loading biomart"
+     ensembl_gene_id external_gene_name      go_id
+1 ENSMUSG00000064341             mt-Nd1 GO:0005575
+2 ENSMUSG00000064341             mt-Nd1 GO:0003674
+3 ENSMUSG00000064341             mt-Nd1 GO:0016491
+4 ENSMUSG00000064341             mt-Nd1 GO:0005622
+5 ENSMUSG00000064341             mt-Nd1 GO:0005623
+6 ENSMUSG00000064341             mt-Nd1 GO:0005737
+[1] "Remove blank entries"
+[1] "pairing GO IDs with Ensembl IDs"
+[1] "get up genes and make geneList"
+[1] "setsize for significant genes"
+[1] 2215
+[1] "make GO table for the up genes"
+[1] "BP"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.up"
+[1] 2215
+
+Building most specific GOs .....	( 9123 GO terms found. )
+
+Build GO DAG topology ..........	( 12656 GO terms and 30551 relations. )
+
+Annotating nodes ...............	( 12560 genes annotated to the GO terms. )
+
+			 -- Classic Algorithm -- 
+
+		 the algorithm is scoring 3197 nontrivial nodes
+		 parameters: 
+			 test statistic:  fisher 
+Loading required package: Rgraphviz
+Loading required package: grid
+
+Attaching package: 'grid'
+
+The following object is masked from 'package:topGO':
+
+    depth
+
+/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.up_2215_BP_classic_5_up  --- no of nodes:  9 
+[1] "MF"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.up"
+[1] 2215
+
+Building most specific GOs .....	( 3139 GO terms found. )
+
+Build GO DAG topology ..........	( 3628 GO terms and 4613 relations. )
+
+Annotating nodes ...............	( 12554 genes annotated to the GO terms. )
+
+			 -- Classic Algorithm -- 
+
+		 the algorithm is scoring 539 nontrivial nodes
+		 parameters: 
+			 test statistic:  fisher 
+/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.up_2215_MF_classic_5_up  --- no of nodes:  19 
+[1] "make the png for the up genes"
+        GO.ID                                        Term Annotated Significant
+1  GO:0032501            multicellular organismal process      3802         818
+2  GO:0044707       single-multicellular organism process      3685         797
+3  GO:0007275        multicellular organismal development      3059         678
+4  GO:0048731                          system development      2716         605
+5  GO:0044767       single-organism developmental process      3627         760
+6  GO:0032502                       developmental process      3648         763
+7  GO:0048856            anatomical structure development      3286         698
+8  GO:0044700                   single organism signaling      3196         681
+9  GO:0023052                                   signaling      3202         681
+10 GO:0009653          anatomical structure morphogenesis      1672         397
+11 GO:0007154                          cell communication      3283         684
+12 GO:0007399                  nervous system development      1385         337
+13 GO:0030154                        cell differentiation      2352         515
+14 GO:0007165                         signal transduction      2953         615
+15 GO:0048869              cellular developmental process      2552         543
+16 GO:0022008                                neurogenesis       952         244
+17 GO:0007155                               cell adhesion       785         210
+18 GO:0048468                            cell development      1350         321
+19 GO:0022610                         biological adhesion       787         210
+20 GO:0048699                       generation of neurons       882         227
+21 GO:0030182                      neuron differentiation       784         207
+22 GO:0051239 regulation of multicellular organismal p...      1498         341
+23 GO:0048513                           organ development      2026         437
+24 GO:0023051                     regulation of signaling      1966         422
+25 GO:0048812             neuron projection morphogenesis       349         108
+26 GO:0007166     cell surface receptor signaling pathway      1497         334
+27 GO:0048518 positive regulation of biological proces...      3431         673
+28 GO:0048667 cell morphogenesis involved in neuron di...       339         104
+29 GO:0010646            regulation of cell communication      1984         420
+30 GO:0044699                     single-organism process      8373        1454
+31 GO:0048666                          neuron development       624         163
+32 GO:0007610                                    behavior       432         123
+33 GO:0032879                  regulation of localization      1429         317
+34 GO:0009888                          tissue development      1183         271
+35 GO:0050793         regulation of developmental process      1427         316
+36 GO:2000026 regulation of multicellular organismal d...      1032         242
+37 GO:0031175               neuron projection development       531         143
+38 GO:0048583          regulation of response to stimulus      2174         449
+39 GO:0050896                        response to stimulus      4569         851
+40 GO:0044763            single-organism cellular process      7526        1319
+   Expected classicFisher   enrich        p.adj log.p.adj
+1    601.78       1.5e-29 1.359301 4.800000e-28  27.31876
+2    583.26       2.4e-29 1.366457 4.800000e-28  27.31876
+3    484.18       6.0e-27 1.400306 8.000000e-26  25.09691
+4    429.89       5.5e-24 1.407337 5.500000e-23  22.25964
+5    574.08       6.2e-23 1.323857 4.960000e-22  21.30452
+6    577.41       8.5e-23 1.321418 5.666667e-22  21.24667
+7    520.11       3.1e-22 1.342024 1.771429e-21  20.75168
+8    505.86       6.3e-22 1.346222 3.150000e-21  20.50169
+9    506.81       1.1e-21 1.343699 4.888889e-21  20.31079
+10   264.64       6.8e-20 1.500151 2.720000e-19  18.56543
+11   519.63       2.6e-19 1.316321 9.454545e-19  18.02436
+12   219.22       1.8e-18 1.537268 6.000000e-18  17.22185
+13   372.28       3.4e-18 1.383367 1.046154e-17  16.98040
+14   467.40       6.7e-17 1.315789 1.914286e-16  15.71799
+15   403.93       1.5e-16 1.344292 4.000000e-16  15.39794
+16   150.68       3.6e-16 1.619326 9.000000e-16  15.04576
+17   124.25       4.3e-16 1.690141 1.011765e-15  14.99492
+18   213.68       4.9e-16 1.502246 1.088889e-15  14.96302
+19   124.57       5.8e-16 1.685799 1.221053e-15  14.91327
+20   139.60       2.8e-15 1.626074 5.600000e-15  14.25181
+21   124.09       3.2e-15 1.668144 6.095238e-15  14.21501
+22   237.10       3.9e-14 1.438212 7.090909e-14  13.14930
+23   320.68       4.9e-14 1.362729 8.521739e-14  13.06947
+24   311.18       3.5e-13 1.356128 5.833333e-13  12.23408
+25    55.24       6.2e-13 1.955105 9.920000e-13  12.00349
+26   236.95       1.3e-12 1.409580 2.000000e-12  11.69897
+27   543.06       1.5e-12 1.239274 2.222222e-12  11.65321
+28    53.66       3.1e-12 1.938129 4.428571e-12  11.35374
+29   314.03       3.7e-12 1.337452 5.103448e-12  11.29214
+30  1325.28       7.5e-12 1.097127 1.000000e-11  11.00000
+31    98.77       9.2e-12 1.650299 1.175000e-11  10.92996
+32    68.38       9.4e-12 1.798772 1.175000e-11  10.92996
+33   226.18       1.2e-11 1.401539 1.454545e-11  10.83727
+34   187.25       1.3e-11 1.447263 1.529412e-11  10.81548
+35   225.87       1.6e-11 1.399035 1.828571e-11  10.73789
+36   163.35       1.7e-11 1.481481 1.888889e-11  10.72379
+37    84.05       1.8e-11 1.701368 1.945946e-11  10.71087
+38   344.10       2.7e-11 1.304853 2.842105e-11  10.54636
+39   723.18       7.1e-11 1.176747 7.282051e-11  10.13775
+40  1191.22       7.6e-11 1.107268 7.600000e-11  10.11919
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.up"
+[1] 2215
+null device 
+          1 
+        GO.ID                                        Term Annotated Significant
+1  GO:0005509                         calcium ion binding       390         122
+2  GO:0004872                           receptor activity       438         122
+3  GO:0060089               molecular transducer activity       658         164
+4  GO:0000976 transcription regulatory region sequence...       374          99
+5  GO:0000977 RNA polymerase II regulatory region sequ...       333          90
+6  GO:0001012 RNA polymerase II regulatory region DNA ...       337          90
+7  GO:0000975               regulatory region DNA binding       491         120
+8  GO:0001067      regulatory region nucleic acid binding       491         120
+9  GO:0038023                 signaling receptor activity       337          89
+10 GO:0044212 transcription regulatory region DNA bind...       487         119
+11 GO:0022836                      gated channel activity       175          54
+12 GO:0015267                            channel activity       217          63
+13 GO:0022803 passive transmembrane transporter activi...       217          63
+14 GO:0004871                  signal transducer activity       557         131
+15 GO:0005216                        ion channel activity       206          60
+16 GO:0000981 sequence-specific DNA binding RNA polyme...       377          95
+17 GO:0022838         substrate-specific channel activity       209          60
+18 GO:0043565               sequence-specific DNA binding       559         130
+19 GO:0005261                     cation channel activity       156          47
+20 GO:0004888 transmembrane signaling receptor activit...       276          71
+21 GO:0042578         phosphoric ester hydrolase activity       254          66
+22 GO:0001228 RNA polymerase II transcription regulato...       203          55
+23 GO:0004725       protein tyrosine phosphatase activity        77          27
+24 GO:0008081       phosphoric diester hydrolase activity        58          22
+25 GO:0022857          transmembrane transporter activity       558         123
+26 GO:0005215                        transporter activity       717         152
+27 GO:0000982 RNA polymerase II core promoter proximal...       224          58
+28 GO:0000978 RNA polymerase II core promoter proximal...       220          57
+29 GO:0000987 core promoter proximal region sequence-s...       230          59
+30 GO:0001159 core promoter proximal region DNA bindin...       231          59
+31 GO:0001227 RNA polymerase II transcription regulato...       118          35
+32 GO:0015075      ion transmembrane transporter activity       477         106
+33 GO:0015291 secondary active transmembrane transport...       125          36
+34 GO:0004721         phosphoprotein phosphatase activity       130          37
+35 GO:0046873 metal ion transmembrane transporter acti...       232          58
+36 GO:0001071 nucleic acid binding transcription facto...       672         140
+37 GO:0003700 sequence-specific DNA binding transcript...       672         140
+38 GO:0008092                cytoskeletal protein binding       601         127
+39 GO:0008289                               lipid binding       397          89
+40 GO:0022892     substrate-specific transporter activity       609         128
+   Expected classicFisher   enrich        p.adj log.p.adj
+1     61.60       6.7e-15 1.980519 2.680000e-13 12.571865
+2     69.19       4.9e-11 1.763261 9.800000e-10  9.008774
+3    103.94       3.5e-10 1.577833 4.666667e-09  8.330993
+4     59.08       5.7e-08 1.675694 5.700000e-07  6.244125
+5     52.60       8.2e-08 1.711027 6.560000e-07  6.183096
+6     53.23       1.5e-07 1.690776 1.000000e-06  6.000000
+7     77.56       2.8e-07 1.547189 1.240000e-06  5.906578
+8     77.56       2.8e-07 1.547189 1.240000e-06  5.906578
+9     53.23       3.0e-07 1.671989 1.240000e-06  5.906578
+10    76.93       3.1e-07 1.546861 1.240000e-06  5.906578
+11    27.64       4.0e-07 1.953690 1.454545e-06  5.837273
+12    34.28       5.1e-07 1.837806 1.569231e-06  5.804313
+13    34.28       5.1e-07 1.837806 1.569231e-06  5.804313
+14    87.98       7.8e-07 1.488975 2.228571e-06  5.651973
+15    32.54       8.4e-07 1.843884 2.240000e-06  5.649752
+16    59.55       1.2e-06 1.595298 3.000000e-06  5.522879
+17    33.01       1.4e-06 1.817631 3.294118e-06  5.482261
+18    88.30       1.6e-06 1.472254 3.555556e-06  5.449093
+19    24.64       4.6e-06 1.907468 9.684211e-06  5.013936
+20    43.60       1.2e-05 1.628440 2.400000e-05  4.619789
+21    40.12       1.8e-05 1.645065 3.428571e-05  4.464887
+22    32.07       2.5e-05 1.714998 4.521739e-05  4.344694
+23    12.16       2.6e-05 2.220395 4.521739e-05  4.344694
+24     9.16       3.6e-05 2.401747 6.000000e-05  4.221849
+25    88.14       4.5e-05 1.395507 7.200000e-05  4.142668
+26   113.26       5.0e-05 1.342045 7.692308e-05  4.113943
+27    35.38       6.2e-05 1.639344 9.185185e-05  4.036912
+28    34.75       7.0e-05 1.640288 9.793103e-05  4.009080
+29    36.33       7.1e-05 1.624002 9.793103e-05  4.009080
+30    36.49       8.1e-05 1.616881 1.080000e-04  3.966576
+31    18.64       1.0e-04 1.877682 1.290323e-04  3.889302
+32    75.35       1.1e-04 1.406768 1.375000e-04  3.861697
+33    19.74       1.6e-04 1.823708 1.939394e-04  3.712334
+34    20.53       1.7e-04 1.802241 1.942857e-04  3.711559
+35    36.65       1.7e-04 1.582538 1.942857e-04  3.711559
+36   106.15       2.2e-04 1.318888 2.378378e-04  3.623719
+37   106.15       2.2e-04 1.318888 2.378378e-04  3.623719
+38    94.93       2.4e-04 1.337828 2.526316e-04  3.597512
+39    62.71       2.7e-04 1.419231 2.769231e-04  3.557641
+40    96.20       2.8e-04 1.330561 2.800000e-04  3.552842
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.up"
+[1] 2215
+null device 
+          1 
+Warning messages:
+1: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+2: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+3: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+[1] "get down genes and make geneList"
+[1] "setsize for significant genes"
+[1] 1586
+[1] "make GO table for down genes"
+[1] "BP"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.down"
+[1] 1586
+
+Building most specific GOs .....	( 9123 GO terms found. )
+
+Build GO DAG topology ..........	( 12656 GO terms and 30551 relations. )
+
+Annotating nodes ...............	( 12560 genes annotated to the GO terms. )
+
+			 -- Classic Algorithm -- 
+
+		 the algorithm is scoring 3174 nontrivial nodes
+		 parameters: 
+			 test statistic:  fisher 
+/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.down_1586_BP_classic_5_up  --- no of nodes:  13 
+[1] "MF"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.down"
+[1] 1586
+
+Building most specific GOs .....	( 3139 GO terms found. )
+
+Build GO DAG topology ..........	( 3628 GO terms and 4613 relations. )
+
+Annotating nodes ...............	( 12554 genes annotated to the GO terms. )
+
+			 -- Classic Algorithm -- 
+
+		 the algorithm is scoring 536 nontrivial nodes
+		 parameters: 
+			 test statistic:  fisher 
+/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.down_1586_MF_classic_5_up  --- no of nodes:  10 
+[1] "make barplot for down genes"
+        GO.ID                                        Term Annotated Significant
+1  GO:0055114                 oxidation-reduction process       651         121
+2  GO:0019752           carboxylic acid metabolic process       562         107
+3  GO:0006082              organic acid metabolic process       610         110
+4  GO:0043436                   oxoacid metabolic process       602         108
+5  GO:0044281            small molecule metabolic process      1130         178
+6  GO:0051262                     protein tetramerization        86          26
+7  GO:0009605               response to external stimulus      1101         173
+8  GO:1903706                   regulation of hemopoiesis       197          45
+9  GO:0006749               glutathione metabolic process        32          14
+10 GO:0042221                        response to chemical      1921         277
+11 GO:1901564 organonitrogen compound metabolic proces...       817         134
+12 GO:0006954                       inflammatory response       264          55
+13 GO:0010951 negative regulation of endopeptidase act...       114          30
+14 GO:0006575 cellular modified amino acid metabolic p...       126          32
+15 GO:0070271                  protein complex biogenesis       837         135
+16 GO:0010466 negative regulation of peptidase activit...       117          30
+17 GO:0015988 energy coupled proton transmembrane tran...        23          11
+18 GO:0015991     ATP hydrolysis coupled proton transport        23          11
+19 GO:0006461                    protein complex assembly       836         134
+20 GO:0000183                 chromatin silencing at rDNA        40          15
+21 GO:0010035             response to inorganic substance       294          58
+22 GO:0002682         regulation of immune system process       561          95
+23 GO:0044710           single-organism metabolic process      3272         434
+24 GO:0052548        regulation of endopeptidase activity       212          44
+25 GO:0044712           single-organism catabolic process       621         102
+26 GO:0006754                    ATP biosynthetic process        35          13
+27 GO:0006091 generation of precursor metabolites and ...       210          43
+28 GO:0097305                         response to alcohol       217          44
+29 GO:0009156 ribonucleoside monophosphate biosyntheti...        66          19
+30 GO:0052547            regulation of peptidase activity       224          45
+31 GO:0032787       monocarboxylic acid metabolic process       326          60
+32 GO:0009124 nucleoside monophosphate biosynthetic pr...        72          20
+33 GO:0045861          negative regulation of proteolysis       180          38
+34 GO:0010955 negative regulation of protein processin...       193          40
+35 GO:0046034                       ATP metabolic process        89          23
+36 GO:0006952                            defense response       527          88
+37 GO:0010038                       response to metal ion       187          39
+38 GO:1901700      response to oxygen-containing compound       857         132
+39 GO:0045471                         response to ethanol        84          22
+40 GO:1902105     regulation of leukocyte differentiation       139          31
+   Expected classicFisher   enrich        p.adj log.p.adj
+1     73.91       1.7e-08 1.637126 6.600000e-07  6.180456
+2     63.81       3.3e-08 1.676853 6.600000e-07  6.180456
+3     69.26       3.9e-07 1.588218 5.200000e-06  5.283997
+4     68.35       6.5e-07 1.580102 6.500000e-06  5.187087
+5    128.29       1.8e-06 1.387481 1.200000e-05  4.920819
+6      9.76       1.8e-06 2.663934 1.200000e-05  4.920819
+7    125.00       2.9e-06 1.384000 1.500000e-05  4.823909
+8     22.37       3.0e-06 2.011623 1.500000e-05  4.823909
+9      3.63       3.6e-06 3.856749 1.600000e-05  4.795880
+10   218.10       4.5e-06 1.270060 1.733333e-05  4.761118
+11    92.76       4.8e-06 1.444588 1.733333e-05  4.761118
+12    29.97       5.2e-06 1.835169 1.733333e-05  4.761118
+13    12.94       7.1e-06 2.318393 2.184615e-05  4.660625
+14    14.31       8.0e-06 2.236198 2.285714e-05  4.640978
+15    95.03       1.1e-05 1.420604 2.933333e-05  4.532639
+16    13.28       1.2e-05 2.259036 3.000000e-05  4.522879
+17     2.61       1.4e-05 4.214559 3.047619e-05  4.516039
+18     2.61       1.4e-05 4.214559 3.047619e-05  4.516039
+19    94.92       1.6e-05 1.411715 3.047619e-05  4.516039
+20     4.54       1.6e-05 3.303965 3.047619e-05  4.516039
+21    33.38       1.6e-05 1.737567 3.047619e-05  4.516039
+22    63.69       3.5e-05 1.491600 6.363636e-05  4.196295
+23   371.49       4.4e-05 1.168268 7.652174e-05  4.116215
+24    24.07       4.8e-05 1.828002 8.000000e-05  4.096910
+25    70.51       6.4e-05 1.446603 1.015385e-04  3.993369
+26     3.97       6.6e-05 3.274559 1.015385e-04  3.993369
+27    23.84       8.2e-05 1.803691 1.189189e-04  3.924749
+28    24.64       8.6e-05 1.785714 1.189189e-04  3.924749
+29     7.49       9.0e-05 2.536716 1.189189e-04  3.924749
+30    25.43       9.1e-05 1.769564 1.189189e-04  3.924749
+31    37.01       9.8e-05 1.621183 1.189189e-04  3.924749
+32     8.17       1.0e-04 2.447980 1.189189e-04  3.924749
+33    20.44       1.1e-04 1.859100 1.189189e-04  3.924749
+34    21.91       1.1e-04 1.825650 1.189189e-04  3.924749
+35    10.10       1.1e-04 2.277228 1.189189e-04  3.924749
+36    59.83       1.1e-04 1.470834 1.189189e-04  3.924749
+37    21.23       1.1e-04 1.837023 1.189189e-04  3.924749
+38    97.30       1.2e-04 1.356629 1.230769e-04  3.909823
+39     9.54       1.2e-04 2.306080 1.230769e-04  3.909823
+40    15.78       1.6e-04 1.964512 1.600000e-04  3.795880
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.down"
+[1] 1586
+null device 
+          1 
+        GO.ID                                        Term Annotated Significant
+1  GO:0061134                peptidase regulator activity        99          30
+2  GO:0004866            endopeptidase inhibitor activity        70          24
+3  GO:0003735          structural constituent of ribosome       143          38
+4  GO:0061135            endopeptidase regulator activity        75          25
+5  GO:0030414                peptidase inhibitor activity        72          24
+6  GO:0005198                structural molecule activity       334          68
+7  GO:0036442          hydrogen-exporting ATPase activity        22          11
+8  GO:0016491                     oxidoreductase activity       484          87
+9  GO:0016903 oxidoreductase activity, acting on the a...        35          13
+10 GO:0046982         protein heterodimerization activity       329          61
+11 GO:0004857                   enzyme inhibitor activity       184          39
+12 GO:0004869 cysteine-type endopeptidase inhibitor ac...        28          11
+13 GO:0004867 serine-type endopeptidase inhibitor acti...        33          12
+14 GO:0046983               protein dimerization activity       785         122
+15 GO:0019829         cation-transporting ATPase activity        43          14
+16 GO:0016209                        antioxidant activity        39          13
+17 GO:0042625 ATPase activity, coupled to transmembran...        44          14
+18 GO:0016655 oxidoreductase activity, acting on NAD(P...        31          11
+19 GO:0005515                             protein binding      7316         893
+20 GO:0016620 oxidoreductase activity, acting on the a...        23           9
+21 GO:0048037                            cofactor binding       209          40
+22 GO:0016811 hydrolase activity, acting on carbon-nit...        49          14
+23 GO:0016651 oxidoreductase activity, acting on NAD(P...        61          16
+24 GO:0033293                 monocarboxylic acid binding        21           8
+25 GO:0005200      structural constituent of cytoskeleton        41          12
+26 GO:1901681                     sulfur compound binding       112          24
+27 GO:0016810 hydrolase activity, acting on carbon-nit...        88          20
+28 GO:0016820 hydrolase activity, acting on acid anhyd...        77          18
+29 GO:0043492 ATPase activity, coupled to movement of ...        90          20
+30 GO:0050662                            coenzyme binding       152          29
+31 GO:0015662 ATPase activity, coupled to transmembran...        29           9
+32 GO:0031406                     carboxylic acid binding       100          21
+33 GO:0043177                        organic acid binding       101          21
+34 GO:0042626 ATPase activity, coupled to transmembran...        76          17
+35 GO:0003824                          catalytic activity      4110         513
+36 GO:0015399 primary active transmembrane transporter...        83          18
+37 GO:0015405 P-P-bond-hydrolysis-driven transmembrane...        83          18
+38 GO:0015078 hydrogen ion transmembrane transporter a...        71          16
+39 GO:0016616 oxidoreductase activity, acting on the C...        84          18
+40 GO:0051287                                 NAD binding        49          12
+   Expected classicFisher   enrich        p.adj log.p.adj
+1     11.29      3.00e-07 2.657219 0.0000039000  5.408935
+2      7.98      3.70e-07 3.007519 0.0000039000  5.408935
+3     16.31      3.80e-07 2.329859 0.0000039000  5.408935
+4      8.56      3.90e-07 2.920561 0.0000039000  5.408935
+5      8.21      6.70e-07 2.923264 0.0000053600  5.270835
+6     38.10      1.20e-06 1.784777 0.0000080000  5.096910
+7      2.51      8.70e-06 4.382470 0.0000450000  4.346787
+8     55.21      9.00e-06 1.575801 0.0000450000  4.346787
+9      3.99      6.90e-05 3.258145 0.0003066667  3.513333
+10    37.53      7.90e-05 1.625366 0.0003160000  3.500313
+11    20.99      8.80e-05 1.858028 0.0003200000  3.494850
+12     3.19      1.40e-04 3.448276 0.0004666667  3.330993
+13     3.76      1.70e-04 3.191489 0.0005066667  3.295278
+14    89.54      1.80e-04 1.362520 0.0005066667  3.295278
+15     4.90      1.90e-04 2.857143 0.0005066667  3.295278
+16     4.45      2.40e-04 2.921348 0.0005882353  3.230449
+17     5.02      2.50e-04 2.788845 0.0005882353  3.230449
+18     3.54      4.00e-04 3.107345 0.0008888889  3.051153
+19   834.52      4.60e-04 1.070076 0.0009684211  3.013936
+20     2.62      5.90e-04 3.435115 0.0011800000  2.928118
+21    23.84      6.70e-04 1.677852 0.0012761905  2.894085
+22     5.59      8.40e-04 2.504472 0.0015272727  2.816083
+23     6.96      1.03e-03 2.298851 0.0017913043  2.746831
+24     2.40      1.46e-03 3.333333 0.0024333333  2.613798
+25     4.68      1.55e-03 2.564103 0.0024769231  2.606087
+26    12.78      1.61e-03 1.877934 0.0024769231  2.606087
+27    10.04      1.82e-03 1.992032 0.0026962963  2.569232
+28     8.78      2.17e-03 2.050114 0.0031000000  2.508638
+29    10.27      2.42e-03 1.947420 0.0033379310  2.476523
+30    17.34      3.63e-03 1.672434 0.0048400000  2.315155
+31     3.31      3.81e-03 2.719033 0.0049125000  2.308697
+32    11.41      3.93e-03 1.840491 0.0049125000  2.308697
+33    11.52      4.44e-03 1.822917 0.0053371429  2.272691
+34     8.67      4.62e-03 1.960784 0.0053371429  2.272691
+35   468.82      4.67e-03 1.094237 0.0053371429  2.272691
+36     9.47      5.12e-03 1.900739 0.0055351351  2.256872
+37     9.47      5.12e-03 1.900739 0.0055351351  2.256872
+38     8.10      5.46e-03 1.975309 0.0057473684  2.240531
+39     9.58      5.84e-03 1.878914 0.0059897436  2.222592
+40     5.59      7.67e-03 2.146691 0.0076700000  2.115205
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.1.01.down"
+[1] 1586
+null device 
+          1 
+Warning messages:
+1: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+2: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+3: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+Sun Jul 19 00:24:36 CDT 2015
+During startup - Warning messages:
+1: Setting LC_CTYPE failed, using "C" 
+2: Setting LC_COLLATE failed, using "C" 
+3: Setting LC_TIME failed, using "C" 
+4: Setting LC_MESSAGES failed, using "C" 
+5: Setting LC_MONETARY failed, using "C" 
+6: Setting LC_PAPER failed, using "C" 
+7: Setting LC_MEASUREMENT failed, using "C" 
+Loading required package: limma
+Loading required package: methods
+[1] "Loading differential expressed gene table"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.edgeR.txt"
+[1] 14131    21
+[1] 1881
+[1] 1136
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.MAplot.png"
+null device 
+          1 
+Sun Jul 19 00:24:37 CDT 2015
+During startup - Warning messages:
+1: Setting LC_CTYPE failed, using "C" 
+2: Setting LC_COLLATE failed, using "C" 
+3: Setting LC_TIME failed, using "C" 
+4: Setting LC_MESSAGES failed, using "C" 
+5: Setting LC_MONETARY failed, using "C" 
+6: Setting LC_PAPER failed, using "C" 
+7: Setting LC_MEASUREMENT failed, using "C" 
+
+Attaching package: 'gplots'
+
+The following object is masked from 'package:stats':
+
+    lowess
+
+Loading required package: limma
+Loading required package: methods
+[1] "Loading differential expressed gene table"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.edgeR.txt"
+[1] 14131    21
+[1] 5
+                   mESc.2i.RNA.DMSO.REP1 mESc.2i.RNA.DMSO.REP2
+ENSMUSG00000000001            2.62251396            2.44448832
+ENSMUSG00000000028            2.55956266            2.27416218
+ENSMUSG00000000031           40.27287182           37.23496966
+ENSMUSG00000000037            0.01898073            0.01583932
+ENSMUSG00000000056            0.88475871            0.65274419
+ENSMUSG00000000078            4.28415480            4.02041035
+                   mESc.2i.RNA.DMSO.REP3 mESc.2i.RNA.RA.REP1
+ENSMUSG00000000001            2.76534892          2.48846849
+ENSMUSG00000000028            2.31585805          2.14652400
+ENSMUSG00000000031           36.44617084         46.78151161
+ENSMUSG00000000037            0.01479142          0.02328116
+ENSMUSG00000000056            0.78688648          0.63117471
+ENSMUSG00000000078            4.03317593          3.47094539
+                   mESc.2i.RNA.RA.REP3
+ENSMUSG00000000001          1.89153902
+ENSMUSG00000000028          2.01151406
+ENSMUSG00000000031         27.97520020
+ENSMUSG00000000037          0.02927503
+ENSMUSG00000000056          0.47577282
+ENSMUSG00000000078          2.59989171
+[1] 1881
+[1] 1136
+[1] 1881    5
+[1] 1136    5
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.up.heatmap.pdf"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.dn.heatmap.pdf"
+null device 
+          1 
+null device 
+          1 
+Sun Jul 19 00:24:41 CDT 2015
+During startup - Warning messages:
+1: Setting LC_CTYPE failed, using "C" 
+2: Setting LC_COLLATE failed, using "C" 
+3: Setting LC_TIME failed, using "C" 
+4: Setting LC_MESSAGES failed, using "C" 
+5: Setting LC_MONETARY failed, using "C" 
+6: Setting LC_PAPER failed, using "C" 
+7: Setting LC_MEASUREMENT failed, using "C" 
+Loading required package: methods
+Loading required package: BiocGenerics
+Loading required package: parallel
+
+Attaching package: 'BiocGenerics'
+
+The following objects are masked from 'package:parallel':
+
+    clusterApply, clusterApplyLB, clusterCall, clusterEvalQ,
+    clusterExport, clusterMap, parApply, parCapply, parLapply,
+    parLapplyLB, parRapply, parSapply, parSapplyLB
+
+The following object is masked from 'package:stats':
+
+    xtabs
+
+The following objects are masked from 'package:base':
+
+    Filter, Find, Map, Position, Reduce, anyDuplicated, append,
+    as.data.frame, as.vector, cbind, colnames, do.call, duplicated,
+    eval, evalq, get, intersect, is.unsorted, lapply, mapply, match,
+    mget, order, paste, pmax, pmax.int, pmin, pmin.int, rank, rbind,
+    rep.int, rownames, sapply, setdiff, sort, table, tapply, union,
+    unique, unlist, unsplit
+
+Loading required package: graph
+Loading required package: Biobase
+Welcome to Bioconductor
+
+    Vignettes contain introductory material; view with
+    'browseVignettes()'. To cite Bioconductor, see
+    'citation("Biobase")', and for packages 'citation("pkgname")'.
+
+Loading required package: GO.db
+Loading required package: AnnotationDbi
+Loading required package: stats4
+Loading required package: GenomeInfoDb
+Loading required package: S4Vectors
+Loading required package: IRanges
+Loading required package: DBI
+
+Loading required package: SparseM
+
+Attaching package: 'SparseM'
+
+The following object is masked from 'package:base':
+
+    backsolve
+
+
+groupGOTerms: 	GOBPTerm, GOMFTerm, GOCCTerm environments built.
+
+Attaching package: 'topGO'
+
+The following object is masked from 'package:IRanges':
+
+    members
+
+[1] "Loading differential expressed gene table"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.edgeR.txt"
+[1] "mmusculus"
+               biomart               version
+1 ENSEMBL_MART_ENSEMBL      Ensembl Genes 75
+2     ENSEMBL_MART_SNP  Ensembl Variation 75
+3 ENSEMBL_MART_FUNCGEN Ensembl Regulation 75
+4    ENSEMBL_MART_VEGA               Vega 55
+5                pride        PRIDE (EBI UK)
+[1] "Loading biomart"
+     ensembl_gene_id external_gene_name      go_id
+1 ENSMUSG00000064341             mt-Nd1 GO:0005575
+2 ENSMUSG00000064341             mt-Nd1 GO:0003674
+3 ENSMUSG00000064341             mt-Nd1 GO:0016491
+4 ENSMUSG00000064341             mt-Nd1 GO:0005622
+5 ENSMUSG00000064341             mt-Nd1 GO:0005623
+6 ENSMUSG00000064341             mt-Nd1 GO:0005737
+[1] "Remove blank entries"
+[1] "pairing GO IDs with Ensembl IDs"
+[1] "get up genes and make geneList"
+[1] "setsize for significant genes"
+[1] 1881
+[1] "make GO table for the up genes"
+[1] "BP"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.up"
+[1] 1881
+
+Building most specific GOs .....	( 9123 GO terms found. )
+
+Build GO DAG topology ..........	( 12656 GO terms and 30551 relations. )
+
+Annotating nodes ...............	( 12560 genes annotated to the GO terms. )
+
+			 -- Classic Algorithm -- 
+
+		 the algorithm is scoring 3186 nontrivial nodes
+		 parameters: 
+			 test statistic:  fisher 
+Loading required package: Rgraphviz
+Loading required package: grid
+
+Attaching package: 'grid'
+
+The following object is masked from 'package:topGO':
+
+    depth
+
+/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.up_1881_BP_classic_5_up  --- no of nodes:  11 
+[1] "MF"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.up"
+[1] 1881
+
+Building most specific GOs .....	( 3139 GO terms found. )
+
+Build GO DAG topology ..........	( 3628 GO terms and 4613 relations. )
+
+Annotating nodes ...............	( 12554 genes annotated to the GO terms. )
+
+			 -- Classic Algorithm -- 
+
+		 the algorithm is scoring 534 nontrivial nodes
+		 parameters: 
+			 test statistic:  fisher 
+/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.up_1881_MF_classic_5_up  --- no of nodes:  10 
+[1] "make the png for the up genes"
+        GO.ID                                        Term Annotated Significant
+1  GO:0032501            multicellular organismal process      3802         712
+2  GO:0044707       single-multicellular organism process      3685         694
+3  GO:0048731                          system development      2716         538
+4  GO:0007275        multicellular organismal development      3059         590
+5  GO:0044700                   single organism signaling      3196         596
+6  GO:0048856            anatomical structure development      3286         609
+7  GO:0023052                                   signaling      3202         596
+8  GO:0007399                  nervous system development      1385         309
+9  GO:0044767       single-organism developmental process      3627         657
+10 GO:0032502                       developmental process      3648         659
+11 GO:0007154                          cell communication      3283         598
+12 GO:0030154                        cell differentiation      2352         454
+13 GO:0009653          anatomical structure morphogenesis      1672         345
+14 GO:0007155                               cell adhesion       785         192
+15 GO:0022610                         biological adhesion       787         192
+16 GO:0022008                                neurogenesis       952         221
+17 GO:0048869              cellular developmental process      2552         478
+18 GO:0007165                         signal transduction      2953         536
+19 GO:0030182                      neuron differentiation       784         187
+20 GO:0048513                           organ development      2026         391
+21 GO:0048699                       generation of neurons       882         204
+22 GO:0044699                     single-organism process      8373        1263
+23 GO:0048468                            cell development      1350         281
+24 GO:0051239 regulation of multicellular organismal p...      1498         305
+25 GO:0023051                     regulation of signaling      1966         375
+26 GO:0048518 positive regulation of biological proces...      3431         589
+27 GO:0048812             neuron projection morphogenesis       349          99
+28 GO:0007166     cell surface receptor signaling pathway      1497         297
+29 GO:0044763            single-organism cellular process      7526        1144
+30 GO:0010646            regulation of cell communication      1984         372
+31 GO:0048667 cell morphogenesis involved in neuron di...       339          96
+32 GO:0050896                        response to stimulus      4569         746
+33 GO:0032879                  regulation of localization      1429         283
+34 GO:0048583          regulation of response to stimulus      2174         398
+35 GO:0050793         regulation of developmental process      1427         282
+36 GO:0031175               neuron projection development       531         130
+37 GO:0000904 cell morphogenesis involved in different...       494         123
+38 GO:2000026 regulation of multicellular organismal d...      1032         216
+39 GO:0048666                          neuron development       624         145
+40 GO:0007610                                    behavior       432         110
+   Expected classicFisher   enrich        p.adj log.p.adj
+1    509.15       1.1e-29 1.398409 3.600000e-28  27.44370
+2    493.48       1.8e-29 1.406339 3.600000e-28  27.44370
+3    363.72       1.1e-26 1.479160 1.300000e-25  24.88606
+4    409.65       1.3e-26 1.440254 1.300000e-25  24.88606
+5    428.00       6.9e-23 1.392523 5.520000e-22  21.25806
+6    440.05       8.5e-23 1.383934 5.666667e-22  21.24667
+7    428.80       1.1e-22 1.389925 6.285714e-22  21.20165
+8    185.48       2.6e-22 1.665948 1.200000e-21  20.92082
+9    485.72       2.7e-22 1.352631 1.200000e-21  20.92082
+10   488.53       4.8e-22 1.348945 1.920000e-21  20.71670
+11   439.65       2.6e-20 1.360173 9.454545e-20  19.02436
+12   314.97       1.9e-19 1.441407 6.333333e-19  18.19837
+13   223.91       5.4e-19 1.540798 1.661538e-18  17.77949
+14   105.12       3.6e-18 1.826484 1.028571e-17  16.98777
+15   105.39       4.9e-18 1.821805 1.306667e-17  16.88384
+16   127.49       5.9e-18 1.733469 1.475000e-17  16.83121
+17   341.76       6.9e-18 1.398642 1.623529e-17  16.78954
+18   395.46       2.1e-17 1.355384 4.666667e-17  16.33099
+19   104.99       1.7e-16 1.781122 3.578947e-16  15.44624
+20   271.32       1.9e-16 1.441103 3.800000e-16  15.42022
+21   118.11       2.1e-16 1.727203 4.000000e-16  15.39794
+22  1121.29       5.5e-16 1.126381 1.000000e-15  15.00000
+23   180.79       7.4e-16 1.554290 1.266667e-15  14.89734
+24   200.61       7.6e-16 1.520363 1.266667e-15  14.89734
+25   263.28       6.8e-15 1.424339 1.088000e-14  13.96337
+26   459.47       5.4e-14 1.281912 8.307692e-14  13.08052
+27    46.74       6.4e-14 2.118100 9.481481e-14  13.02312
+28   200.47       6.9e-14 1.481518 9.857143e-14  13.00625
+29  1007.86       1.1e-13 1.135078 1.517241e-13  12.81895
+30   265.69       1.3e-13 1.400128 1.733333e-13  12.76112
+31    45.40       1.7e-13 2.114537 2.193548e-13  12.65885
+32   611.87       3.0e-13 1.219213 3.750000e-13  12.42597
+33   191.37       3.9e-13 1.478811 4.727273e-13  12.32539
+34   291.14       5.6e-13 1.367040 6.514286e-13  12.18613
+35   191.10       5.7e-13 1.475667 6.514286e-13  12.18613
+36    71.11       1.4e-12 1.828154 1.555556e-12  11.80811
+37    66.16       1.7e-12 1.859129 1.789474e-12  11.74727
+38   138.20       1.7e-12 1.562952 1.789474e-12  11.74727
+39    83.56       4.8e-12 1.735280 4.923077e-12  11.30776
+40    57.85       5.9e-12 1.901469 5.900000e-12  11.22915
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.up"
+[1] 1881
+null device 
+          1 
+        GO.ID                                        Term Annotated Significant
+1  GO:0005509                         calcium ion binding       390         115
+2  GO:0004872                           receptor activity       438         113
+3  GO:0060089               molecular transducer activity       658         151
+4  GO:0038023                 signaling receptor activity       337          84
+5  GO:0004871                  signal transducer activity       557         122
+6  GO:0000981 sequence-specific DNA binding RNA polyme...       377          89
+7  GO:0000977 RNA polymerase II regulatory region sequ...       333          81
+8  GO:0043565               sequence-specific DNA binding       559         120
+9  GO:0001012 RNA polymerase II regulatory region DNA ...       337          81
+10 GO:0000976 transcription regulatory region sequence...       374          87
+11 GO:0022836                      gated channel activity       175          49
+12 GO:0015267                            channel activity       217          57
+13 GO:0022803 passive transmembrane transporter activi...       217          57
+14 GO:0000975               regulatory region DNA binding       491         105
+15 GO:0001067      regulatory region nucleic acid binding       491         105
+16 GO:0044212 transcription regulatory region DNA bind...       487         104
+17 GO:0005216                        ion channel activity       206          54
+18 GO:0022838         substrate-specific channel activity       209          54
+19 GO:0004888 transmembrane signaling receptor activit...       276          66
+20 GO:0022857          transmembrane transporter activity       558         112
+21 GO:0005261                     cation channel activity       156          42
+22 GO:0015075      ion transmembrane transporter activity       477          98
+23 GO:0008081       phosphoric diester hydrolase activity        58          21
+24 GO:0001228 RNA polymerase II transcription regulato...       203          50
+25 GO:0022891 substrate-specific transmembrane transpo...       506         101
+26 GO:0005215                        transporter activity       717         134
+27 GO:0042578         phosphoric ester hydrolase activity       254          57
+28 GO:0008289                               lipid binding       397          81
+29 GO:0001071 nucleic acid binding transcription facto...       672         125
+30 GO:0003700 sequence-specific DNA binding transcript...       672         125
+31 GO:0015291 secondary active transmembrane transport...       125          33
+32 GO:0000982 RNA polymerase II core promoter proximal...       224          51
+33 GO:0019838                       growth factor binding        75          23
+34 GO:0022892     substrate-specific transporter activity       609         114
+35 GO:0046873 metal ion transmembrane transporter acti...       232          52
+36 GO:0001227 RNA polymerase II transcription regulato...       118          31
+37 GO:0005096                   GTPase activator activity       168          40
+38 GO:0008324 cation transmembrane transporter activit...       365          73
+39 GO:0043236                             laminin binding        22          10
+40 GO:0000987 core promoter proximal region sequence-s...       230          50
+   Expected classicFisher   enrich        p.adj log.p.adj
+1     52.22       2.3e-17 2.202221 9.200000e-16 15.036212
+2     58.65       1.2e-12 1.926684 2.400000e-11 10.619789
+3     88.11       4.6e-12 1.713767 6.133333e-11 10.212303
+4     45.12       5.9e-09 1.861702 5.900000e-08  7.229148
+5     74.58       1.2e-08 1.635827 9.600000e-08  7.017729
+6     50.48       3.4e-08 1.763074 2.000000e-07  6.698970
+7     44.59       3.5e-08 1.816551 2.000000e-07  6.698970
+8     74.85       5.1e-08 1.603206 2.550000e-07  6.593460
+9     45.12       6.2e-08 1.795213 2.755556e-07  6.559791
+10    50.08       9.8e-08 1.737220 3.920000e-07  6.406714
+11    23.43       2.2e-07 2.091336 8.000000e-07  6.096910
+12    29.06       2.6e-07 1.961459 8.000000e-07  6.096910
+13    29.06       2.6e-07 1.961459 8.000000e-07  6.096910
+14    65.75       4.3e-07 1.596958 1.146667e-06  5.940563
+15    65.75       4.3e-07 1.596958 1.146667e-06  5.940563
+16    65.21       5.3e-07 1.594847 1.325000e-06  5.877784
+17    27.58       5.7e-07 1.957941 1.341176e-06  5.872514
+18    27.99       9.3e-07 1.929260 2.066667e-06  5.684730
+19    36.96       1.2e-06 1.785714 2.526316e-06  5.597512
+20    74.72       4.6e-06 1.498929 9.142857e-06  5.038918
+21    20.89       4.8e-06 2.010531 9.142857e-06  5.038918
+22    63.87       6.6e-06 1.534367 1.200000e-05  4.920819
+23     7.77       9.5e-06 2.702703 1.652174e-05  4.781944
+24    27.18       1.0e-05 1.839588 1.666667e-05  4.778151
+25    67.75       1.7e-05 1.490775 2.720000e-05  4.565431
+26    96.01       2.5e-05 1.395688 3.846154e-05  4.414973
+27    34.01       4.7e-05 1.675978 6.962963e-05  4.157206
+28    53.16       5.3e-05 1.523702 7.571429e-05  4.120822
+29    89.98       5.8e-05 1.389198 7.733333e-05  4.111633
+30    89.98       5.8e-05 1.389198 7.733333e-05  4.111633
+31    16.74       7.4e-05 1.971326 9.454545e-05  4.024359
+32    29.99       7.8e-05 1.700567 9.454545e-05  4.024359
+33    10.04       7.8e-05 2.290837 9.454545e-05  4.024359
+34    81.55       9.4e-05 1.397915 1.105882e-04  3.956291
+35    31.07       1.0e-04 1.673640 1.142857e-04  3.942008
+36    15.80       1.3e-04 1.962025 1.444444e-04  3.840299
+37    22.50       1.6e-04 1.777778 1.729730e-04  3.762022
+38    48.87       2.3e-04 1.493759 2.421053e-04  3.615996
+39     2.95       2.5e-04 3.389831 2.564103e-04  3.591065
+40    30.80       3.0e-04 1.623377 3.000000e-04  3.522879
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.up"
+[1] 1881
+null device 
+          1 
+Warning messages:
+1: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+2: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+3: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+[1] "get down genes and make geneList"
+[1] "setsize for significant genes"
+[1] 1136
+[1] "make GO table for down genes"
+[1] "BP"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.down"
+[1] 1136
+
+Building most specific GOs .....	( 9123 GO terms found. )
+
+Build GO DAG topology ..........	( 12656 GO terms and 30551 relations. )
+
+Annotating nodes ...............	( 12560 genes annotated to the GO terms. )
+
+			 -- Classic Algorithm -- 
+
+		 the algorithm is scoring 3132 nontrivial nodes
+		 parameters: 
+			 test statistic:  fisher 
+/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.down_1136_BP_classic_5_up  --- no of nodes:  27 
+[1] "MF"
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.down"
+[1] 1136
+
+Building most specific GOs .....	( 3139 GO terms found. )
+
+Build GO DAG topology ..........	( 3628 GO terms and 4613 relations. )
+
+Annotating nodes ...............	( 12554 genes annotated to the GO terms. )
+
+			 -- Classic Algorithm -- 
+
+		 the algorithm is scoring 525 nontrivial nodes
+		 parameters: 
+			 test statistic:  fisher 
+/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.down_1136_MF_classic_5_up  --- no of nodes:  8 
+[1] "make barplot for down genes"
+        GO.ID                                        Term Annotated Significant
+1  GO:0006954                       inflammatory response       264          51
+2  GO:0042221                        response to chemical      1921         217
+3  GO:0009605               response to external stimulus      1101         136
+4  GO:0002682         regulation of immune system process       561          80
+5  GO:1903706                   regulation of hemopoiesis       197          38
+6  GO:0032101 regulation of response to external stimu...       339          55
+7  GO:0002376                       immune system process      1102         134
+8  GO:0019752           carboxylic acid metabolic process       562          78
+9  GO:0010035             response to inorganic substance       294          48
+10 GO:0070887      cellular response to chemical stimulus      1287         149
+11 GO:0006575 cellular modified amino acid metabolic p...       126          27
+12 GO:0006749               glutathione metabolic process        32          12
+13 GO:0006082              organic acid metabolic process       610          81
+14 GO:0048731                          system development      2716         276
+15 GO:0006952                            defense response       527          72
+16 GO:0001775                             cell activation       467          65
+17 GO:0043436                   oxoacid metabolic process       602          79
+18 GO:0033993                           response to lipid       489          67
+19 GO:0044767       single-organism developmental process      3627         352
+20 GO:1901700      response to oxygen-containing compound       857         104
+21 GO:1901564 organonitrogen compound metabolic proces...       817         100
+22 GO:0045619    regulation of lymphocyte differentiation        86          20
+23 GO:0032502                       developmental process      3648         353
+24 GO:0048513                           organ development      2026         212
+25 GO:0010941                    regulation of cell death       965         114
+26 GO:1902105     regulation of leukocyte differentiation       139          27
+27 GO:0008219                                  cell death      1256         141
+28 GO:0009611                        response to wounding       386          55
+29 GO:0016265                                       death      1260         141
+30 GO:0010033               response to organic substance      1455         159
+31 GO:0048534 hematopoietic or lymphoid organ developm...       530          70
+32 GO:0050727         regulation of inflammatory response       127          25
+33 GO:0050865               regulation of cell activation       243          39
+34 GO:0002437 inflammatory response to antigenic stimu...        22           9
+35 GO:1903034          regulation of response to wounding       194          33
+36 GO:0002684 positive regulation of immune system pro...       373          53
+37 GO:0010951 negative regulation of endopeptidase act...       114          23
+38 GO:0009410             response to xenobiotic stimulus        39          12
+39 GO:0009066 aspartate family amino acid metabolic pr...        28          10
+40 GO:1903202 negative regulation of oxidative stress-...        23           9
+   Expected classicFisher   enrich        p.adj log.p.adj
+1     21.23       2.9e-09 2.402261 1.160000e-07  6.935542
+2    154.48       2.9e-08 1.404713 5.800000e-07  6.236572
+3     88.54       1.4e-07 1.536029 1.866667e-06  5.728933
+4     45.11       2.6e-07 1.773443 2.400000e-06  5.619789
+5     15.84       3.2e-07 2.398990 2.400000e-06  5.619789
+6     27.26       3.6e-07 2.017608 2.400000e-06  5.619789
+7     88.62       4.4e-07 1.512074 2.514286e-06  5.599585
+8     45.19       1.1e-06 1.726046 5.500000e-06  5.259637
+9     23.64       1.7e-06 2.030457 6.800000e-06  5.167491
+10   103.49       1.7e-06 1.439753 6.800000e-06  5.167491
+11    10.13       2.0e-06 2.665350 7.272727e-06  5.138303
+12     2.57       3.4e-06 4.669261 1.133333e-05  4.945642
+13    49.05       4.0e-06 1.651376 1.230769e-05  4.909823
+14   218.40       4.5e-06 1.263736 1.285714e-05  4.890856
+15    42.38       5.1e-06 1.698915 1.360000e-05  4.866461
+16    37.55       8.1e-06 1.731025 1.929412e-05  4.714575
+17    48.41       8.2e-06 1.631894 1.929412e-05  4.714575
+18    39.32       9.9e-06 1.703967 2.080000e-05  4.681937
+19   291.66       1.0e-05 1.206885 2.080000e-05  4.681937
+20    68.91       1.1e-05 1.509215 2.080000e-05  4.681937
+21    65.70       1.1e-05 1.522070 2.080000e-05  4.681937
+22     6.92       1.2e-05 2.890173 2.080000e-05  4.681937
+23   293.35       1.3e-05 1.203341 2.080000e-05  4.681937
+24   162.92       1.3e-05 1.301252 2.080000e-05  4.681937
+25    77.60       1.3e-05 1.469072 2.080000e-05  4.681937
+26    11.18       1.4e-05 2.415027 2.153846e-05  4.666785
+27   101.00       1.8e-05 1.396040 2.666667e-05  4.574031
+28    31.04       2.1e-05 1.771907 2.787879e-05  4.554726
+29   101.32       2.1e-05 1.391630 2.787879e-05  4.554726
+30   117.00       2.1e-05 1.358974 2.787879e-05  4.554726
+31    42.62       2.2e-05 1.642421 2.787879e-05  4.554726
+32    10.21       2.3e-05 2.448580 2.787879e-05  4.554726
+33    19.54       2.3e-05 1.995906 2.787879e-05  4.554726
+34     1.77       2.6e-05 5.084746 3.058824e-05  4.514446
+35    15.60       3.0e-05 2.115385 3.351351e-05  4.474780
+36    29.99       3.1e-05 1.767256 3.351351e-05  4.474780
+37     9.17       3.1e-05 2.508179 3.351351e-05  4.474780
+38     3.14       3.5e-05 3.821656 3.684211e-05  4.433656
+39     2.25       3.7e-05 4.444444 3.794872e-05  4.420803
+40     1.85       3.9e-05 4.864865 3.900000e-05  4.408935
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.down"
+[1] 1136
+null device 
+          1 
+        GO.ID                                        Term Annotated Significant
+1  GO:0061134                peptidase regulator activity        99          25
+2  GO:0004866            endopeptidase inhibitor activity        70          20
+3  GO:0030414                peptidase inhibitor activity        72          20
+4  GO:0061135            endopeptidase regulator activity        75          20
+5  GO:0004857                   enzyme inhibitor activity       184          35
+6  GO:0046983               protein dimerization activity       785          98
+7  GO:0036442          hydrogen-exporting ATPase activity        22           9
+8  GO:0004867 serine-type endopeptidase inhibitor acti...        33          11
+9  GO:0046982         protein heterodimerization activity       329          48
+10 GO:0016209                        antioxidant activity        39          11
+11 GO:0005539                   glycosaminoglycan binding        86          17
+12 GO:0001077 RNA polymerase II core promoter proximal...       155          25
+13 GO:0033293                 monocarboxylic acid binding        21           7
+14 GO:0001228 RNA polymerase II transcription regulato...       203          30
+15 GO:0016491                     oxidoreductase activity       484          59
+16 GO:0005200      structural constituent of cytoskeleton        41          10
+17 GO:0004869 cysteine-type endopeptidase inhibitor ac...        28           8
+18 GO:1901681                     sulfur compound binding       112          19
+19 GO:0015662 ATPase activity, coupled to transmembran...        29           8
+20 GO:0016810 hydrolase activity, acting on carbon-nit...        88          16
+21 GO:0019829         cation-transporting ATPase activity        43          10
+22 GO:0043492 ATPase activity, coupled to movement of ...        90          16
+23 GO:0042625 ATPase activity, coupled to transmembran...        44          10
+24 GO:0031406                     carboxylic acid binding       100          17
+25 GO:0043177                        organic acid binding       101          17
+26 GO:0016820 hydrolase activity, acting on acid anhyd...        77          14
+27 GO:0005102                            receptor binding       765          83
+28 GO:0016684 oxidoreductase activity, acting on perox...        20           6
+29 GO:0042277                             peptide binding       113          18
+30 GO:0015078 hydrogen ion transmembrane transporter a...        71          13
+31 GO:0016811 hydrolase activity, acting on carbon-nit...        49          10
+32 GO:0008201                             heparin binding        65          12
+33 GO:0030234                   enzyme regulator activity       553          62
+34 GO:0042626 ATPase activity, coupled to transmembran...        76          13
+35 GO:0000982 RNA polymerase II core promoter proximal...       224          29
+36 GO:0001540                        beta-amyloid binding        25           6
+37 GO:0016597                          amino acid binding        56          10
+38 GO:0005125                           cytokine activity        48           9
+39 GO:0033218                               amide binding       127          18
+40 GO:0016765 transferase activity, transferring alkyl...        41           8
+   Expected classicFisher   enrich        p.adj log.p.adj
+1      8.05     2.200e-07 3.105590 8.400000e-06  5.075721
+2      5.69     4.200e-07 3.514938 8.400000e-06  5.075721
+3      5.86     7.000e-07 3.412969 9.333333e-06  5.029963
+4      6.10     1.400e-06 3.278689 1.360000e-05  4.866461
+5     14.96     1.700e-06 2.339572 1.360000e-05  4.866461
+6     63.84     9.500e-06 1.535088 6.333333e-05  4.198368
+7      1.79     2.800e-05 5.027933 1.600000e-04  3.795880
+8      2.68     3.500e-05 4.104478 1.750000e-04  3.756962
+9     26.76     5.000e-05 1.793722 2.222222e-04  3.653213
+10     3.17     1.900e-04 3.470032 7.600000e-04  3.119186
+11     6.99     4.800e-04 2.432046 1.745455e-03  2.758091
+12    12.61     7.100e-04 1.982554 2.366667e-03  2.625863
+13     1.71     9.700e-04 4.093567 2.826667e-03  2.548725
+14    16.51     9.900e-04 1.817081 2.826667e-03  2.548725
+15    39.36     1.060e-03 1.498984 2.826667e-03  2.548725
+16     3.33     1.320e-03 3.003003 3.129412e-03  2.504537
+17     2.28     1.330e-03 3.508772 3.129412e-03  2.504537
+18     9.11     1.640e-03 2.085620 3.560000e-03  2.448550
+19     2.36     1.700e-03 3.389831 3.560000e-03  2.448550
+20     7.16     1.780e-03 2.234637 3.560000e-03  2.448550
+21     3.50     1.950e-03 2.857143 3.714286e-03  2.430125
+22     7.32     2.260e-03 2.185792 4.069565e-03  2.390452
+23     3.58     2.340e-03 2.793296 4.069565e-03  2.390452
+24     8.13     2.740e-03 2.091021 4.566667e-03  2.340401
+25     8.21     3.060e-03 2.070646 4.896000e-03  2.310159
+26     6.26     3.360e-03 2.236422 5.169231e-03  2.286574
+27    62.22     3.780e-03 1.333976 5.600000e-03  2.251812
+28     1.63     4.090e-03 3.680982 5.786667e-03  2.237572
+29     9.19     4.320e-03 1.958651 5.786667e-03  2.237572
+30     5.77     4.340e-03 2.253033 5.786667e-03  2.237572
+31     3.99     5.350e-03 2.506266 6.903226e-03  2.160948
+32     5.29     5.620e-03 2.268431 6.969697e-03  2.156786
+33    44.97     5.750e-03 1.378697 6.969697e-03  2.156786
+34     6.18     7.840e-03 2.103560 9.223529e-03  2.035103
+35    18.22     8.360e-03 1.591658 9.554286e-03  2.019802
+36     2.03     1.318e-02 2.955665 1.464444e-02  1.834327
+37     4.55     1.385e-02 2.197802 1.467692e-02  1.833365
+38     3.90     1.404e-02 2.307692 1.467692e-02  1.833365
+39    10.33     1.431e-02 1.742498 1.467692e-02  1.833365
+40     3.33     1.593e-02 2.402402 1.593000e-02  1.797784
+[1] "/projects/b1025/etb/testRNAout.full/TANGO_019/analysis/RAvDMSO.2.01.down"
+[1] 1136
+null device 
+          1 
+Warning messages:
+1: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+2: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+3: In `levels<-`(`*tmp*`, value = if (nl == nL) as.character(labels) else paste0(labels,  :
+  duplicated levels in factors are deprecated
+Sun Jul 19 00:31:05 CDT 2015
+----------------------------------------
+PBS job ended
+Begin PBS Epilogue Sun Jul 19 00:31:10 CDT 2015 1437283870
+JobID: 16149894.qsched02.quest.it.northwestern.edu
+Session ID:			13267
+Resources Used:			cput=00:23:13,mem=19666492kb,vmem=21059064kb,walltime=00:19:38
+Job exit value:			0
+----------------------------------------
