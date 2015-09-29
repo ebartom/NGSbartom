@@ -15,7 +15,10 @@ unless (@ARGV) {
     print "-buildDiffPeaks\t\t<1|0>\n-runDiffPeaks\t\t<1|0>\n-build4C\t\t<1|0>\n-run4C\t\t\t<1|0>\n";
 }
 
-`export PATH=\$PATH:/projects/b1025/tools/samtools-0.1.19/`;
+# Set up the environment for analysis.
+#my $cmd = "export NGSbartom=/projects/p20742/\n";
+#system($cmd);
+my $NGSbartom="/projects/p20742/";
 
 my $outputDirectory = "";
 my $baseSpaceDirectory = "";
@@ -208,21 +211,21 @@ print STDERR "=====================================\n";
 
 # Define references.
 my (%bowtieIndex,%txIndex,%txdbfile);
-$bowtieIndex{"hg19"} = "/projects/p20742/anno/bowtie_indexes/hg19";
-$txIndex{"hg19"} ="/projects/p20742/anno/tophat_tx/hg19.Ens_72.remap";
-$txdbfile{"hg19"} = "/projects/p20742/anno/Txdb/hsapiens_gene_ensembl_Ens72.txdb";
-$bowtieIndex{"dm3"} = "/projects/p20742/anno/bowtie_indexes/dm3";
-$txIndex{"dm3"} = "/projects/p20742/anno/tophat_tx/dm3.Ens_74.cuff";
-$txdbfile{"dm3"} = "/projects/p20742/anno/Txdb/dmelanogaster_gene_ensembl_Ens74.txdb";
-$bowtieIndex{"mm10"} = "/projects/p20742/anno/bowtie_indexes/mm10";
-$txIndex{"mm10"} = "/projects/p20742/anno/tophat_tx/mm10.Ens_78.cuff";
-$txdbfile{"mm10"} = "/projects/p20742/anno/Txdb/mmusculus_gene_ensembl_Ens78.txdb";
-$bowtieIndex{"mm9"} = "/projects/p20742/anno/bowtie_indexes/mm9";
-$txIndex{"mm9"} = "/projects/p20742/anno/tophat_tx/mm9.Ens_67.remap";
-$txdbfile{"mm9"} = "/projects/p20742/anno/Txdb/mmusculus_gene_ensembl_Ens67.txdb";
-$bowtieIndex{"sacCer3"} = "/projects/p20742/anno/bowtie_indexes/sacCer3";
-$txIndex{"sacCer3"} = "/projects/p20742/anno/tophat_tx/sacCer3.Ens_78.remap";
-$txdbfile{"sacCer3"} = "/projects/p20742/anno/Txdb/scerevisiae_gene_ensembl_Ens78.txdb";
+$bowtieIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19";
+$txIndex{"hg19"} ="$NGSbartom/anno/tophat_tx/hg19.Ens_72.remap";
+$txdbfile{"hg19"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens72.txdb";
+$bowtieIndex{"dm3"} = "$NGSbartom/anno/bowtie_indexes/dm3";
+$txIndex{"dm3"} = "$NGSbartom/anno/tophat_tx/dm3.Ens_74.cuff";
+$txdbfile{"dm3"} = "$NGSbartom/anno/Txdb/dmelanogaster_gene_ensembl_Ens74.txdb";
+$bowtieIndex{"mm10"} = "$NGSbartom/anno/bowtie_indexes/mm10";
+$txIndex{"mm10"} = "$NGSbartom/anno/tophat_tx/mm10.Ens_78.cuff";
+$txdbfile{"mm10"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens78.txdb";
+$bowtieIndex{"mm9"} = "$NGSbartom/anno/bowtie_indexes/mm9";
+$txIndex{"mm9"} = "$NGSbartom/anno/tophat_tx/mm9.Ens_67.remap";
+$txdbfile{"mm9"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens67.txdb";
+$bowtieIndex{"sacCer3"} = "$NGSbartom/anno/bowtie_indexes/sacCer3";
+$txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_78.remap";
+$txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens78.txdb";
 
 
 if (-d "$outputDirectory") {
@@ -271,7 +274,7 @@ if ($buildBcl2fq == 1){
     print SH $header;
     print SH "#MSUB -l nodes=1:ppn=$bclFqProcessors\n";
     print SH "#MSUB -N bcl2fastq\n";
-    print SH "export PATH=\$PATH:/projects/b1025/tools/bcl2fastq/bin/\n\n";
+    print SH "module load bcl2fastq/2.17.1.14\n";
     print SH "bcl2fastq -R $baseSpaceDirectory -r $numProcessors -d $numProcessors -p $numProcessors -w $numProcessors\n";
     # If runBcl2fq == 1, then run the shell script (only works if buildBcl2fq == 1)
     if ($runBcl2fq == 1){
@@ -430,7 +433,9 @@ if (($sampleSheet ne "")){
 	my @bamlist = split(/\s+/,$bamlist);
 	&datePrint("Found @bamlist");
 	my $project_name = "thisProject";
-	if ($bamDirectory =~ /\/?([\w\-\.\_]+)\/?$/){
+	if ($bamDirectory =~ /\/?([\w\-\.\_]+)\/bam\/?$/){
+	    $project_name = $1;
+	}elsif ($bamDirectory =~ /\/?([\w\-\.\_]+)\/?$/){
 	    $project_name = $1;
 	    $project_name =~ s/.bams//g;
 	    $project_name =~ s/.bam//g;
@@ -469,15 +474,14 @@ if (($type eq "4C") && ($build4C == 1)){
 	print FCSH "$header\n";
 	print FCSH "#MSUB -N 4Cdemultiplex\n";
 	print FCSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-	print FCSH "export PATH=\$PATH:/projects/p20742/tools/\n";
-	print FCSH "export PATH=\$PATH:/projects/b1025/tools/\n";
+	print FCSH "export PATH=\$PATH:$NGSbartom/tools/\n";
 	print FCSH "date\n";
 	print FCSH "\n# Copy raw reads into fastq directory and de-compress them.\n";
 	print FCSH "cp $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/Undetermined*.fastq.gz $outputDirectory\/$sample_project\/fastq\/\n";
 	print FCSH "gunzip $outputDirectory\/$sample_project\/fastq\/Undetermined*fastq.gz\n";
 	print FCSH "date\n";
 	print FCSH "\n# De-multiplex reads using $fourCdescription table\n";
-	print FCSH "perl /projects/p20742/tools/split4CwithTable.pl $outputDirectory\/$sample_project\/fastq\/ $fourCdescription $maxPrimerMismatch\n";
+	print FCSH "perl $NGSbartom/tools/split4CwithTable.pl $outputDirectory\/$sample_project\/fastq\/ $fourCdescription $maxPrimerMismatch\n";
 	print FCSH "date\n";
 	print FCSH "\n# Clean up extra files.\n";
 	print FCSH "ls $outputDirectory\/$sample_project\/fastq\/*\_S*\_L00*\_R*fastq\n";
@@ -583,25 +587,25 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 	    print SH "$header\n";
 	    print SH "#MSUB -N $sample\_tophat\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-	    print SH "export PATH=\$PATH:/projects/b1025/tools/\n";
-	    print SH "export PATH=\$PATH:/projects/b1025/tools/bowtie2-2.2.3/\n";
-	    print SH "export PATH=\$PATH:/projects/b1025/tools/tophat-2.0.12/bin/\n";
-	    print SH "export PATH=\$PATH:/projects/b1025/tools/samtools-0.1.19/\n";
+	    print SH "export PATH=\$PATH:$NGSbartom/tools/\n";
+	    print SH "module load bowtie2/2.2.6\n";
+	    print SH "module load tophat/2.1.0\n";
+	    print SH "module load boost\n";
 	    print SH "module load gcc/4.8.3\n";
-	    print SH "module load boost/1.57.0\n\n";
+#	    print SH "module load boost/1.57.0\n\n";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    if ($runTrim == 1){
 		print SH "module load java\n";	     
 		foreach my $fastq (@fastqs){
 		    print SH "\n# Trim poor quality sequence at the end of reads if the quality drops below 30.\n";
-		    print SH "java -jar /projects/b1025/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed TRAILING:30 MINLEN:20\n";
+		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed TRAILING:30 MINLEN:20\n";
 		    print SH "gzip $fastq.trimmed\n";
 		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
 			if (-f "$1\_fastqc.html"){
 			    print SH "\# FastQC file already exists\n";
 			} else {
 			    print SH "# Running FastQC to assess read quality.\n";
-			    print SH "date\n/projects/b1025/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
+			    print SH "date\n$NGSbartom/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
 			}
 		    }
 		    print SH "mv $fastq.trimmed.gz $fastq\n";
@@ -624,10 +628,10 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		print SH "# Create RNA seq Tracks\n";
 		print SH "module load R\n";
 		if ($stranded == 1){
-		    print SH "Rscript /projects/p20742/tools/createRNAseqTracks2.R --assembly=$reference{$sample} --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --multiMap=$multiMap\n";
+		    print SH "Rscript $NGSbartom/tools/createRNAseqTracks2.R --assembly=$reference{$sample} --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --multiMap=$multiMap\n";
 		} else {
 		    # The multi mapping argument is used here, because these are mapped with tophat.
-		    print SH "Rscript /projects/p20742/tools/createChIPtracks2.R --assembly=$reference{$sample} --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --extLen=0 --multiMap=$multiMap\n";
+		    print SH "Rscript $NGSbartom/tools/createChIPtracks2.R --assembly=$reference{$sample} --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --extLen=0 --multiMap=$multiMap\n";
 		}
 		print SH "date\n\n";
 		print SH "mkdir $outputDirectory\/$project\/tracks\n";
@@ -719,21 +723,21 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "$header\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -N $sample\_bowtie\n";
-	    print SH "export PATH=\$PATH:/projects/b1025/tools/bowtie-1.0.0/\n";
-	    print SH "export PATH=\$PATH:/projects/b1025/tools/samtools-0.1.19/\n";
+	    print SH "module load bowtie\n";
+	    print SH "module load samtools/1.2\n";
 	    print SH "module load R\n";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    print SH "\n# Trim poor quality sequence at the end of reads if the quality drops below 30.\n";
 	    if ($runTrim == 1){
 		print SH "module load java\n";
 		foreach my $fastq (@fastqs){
-		    print SH "java -jar /projects/b1025/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed TRAILING:30 MINLEN:20\n";
+		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed TRAILING:30 MINLEN:20\n";
 		    print SH "gzip $fastq.trimmed\n";
 		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
 			if (-f "$1\_fastqc.html"){
 			    print SH "\# FastQC file already exists\n";
 			} else {
-			    print SH "date\n/projects/b1025/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
+			    print SH "date\n$NGSbartom/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
 			}
 		    }
 		    print SH "mv $fastq.trimmed.gz $fastq\n";
@@ -759,7 +763,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    print SH "# Make ChIPseq tracks.\n";
 		    # The multi mapping argument is not used right now.
 		    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
-		    print SH "Rscript /projects/p20742/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
+		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
 		    print SH "date\n\n";
 		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
 		    if ($uploadASHtracks == 1){
@@ -790,7 +794,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			    print SH "\n# Make 4C tracks.\n";
 			    # The multi mapping argument is not used right now.
 			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
-			    print SH "Rscript /projects/p20742/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
+			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
 			    print SH "mv $bamDirectory\/$sample.noVP.bw $bamDirectory\/$sample.bw\n";
 			    print SH "date\n";
 			}
@@ -798,7 +802,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "\n# Make 4C tracks.\n";
 			# The multi mapping argument is not used right now.
 			# This is because Bowtie doesn't fill in the NH tag in the BAM file.
-			print SH "Rscript /projects/p20742/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=0\n";
+			print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=0\n";
 		    }
 		    print SH "date\n\n";
 		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
@@ -851,7 +855,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	if ($aligner eq "tophat"){
 	    print SH "module load R\n";
 	    print SH "\n# Make Tophat report summarizing alignment.\n";
-	    print SH "Rscript /projects/p20742/tools/createTophatReport.R --topHatDir=$outputDirectory\/$project\/Tophat_aln --nClus=$numProcessors\n";
+	    print SH "Rscript $NGSbartom/tools/createTophatReport.R --topHatDir=$outputDirectory\/$project\/Tophat_aln --nClus=$numProcessors\n";
 	}elsif ($aligner eq "bowtie"){
 	    print SH "find $bamDirectory\/*bowtie.log -type f -print -exec cat {} \; >> $outputDirectory\/$project\/alignlog.txt\n";
 	}
@@ -891,7 +895,7 @@ if ($buildEdgeR ==1) {
 		    foreach my $sample (@samples){
 		    # if the user wants tracks, put that in the downstream analysis script.
 			print SH "# Create RNA seq Tracks\n";
-			print SH "Rscript /projects/p20742/tools/createRNAseqTracks.R --assembly=$reference{$sample} --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample\n";
+			print SH "Rscript $NGSbartom/tools/createRNAseqTracks.R --assembly=$reference{$sample} --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample\n";
 			print SH "date\n\n";
 			print SH "mkdir $outputDirectory\/$project\/tracks\n";
 			print SH "\n# Make Headers for UCSC genome browser.\n";
@@ -918,18 +922,18 @@ if ($buildEdgeR ==1) {
 	    print SH "\n# Make Analysis directory for all analysis files.\n";
 	    print SH "mkdir $outputDirectory\/$project\/analysis\n";
 	    print SH "\n# Make counts table for downstream analysis.\n";
-#	    print SH "Rscript /projects/p20742/tools/createRNAcounts.R --assembly=$reference{$project} --bamDir=$bamDirectory --numCores=$numProcessors\n";
-	    print SH "Rscript /projects/p20742/tools/createRNAcounts2.R --assembly=$reference{$project} --bamDir=$bamDirectory --numCores=$numProcessors --txdbfile=$txdbfile{$reference{$project}}\n";
+#	    print SH "Rscript $NGSbartom/tools/createRNAcounts.R --assembly=$reference{$project} --bamDir=$bamDirectory --numCores=$numProcessors\n";
+	    print SH "Rscript $NGSbartom/tools/createRNAcounts2.R --assembly=$reference{$project} --bamDir=$bamDirectory --numCores=$numProcessors --txdbfile=$txdbfile{$reference{$project}}\n";
 	    print SH "date\n";
 	    if ($comparisons ne ""){
 		print SH "\n# Run EdgeR, using comparisons file, without MDS plot (which sometimes crashes).\n";
-		print SH "Rscript /projects/p20742/tools/runEdgeRrnaSeq.R --assembly=$reference{$project} --gnModelFile=$bamDirectory\/gnModel.rda --countFile=$bamDirectory\/counts.rda --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0\n";
+		print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.R --assembly=$reference{$project} --gnModelFile=$bamDirectory\/gnModel.rda --countFile=$bamDirectory\/counts.rda --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0\n";
 		print SH "\n# Run EdgeR, creating MDS plot, but not running comparisons.\n";
-		print SH "Rscript /projects/p20742/tools/runEdgeRrnaSeq.R --assembly=$reference{$project} --gnModelFile=$bamDirectory\/gnModel.rda --countFile=$bamDirectory\/counts.rda --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=1\n";
+		print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.R --assembly=$reference{$project} --gnModelFile=$bamDirectory\/gnModel.rda --countFile=$bamDirectory\/counts.rda --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=1\n";
 		print SH "date\n";
 		print SH "\n# Create Correlation plot for all samples\n";
 		print SH "# This plot is still in development, so don't over-interpret.\n";
-		print SH "Rscript /projects/p20742/tools/makeCorrelationPlotAllSamples.R --countFile=$bamDirectory\/counts.rda --outputDirectory=$outputDirectory\/$project\/analysis\n";
+		print SH "Rscript $NGSbartom/tools/makeCorrelationPlotAllSamples.R --countFile=$bamDirectory\/counts.rda --outputDirectory=$outputDirectory\/$project\/analysis\n";
 		print SH "date\n";
 		open(CMP,$comparisons);
 		while(<CMP>){
@@ -937,25 +941,25 @@ if ($buildEdgeR ==1) {
 		    my ($comp,@groups) = split(/\,/,$_);
 		    if ("@groups" =~ /^[1\-0\s]+/){
 			print SH "\n# Create MA plot for comparison $comp\n";
-			print SH "Rscript /projects/p20742/tools/makeMAplot.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --labelTop=1\n";
+			print SH "Rscript $NGSbartom/tools/makeMAplot.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --labelTop=1\n";
 			print SH "date\n";
 # Turning off Heatmap creation (separated up and down) in favor of a the big heatmaps.
 #			print SH "\n# Create Heatmaps for comparison $comp\n";
-#			print SH "Rscript /projects/p20742/tools/makeHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01\n";
+#			print SH "Rscript $NGSbartom/tools/makeHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01\n";
 #			print SH "date\n";
 			print SH "\n# Create Big Heatmaps for comparison $comp\n";
-#			print SH "Rscript /projects/p20742/tools/makeBigHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --countFile=$bamDirectory\/counts.rda\n";
-			print SH "Rscript /projects/p20742/tools/makeBigHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --countFile=$outputDirectory\/$project\/analysis\/allData.normCounts.txt\n";
+#			print SH "Rscript $NGSbartom/tools/makeBigHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --countFile=$bamDirectory\/counts.rda\n";
+			print SH "Rscript $NGSbartom/tools/makeBigHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --countFile=$outputDirectory\/$project\/analysis\/allData.normCounts.txt\n";
 			print SH "date\n";
 			print SH "\n# Run GO analysis for comparison $comp\n";
-			print SH "Rscript /projects/p20742/tools/runGOforDEG.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --assembly=$reference{$project}\n";
+			print SH "Rscript $NGSbartom/tools/runGOforDEG.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --assembly=$reference{$project}\n";
 			print SH "date\n";
 		    }
 		}
 		close(CMP);
 	    } else {
 		print SH "\n# Create MDS plot for samples.\n";
-		print SH "Rscript /projects/p20742/tools/runEdgeRrnaSeq.R --assembly=$reference{$project} --gnModelFile=$bamDirectory\/gnModel.rda --countFile=$bamDirectory\/counts.rda --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis\n";
+		print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.R --assembly=$reference{$project} --gnModelFile=$bamDirectory\/gnModel.rda --countFile=$bamDirectory\/counts.rda --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis\n";
 	    }
 	    if ($runEdgeR == 1){
 		&datePrint("Submitting job for downstream RNA-seq analysis.");
@@ -985,11 +989,9 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH $header;
 		print BSH "#MSUB -N callSicerPeaks\n";
 		print BSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-		#print BSH "module load R\n";
-		#print BSH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
 		print BSH "module load python\n";
-		print BSH "export PATH=\$PATH:/projects/b1025/tools/bedtools2/bin/\n";
-		print BSH "export PATH=\$PATH:/projects/b1025/tools/SICER_V1.1/SICER/\n";
+		print BSH "module load bedtools/2.17.0\n";
+		print BSH "export PATH=\$PATH:$NGSbartom/tools/SICER_V1.1/SICER/\n";
 	    }
 	    open(CHIP,$chipDescription);
 	    while(<CHIP>){
@@ -1004,8 +1006,8 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "#MSUB -N $ip\_NarrowPeaks\n";
 			print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 			#print SH "module load R\n";
-			print SH "export PATH=\$PATH:/projects/b1025/tools/MACS-1.4.2/bin\n";
-			print SH "export PYTHONPATH=/projects/b1025/tools/MACS-1.4.2/lib/python2.6/site-packages:\$PYTHONPATH\n";
+			print SH "export PATH=\$PATH:$NGSbartom/tools/MACS-1.4.2/bin\n";
+			print SH "export PYTHONPATH=$NGSbartom/tools/MACS-1.4.2/lib/python2.6/site-packages:\$PYTHONPATH\n";
 			print SH "\n# Call $peakType peaks for ip file $ip, input $input\n";
 			print SH "macs14 -t $bamDirectory\/$ip.bam -c $bamDirectory\/$input.bam -f BAM -g $ref -n $outputDirectory\/$project\/peaks\/$ip.macsPeaks >& $outputDirectory\/$project\/peaks\/$ip.macs14.log\n";
 			print SH "date\n";
@@ -1021,7 +1023,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "perl -pe \"s/ //g\" $outputDirectory\/$project\/peaks\/$ip.macsPeaks_peaks.bed > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed\n";
 #			    print SH "ln -s $outputDirectory\/$project\/peaks\/$ip.macsPeaks_peaks.bed $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed\n";
 			    print SH "# Now do the conversion with bedToBigBed\n";
-			    print SH "/projects/b1025/tools/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.macsPeaks.capped.bed /projects/p20742/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb\n";
+			    print SH "$NGSbartom/tools/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.macsPeaks.capped.bed $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb\n";
 			    print SH "date\n";
 			    if ($uploadASHtracks == 1){
 				print SH "\n# Copy bigBed to Amazon S3, for UCSC genome browser to access.\n";
@@ -1035,7 +1037,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			}
 			print SH "\n# Annotate peaks with nearby genes.\n";
 			print SH "module load R\n";
-			print SH "Rscript /projects/p20742/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
+			print SH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			close SH;
 		    } elsif ($peakType eq "broad"){
 			print BSH "\n# Convert bam files to bed files, as needed.\n";
@@ -1063,7 +1065,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print BSH "sort -k1,1 -k2,2n $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.sorted.bed\n";
 			    print BSH "mv $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.sorted.bed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed\n";
 			    print BSH "# Now do the conversion with bedToBigBed\n";
-			    print BSH "/projects/b1025/tools/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed /projects/p20742/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb\n";
+			    print BSH "$NGSbartom/tools/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb\n";
 			    print BSH "date\n";
 			    if ($uploadASHtracks == 1){
 				print BSH "\n# Copy bigBed to Amazon S3, for UCSC genome browser to access.\n";
@@ -1081,7 +1083,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "date\n";
 			print BSH "\n# Annotate peaks with nearby genes.\n";
 			print BSH "module unload python\nmodule load R\n";
-			print BSH "Rscript /projects/p20742/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
+			print BSH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print BSH "date\n";
 			print BSH "module unload R\nmodule load python\n";
 		    }		
@@ -1186,7 +1188,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		print SH $header;
 		print SH "#MSUB -N $peakset\_diffPeak\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-		print SH "export PATH=\$PATH:/projects/b1025/tools/bedtools2/bin/\n";
+		print SH "module load bedtools/2.17.0\n";
 		my @samples = split(/\,/,$peaksets{$peakset});
 		print SH "\n# Samples for this peakset $peakset are @samples\n";
 		foreach my $sample (@samples){
@@ -1279,7 +1281,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		print SH "\n# Find Differential Peaks for peakset $peakset\n";
 		# This should really be altered so that it only runs a given comparison with a given peakset if the sample is in both the peakset and the comparison.  Something to think on.
 		# Also, this will fail because you kind of need a different comparisons file for each peakset.
-		print SH "Rscript /projects/p20742/tools/runEdgeRgeneORpeak.R --assembly=$reference{$project} --outputDirectory=$outputDirectory\/$project\/analysis/ --txdbfile=$txdbfile{$reference{$project}} --countFile=$outputDirectory\/$project\/analysis\/$peakset.counts.txt --numCores=$numProcessors --comparisonFile=$comparisons --type=$type\n";
+		print SH "Rscript $NGSbartom/tools/runEdgeRgeneORpeak.R --assembly=$reference{$project} --outputDirectory=$outputDirectory\/$project\/analysis/ --txdbfile=$txdbfile{$reference{$project}} --countFile=$outputDirectory\/$project\/analysis\/$peakset.counts.txt --numCores=$numProcessors --comparisonFile=$comparisons --type=$type\n";
 		print SH "date\n";
 	    }
 	} else {
