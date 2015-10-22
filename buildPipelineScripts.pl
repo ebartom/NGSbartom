@@ -430,7 +430,8 @@ if (($sampleSheet ne "")){
 	my $bamlist = "";
 #	$bamlist = system("ls $bamDirectory\/*.bam");
 	$bamlist = `ls $bamDirectory\/*.bam`;
-	my @bamlist = split(/\s+/,$bamlist);
+	print STDERR $bamlist;
+	my @bamlist = split(/\n/,$bamlist);
 	&datePrint("Found @bamlist");
 	my $project_name = "thisProject";
 	if ($bamDirectory =~ /\/?([\w\-\.\_]+)\/bam\/?$/){
@@ -590,6 +591,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 	    print SH "export PATH=\$PATH:$NGSbartom/tools/\n";
 	    print SH "module load bowtie2/2.2.6\n";
 	    print SH "module load tophat/2.1.0\n";
+	    print SH "module load samtools\n";
 	    print SH "module load boost\n";
 	    print SH "module load gcc/4.8.3\n";
 #	    print SH "module load boost/1.57.0\n\n";

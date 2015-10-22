@@ -1,7 +1,8 @@
+
 args <- commandArgs()
 
 degFile <-sub('--degFile=', '', args[grep('--degFile=', args)])
-adjp <-sub('--adjp=', '', args[grep('--adjp=', args)])
+adjp <-as.numeric(sub('--adjp=', '', args[grep('--adjp=', args)]))
 labelTop <-sub('--labelTop=', '', args[grep('--labelTop=', args)])
 
 if (identical(adjp,character(0))){
@@ -46,7 +47,8 @@ pngFile <- paste(comparison,adjplabel,"MAplot.png",sep=".")
 print(pngFile)
 comparison <- gsub("^.*/","",comparison)
 
-png(pngFile,height=1000,width=1000)
+png(pngFile,height=500,width=500)
+par(mar=c(5.1,4.6,4.1,2.1))
 plot(deg$logCPM,deg$logFC
       ,col="grey87"
       ,pch=19

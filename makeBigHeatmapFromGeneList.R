@@ -3,10 +3,26 @@ args <- commandArgs()
 geneListFile <-sub('--geneListFile=', '', args[grep('--geneListFile=', args)])
 countFile<-sub('--countFile=','',args[grep('--countFile=',args)])
 assembly<-sub('--assembly=','',args[grep('--assembly=',args)])
+geneOrder<-sub('--geneOrder=','',args[grep('--geneOrder=',args)])
+
+# This Rscript takes a list of interesting genes, and a matrix of gene
+# expression values.  It will put out the set of interesting genes from
+# the matrix and make a heatmap from their expression.
+
+# NB: The items in the gene list need to be row names in the count file.
+
+# Assembly and geneOrder are optional parameters.
+# Assembly is used to convert from Ensembl IDs to gene names for better figures.
+# geneOrder should be set to a particular gene name in the gene list, if
+# desired.  If set, then the samples will be sorted by expression of the named
+# gene in the final heatmap.
 
 if (identical(assembly,character(0))){
     assembly<-"na"
     organismStr<- "na"
+}
+if (identical(geneOrder,character(0))){
+    geneOrder<-"na"
 }
 
 library(gplots)
@@ -39,14 +55,24 @@ if(grepl('rda',countFile)){
 }
 if(grepl('txt',countFile)){
     allCounts <- read.table(file=countFile,header=TRUE,sep="\t",row.names=1)
-    head(allCounts)
+#    head(allCounts)
+}
+if (countFile == "genomicMatrix"){
+    allCounts <- read.table(file=countFile,header=TRUE,sep="\t",row.names=1)
+    if(colnames(allCounts)[1]=="probe"){
+        rownames(allCounts) = allCounts$probe
+    }
+    if(colnames(allCounts)[1]=="sample"){
+        rownames(allCounts) = allCounts$sample
+    }
 }
 gl <- read.delim(file=geneListFile,header=FALSE,sep="\t")
+gl
 
 dim(gl)
 dim(allCounts)
 
-if(grepl('normCounts',countFile)){
+if((grepl('normCounts',countFile)) || (grepl('genomicMatrix',countFile))){
     print("Keep all columns of data")
     sampleNum <- dim(allCounts)[2]
     counts<-allCounts
@@ -61,17 +87,22 @@ dim(counts)
 #head(counts)
 
 row.names(gl)<-gl$V1
+print ("Gene list")
 head(gl)
 gl.counts <-counts[row.names(gl),]
+print ("Gene list counts")
 head(gl.counts)
 dim(gl.counts)
-gl.counts <-gl.counts[rowSums(gl.counts)>=2,]
+print("removing genes with little to no expression")
+dim(gl.counts)
+gl.counts <-gl.counts[rowSums(abs(gl.counts))>=2,]
+print("removing genes with NAs")
 gl.counts<-na.omit(gl.counts)
 colnames(gl.counts)<- gsub("\\.\\d+$","",colnames(gl.counts))
 dim(gl.counts)
-head(gl.counts)
 
 if (assembly != "na"){
+    print("Replacing Ensembl IDs with common names")
     hostMart<-"ensembl.org"
     listMarts(host=hostMart)
     bm <- useMart("ensembl")
@@ -92,19 +123,36 @@ if (assembly != "na"){
         }
     }
 }
-head(gl.counts)
+#print ("Gene list counts")
+#head(gl.counts)
+
+if (geneOrder != "na"){
+    print(paste("Re-ordering samples according to expression of gene ",geneOrder,sep=""))
+    gl.counts <- gl.counts[,order(gl.counts[geneOrder,])]
+}
+#head(gl.counts)
 
 listName <- gsub("\\.geneList.txt$","",geneListFile)
+listName <- gsub("\\.txt$","",listName)
 pdfFile <- paste(listName,"heatmap.pdf",sep=".")
+if (geneOrder != "na"){
+    pdfFile <- paste(listName,geneOrder,"heatmap.pdf",sep=".")
+}
 print(pdfFile)
+print(rownames(gl.counts))
+if(grepl('_at$',rownames(gl.counts))){
+    rownames(gl.counts) <- gl[,2]
+    rownames(gl.counts) <- gsub(",",".",rownames(gl.counts))
+}
+print(rownames(gl.counts))
 
 listLabel <- gsub("^.*/","",listName)
 gl.cor<-(cor(t(gl.counts),use="pairwise.complete.obs",method="pearson"))
 gl.cor.dist<-as.dist(1-gl.cor)
 gl.tree<-hclust(gl.cor.dist,method='average')
 pdf(pdfFile)
+#heatmap.2(as.matrix(gl.counts),trace="none",dendrogram="col",scale="row",Rowv=FALSE,Colv=TRUE,labRow=row.names(gl.counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=listLabel,col=colorRampPalette(c("blue","white","red"))(75))
 heatmap.2(as.matrix(gl.counts),trace="none",dendrogram="row",scale="row",Rowv=as.dendrogram(gl.tree),Colv=NA,labRow=row.names(gl.counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=listLabel,col=colorRampPalette(c("blue","white","red"))(75))
-#heatmap.2(as.matrix(gl.counts),trace="none",dendrogram="row",scale="row",Rowv=as.dendrogram(gl.tree),Colv=NA,labRow=row.names(gl.counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=listLabel,col=redblue)
 dev.off()
 gl.sorted <-gl.counts[rev(gl.tree$order),]
 write.table(gl.sorted,paste(listName,"clustered.txt",sep="."),sep="\t")

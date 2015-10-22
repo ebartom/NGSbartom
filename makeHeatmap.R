@@ -1,7 +1,7 @@
 args <- commandArgs()
 
 degFile <-sub('--degFile=', '', args[grep('--degFile=', args)])
-adjp <-sub('--adjp=', '', args[grep('--adjp=', args)])
+adjp <-as.numeric(sub('--adjp=', '', args[grep('--adjp=', args)]))
 
 if (identical(adjp,character(0))){
    adjp<-0.01

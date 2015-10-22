@@ -1,7 +1,7 @@
 args <- commandArgs()
 
 degFile <-sub('--degFile=', '', args[grep('--degFile=', args)])
-adjp <-sub('--adjp=', '', args[grep('--adjp=', args)])
+adjp <-as.numeric(sub('--adjp=', '', args[grep('--adjp=', args)]))
 assembly <-sub('--assembly=', '', args[grep('--assembly=', args)])
 
 if (identical(adjp,character(0))){
@@ -110,7 +110,7 @@ runGO <- function(geneList,xx=xx,otype,setName){
 
 ## function to make barplot of -log10 adjusted pvalues colored by enrichment
 drawBarplot <- function(go, ontology, setName, setSize){
-    print(go)
+    #print(go)
 #    print(ontology)
     print(setName)
     print(setSize)
