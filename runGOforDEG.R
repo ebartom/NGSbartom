@@ -177,8 +177,8 @@ print("setsize for significant genes")
 dn.setsize
 
 print("make GO table for down genes")
-go.DN.BP <- runGO(geneList=dn.geneList,xx=xx,otype="BP",setName=paste(comparison,adjplabel,"up",sep="."))
-go.DN.MF <- runGO(geneList=dn.geneList,xx=xx,otype="MF",setName=paste(comparison,adjplabel,"up",sep="."))
+go.DN.BP <- runGO(geneList=dn.geneList,xx=xx,otype="BP",setName=paste(comparison,adjplabel,"down",sep="."))
+go.DN.MF <- runGO(geneList=dn.geneList,xx=xx,otype="MF",setName=paste(comparison,adjplabel,"down",sep="."))
 
 print("make barplot for down genes")
 drawBarplot(go=go.DN.BP,ontology="BP",setName=paste(comparison,adjplabel,"down",sep="."),setSize=dn.setsize)

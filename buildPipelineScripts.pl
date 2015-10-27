@@ -472,7 +472,7 @@ if (($type eq "4C") && ($build4C == 1)){
 	$cmd .= "mkdir $outputDirectory\/$sample_project\/fastq\n";
 	system($cmd);
 	open(FCSH,">$outputDirectory\/$sample_project\/scripts\/run_4C_demultiplex.sh");
-	print FCSH "$header\n";
+	print FCSH "$header";
 	print FCSH "#MSUB -N 4Cdemultiplex\n";
 	print FCSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	print FCSH "export PATH=\$PATH:$NGSbartom/tools/\n";
@@ -585,7 +585,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_align.sh";
 	    &datePrint("Printing $shScript");
 	    open (SH,">$shScript");
-	    print SH "$header\n";
+	    print SH "$header";
 	    print SH "#MSUB -N $sample\_tophat\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "export PATH=\$PATH:$NGSbartom/tools/\n";
@@ -597,22 +597,37 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 #	    print SH "module load boost/1.57.0\n\n";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    if ($runTrim == 1){
-		print SH "module load java\n";	     
+		print SH "module load java\n";
+		print SH "\n# Make Directory for FastQC reports\n";
+		print SH "mkdir $outputDirectory\/$project\/fastqc\n";
+		print SH "mkdir $outputDirectory\/$project\/fastq\n";
+		my @newfastqs = ();
 		foreach my $fastq (@fastqs){
+		    my $fastqname = "";
+		    my $newfastq = "";
+		    if ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq\.gz$)/){
+			$fastqname = $1;
+		    }
+		    $newfastq = "$outputDirectory\/$project\/fastq\/$fastqname";
+#		    print STDERR "Fastq: $fastq\nNewFastq: $newfastq\nFastqname = $fastqname\n";
 		    print SH "\n# Trim poor quality sequence at the end of reads if the quality drops below 30.\n";
-		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed TRAILING:30 MINLEN:20\n";
-		    print SH "gzip $fastq.trimmed\n";
-		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
+		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed TRAILING:30 MINLEN:20\n";
+		    print SH "gzip $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
+		    if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
 			if (-f "$1\_fastqc.html"){
 			    print SH "\# FastQC file already exists\n";
 			} else {
 			    print SH "# Running FastQC to assess read quality.\n";
-			    print SH "date\n$NGSbartom/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
+			    print SH "date\n$NGSbartom/tools/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $fastq $fastq.trimmed.gz\n";
 			}
 		    }
-		    print SH "mv $fastq.trimmed.gz $fastq\n";
+		    print SH "mv $newfastq.trimmed.gz $newfastq\n";
 		    print SH "date\n\n";
+		    push(@newfastqs,$newfastq);
+
 		}
+		$fastqs{$sample} = "@newfastqs";
+#		&datePrint("New fastqs for sample $sample are @newfastqs, and $fastqs{$sample}");
 	    }
 	    print SH "\n# Run Tophat to align data.\n";
 	    print SH "\ntophat --no-novel-juncs -p $numProcessors -g $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
@@ -722,7 +737,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_align.sh";
 	    &datePrint("Printing $shScript");
 	    open (SH,">$shScript");
-	    print SH "$header\n";
+	    print SH "$header";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -N $sample\_bowtie\n";
 	    print SH "module load bowtie\n";
