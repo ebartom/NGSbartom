@@ -20,6 +20,9 @@ unless (@ARGV) {
 #system($cmd);
 my $NGSbartom="/projects/p20742/";
 
+my $distToTSS = 2000;
+my $upstream = 5000;
+my $downstream = 5000;
 my $outputDirectory = "";
 my $baseSpaceDirectory = "";
 my $bamDirectory = "";
@@ -793,6 +796,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 		    }		
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
+		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
+		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
+		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
 		    print SH "\n# Make header files for tracks.\n";
 		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
 		    print SH "date\n\n";
@@ -1055,7 +1061,17 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "\n# Annotate peaks with nearby genes.\n";
 			print SH "module load R\n";
 			print SH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
+			print SH "\n# Extend peaks from the summit, adding $upstream bp upstream and $downstream bp downstream.\n";
+			print SH "module load bedtools\n";
+			print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
+			print SH "\n# Make a heatmap and meta plot for expanded peaks.\n";
+			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot2.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			print SH "\n# Find Top 100 TSS-proximal peaks, find coordinates of regions around associated TSS's  and make a heatmap and meta plot.\n";
+			print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccupiedTSS.geneList.txt\n";
+			print SH "Rscript $NGSbartom/tools/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccupiedTSS.geneList.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
+			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot2.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccupiedTSS.geneList.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 			close SH;
+		       
 		    } elsif ($peakType eq "broad"){
 			print BSH "\n# Convert bam files to bed files, as needed.\n";
 			print BSH "if \[ \! -f \"$bamDirectory\/$ip.bed\" ]; then\n";
