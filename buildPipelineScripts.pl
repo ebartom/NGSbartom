@@ -630,6 +630,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 
 		}
 		$fastqs{$sample} = "@newfastqs";
+		$fastqs{$sample} =~ s/\s/\,/g;
 #		&datePrint("New fastqs for sample $sample are @newfastqs, and $fastqs{$sample}");
 	    }
 	    print SH "\n# Run Tophat to align data.\n";
