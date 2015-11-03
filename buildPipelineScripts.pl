@@ -1066,11 +1066,11 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "module load bedtools\n";
 			print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
 			print SH "\n# Make a heatmap and meta plot for expanded peaks.\n";
-			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot2.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 			print SH "\n# Find Top 100 TSS-proximal peaks, find coordinates of regions around associated TSS's  and make a heatmap and meta plot.\n";
 			print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt\n";
 			print SH "Rscript $NGSbartom/tools/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
-			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot2.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 			close SH;
 		       
 		    } elsif ($peakType eq "broad"){
@@ -1120,11 +1120,11 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print BSH "date\n";
 			print BSH "\n# Make a heatmap and meta plot for broad peaks.\n";
-			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot2.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 			print BSH "\n# Find Top 100 TSS-proximal peaks, find coordinates of regions around associated TSS's  and make a heatmap and meta plot.\n";
 			print BSH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.txt\n";
 			print BSH "Rscript $NGSbartom/tools/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
-			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot2.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 			print BSH "module unload R\nmodule load python\n";
 		    }		
 		}

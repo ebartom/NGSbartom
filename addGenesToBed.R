@@ -53,14 +53,19 @@ gnModel <- transcriptsBy(txdb, 'gene')
 gnModel <- unlist(gnModel)
 seqinfo(gnModel) <- seqinfo(organism)[seqlevels(gnModel)]
 
+print(peakFile)
 counts <- read.delim(file=peakFile,header=FALSE,sep="\t")
+# Ignore any columns beyond the first five.
+counts <- counts[,1:5]
 colnames(counts)<-c("chr","start","end","name","score")
 counts$name <- sub(" ","",counts$name)
 counts$chr <- sub(" ","",counts$chr)
+#head(counts)
 gcounts <- as(counts,"GRanges")
 genome(gcounts) <- assembly
+#gcounts
 seqlengths(gcounts) <- seqlengths(gnModel)[seqlevels(gcounts)]
-head(gcounts)
+gcounts
 
 counts$nearestGene<-names(gnModel[nearest(gcounts,gnModel)])
 dist<-as.data.frame(distanceToNearest(gcounts,gnModel))
