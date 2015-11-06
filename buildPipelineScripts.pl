@@ -1013,9 +1013,11 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH $header;
 		print BSH "#MSUB -N callSicerPeaks\n";
 		print BSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-		print BSH "module load python\n";
+		print BSH "\nmodule unload R\n";
+		print BSH "module unload mpi\n";
+		print BSH "module load python\n";\\
 		print BSH "module load bedtools/2.17.0\n";
-		print BSH "export PATH=\$PATH:$NGSbartom/tools/SICER_V1.1/SICER/\n";
+		print BSH "export PATH=$NGSbartom/tools/SICER_V1.1/SICER/:\$PATH\n";
 	    }
 	    open(CHIP,$chipDescription);
 	    while(<CHIP>){
@@ -1065,8 +1067,13 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "\n# Extend peaks from the summit, adding $upstream bp upstream and $downstream bp downstream.\n";
 			print SH "module load bedtools\n";
 			print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
+			print SH "\n# Filter out peaks with an maximum input rpm over 1.\n";
+			print SH "Rscript $NGSbartom/tools/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
+			print SH "\n# Take the top peaks (at most 5000) and continue with them.\n";
+			print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.max1.bed | head -n 5000 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.max1.top5k.bed\n";
 			print SH "\n# Make a heatmap and meta plot for expanded peaks.\n";
-			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.max1.top5k.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+
 			print SH "\n# Find Top 100 TSS-proximal peaks, find coordinates of regions around associated TSS's  and make a heatmap and meta plot.\n";
 			print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt\n";
 			print SH "Rscript $NGSbartom/tools/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
@@ -1090,15 +1097,15 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "date\n";
 			print BSH "ln -s $outputDirectory\/$project\/peaks\/$ip.sicer\/$ip-W200-G600-FDR1e-8-island.bed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed\n";
 			if ($makeTracks){
-			    print BSH "\# NB: Changing peak scores for bigBed purposes! Use original file for original scores!\n";
-			    print BSH "\# Remove peaks with scores over 1000.\n";
+			    print BSH "\n# NB: Changing peak scores for bigBed purposes! Use original file for original scores!\n";
+			    print BSH "\n# Remove peaks with scores over 1000.\n";
 			    print BSH "awk \'\$4 <= 1000 {printf \"\%s\\t\%d\\t\%d\\t\%s\_\%d\\t\%d\\n\", \$1,\$2,\$3,\"$ip\",NR,\$4}\' $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed\n";
-			    print BSH "# Then add back in the high-scoring peaks, now with a score of 1000.\n";
+			    print BSH "\n# Then add back in the high-scoring peaks, now with a score of 1000.\n";
 			    print BSH "awk \'\$4 > 1000 {printf \"\%s\\t\%d\\t\%d\\t\%s\_\%d\\t\%d\\n\", \$1,\$2,\$3,\"$ip\",NR,1000}\' $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed >> $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed\n";
-			    print BSH "# Sort the bed file to get everything back in chromosomal order.\n";
+			    print BSH "\n# Sort the bed file to get everything back in chromosomal order.\n";
 			    print BSH "sort -k1,1 -k2,2n $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.sorted.bed\n";
 			    print BSH "mv $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.sorted.bed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed\n";
-			    print BSH "# Now do the conversion with bedToBigBed\n";
+			    print BSH "\n# Now do the conversion with bedToBigBed\n";
 			    print BSH "$NGSbartom/tools/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb\n";
 			    print BSH "date\n";
 			    if ($uploadASHtracks == 1){
@@ -1116,16 +1123,23 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "mv $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.named.bed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed\n";
 			print BSH "date\n";
 			print BSH "\n# Annotate peaks with nearby genes.\n";
-			print BSH "module unload python\nmodule load R\n";
+			print BSH "\nmodule unload python\nmodule load mpi\nmodule load R\n";
 			print BSH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print BSH "date\n";
-			print BSH "\n# Make a heatmap and meta plot for broad peaks.\n";
-			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			print BSH "\n# Find summits of peaks.\n";
+			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWtoSummit.R --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
+			print BSH "module load bedtools\n";
+			print BSH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed\n";
+			print BSH "\n# Filter out peaks with an maximum input rpm over 1.\n";
+			print BSH "Rscript $NGSbartom/tools/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
+			print BSH "\n# Make a heatmap and meta plot for top 5000 broad peaks.\n";
+			print BSH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.max1.bed | head -n 5000 > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.max1.top5k.bed\n";
+			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.max1.top5k.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 			print BSH "\n# Find Top 100 TSS-proximal peaks, find coordinates of regions around associated TSS's  and make a heatmap and meta plot.\n";
 			print BSH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.txt\n";
 			print BSH "Rscript $NGSbartom/tools/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
 			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
-			print BSH "module unload R\nmodule load python\n";
+			print BSH "\nmodule unload R\nmodule unload mpi\nmodule load python\n";
 		    }		
 		}
 	    }

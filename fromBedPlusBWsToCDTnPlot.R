@@ -11,7 +11,8 @@ args <- commandArgs()
 bedFile <-sub('--bedFile=', '', args[grep('--bedFile=', args)])
 bwlist <- sub('--bwlist=','',args[grep('--bwlist=',args)])
 numBins <- 25
-boundaryNum <- 10
+boundaryNum <- 3
+NCores=20
 
 print (paste("Read in bed file",bedFile,sep=" "))
 peaks <- import.bed(bedFile)
@@ -20,16 +21,23 @@ head(peaks)
 
 bws <- read.table(bwlist,header=FALSE,sep="\t")
 print(bws)
+dim(bws)
+dim(bws)[2]
 sampleNum <- dim(bws)[1]
-if (dim(bws)[2]>2){
-    colors <- bws[,2]
-} else {
+if (dim(bws)[2]>1){
+    colors <- as.character(bws[,2])
+} else if (dim(bws)[2]==1){
     n <- sampleNum
     colors <-rainbow(n, s = 1, v = 1, start = 0, end = max(1, n - 1)/n, alpha = 1)
 }
+fancyLines <- FALSE
+if (dim(bws)[2]>2){
+    lines <- bws[,3]
+    fancyLines <- TRUE
+}
 bws <- as.character(bws[,1])
 print(bws)
-print(colors)
+#print(paste("colors: ",colors,sep=""))
 
 report <- data.frame(sample.name=sub(".bw","",basename(bws))
                     ,bw=as.character(bws))
@@ -44,7 +52,6 @@ print(report)
 matBin <-function(peakdf,model){
 ### read in and filter peaks
     sapply(unique(peakdf$rename),function(x,peakdf=report){
-        NCores=20
 #        fname <- paste(Dir,x,".rda", sep="")
 #        fname2 <- paste(Dir,x,".txt", sep="")
         cat("importing:", x, sep="\n")
@@ -80,7 +87,7 @@ matBin <-function(peakdf,model){
         bin.mat <- do.call(rbind, mclapply(win, as.numeric, mc.cores=NCores))
         df <- data.frame(bin.mat)
         rownames(df) <- model$ensembl_gene_id
-        head(df)
+#        head(df)
         df
 #        save(df,file=fname)
 #       write.table(df,file=fname2,sep="\t")
@@ -154,6 +161,7 @@ bwlist <- sub('--bwlist=','',args[grep('--bwlist=',args)])
 #grep(".\\d+.\\d+.tss", basename(bedFile), ignore.case = FALSE, perl = FALSE,value=TRUE)
 #flanks
 
+#print(paste("colors: ",colors,sep=""))
 pdfFile <- paste(bedFile,"mean.pdf",sep=".")
 print(pdfFile)
 pdf(pdfFile)
@@ -163,9 +171,19 @@ for (i in 1:sampleNum){
     dataEnd <- (i+1)*binLength
  #   print(i)
  #   print(dataStart)
- #   print(dataEnd)
-    lines(justData[dataStart:dataEnd],col=colors[i])
+                                        #   print(dataEnd)
+    lty=1
+    if (fancyLines){
+        lty=lines[i]
+    }
+    print (colors[i])
+    print (report$rename[i])
+    lines(justData[dataStart:dataEnd],col=colors[i],lty=lty)
 }
-legend("topleft",report$rename[1:sampleNum],col=colors,lty=1)
+if (fancyLines){
+    legend("topleft",report$rename[1:sampleNum],col=colors,lty=lines,lwd=1.5)
+} else {
+    legend("topleft",report$rename[1:sampleNum],col=colors,lty=1,lwd=1.5)
+}
 dev.off()   
 
