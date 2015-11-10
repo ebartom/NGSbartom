@@ -1,11 +1,13 @@
-#!/usr/bin/perl -w
+#!/software/activeperl/5.16/bin/perl -w
 use Getopt::Long qw(GetOptions);
 use List::Util qw(max);
 use strict;
 use utf8;
 use warnings;
+use Config::Abstract::Ini;
+
 unless (@ARGV) {
-    print "\nUsage: buildPipelineScripts.pl\n\n-o\t\t<outputDirectory>\n-bs\t\t<baseSpaceDirectory>\n-f\t\t<fastqDirectory>\n";
+    print "\nUsage: buildPipelineScripts.pl\n\n-config\t\t<configFile>\n-o\t\t<outputDirectory>\n-bs\t\t<baseSpaceDirectory>\n-f\t\t<fastqDirectory>\n";
     print "-bam\t\t<bamDirectory>\n-c\t\t<comparisons.csv file>\n-4C\t\t<4C description file>\n-chip\t\t<ChIP Description file>\n";
     print "-p\t\t<numProcessors>\n-m\t\t<multiMap (1 = allow multi map, 0 = not)>\n";
     print "-a\t\t<aligner>\n-g\t\t<assembly/genome>\n-w\t\t<walltime>\n-t\t\t<RNA|chipseq|4C>\n-account\t<accountName>\n";
@@ -20,6 +22,7 @@ unless (@ARGV) {
 #system($cmd);
 my $NGSbartom="/projects/p20742/";
 
+my $configFile = "";
 my $distToTSS = 2000;
 my $upstream = 5000;
 my $downstream = 5000;
@@ -67,6 +70,7 @@ my $chipDescription = "";
 
 # Read in the command line arguments.
 GetOptions('samplesheet|ss=s' => \$sampleSheet,
+	   'config|ini=s' => \$configFile,
 	   'outputDirectory|o=s' => \$outputDirectory,
 	   'baseSpaceDirectory|bs=s' => \$baseSpaceDirectory,
 	   'fastqDirectory|f=s' => \$fastqDirectory,
@@ -106,6 +110,55 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'run4C|r4=i' => \$run4C,
 	   'runBcl2fq|rb=i' => \$runBcl2fq
     ) ;
+
+if ($configFile){
+    my $abstract = new Config::Abstract::Ini($configFile) or die $!;
+    print STDERR "Contents of Config file:\n$abstract\n";
+    my %PARAMETERS = $abstract->get_entry('PARAMETERS');
+    if (exists($PARAMETERS{'distToTSS'})){ $distToTSS = $PARAMETERS{'distToTSS'};}
+    if (exists($PARAMETERS{'upstream'})){$upstream = $PARAMETERS{'upstream'};}
+    if (exists($PARAMETERS{'downstream'})){$downstream = $PARAMETERS{'downstream'};}
+    if (exists($PARAMETERS{'trimString'})){$trimString = $PARAMETERS{'trimString'};}
+    if (exists($PARAMETERS{'tophatReadMismatch'})){$tophatReadMismatch = $PARAMETERS{'tophatReadMismatch'};}
+    if (exists($PARAMETERS{'tophatReadEditDist'})){$tophatReadEditDist = $PARAMETERS{'tophatReadEditDist'};}
+    if (exists($PARAMETERS{'tophatMultimap'})){$tophatMultimap = $PARAMETERS{'tophatMultimap'};}
+    if (exists($PARAMETERS{'outputDirectory'})){$outputDirectory = $PARAMETERS{'outputDirectory'};}
+    if (exists($PARAMETERS{'baseSpaceDirectory'})){$baseSpaceDirectory = $PARAMETERS{'baseSpaceDirectory'};}
+    if (exists($PARAMETERS{'bamDirectory'})){$bamDirectory = $PARAMETERS{'bamDirectory'};}
+    if (exists($PARAMETERS{'fastqDirectory'})){$fastqDirectory = $PARAMETERS{'fastqDirectory'};}
+    if (exists($PARAMETERS{'sampleSheet'})){$sampleSheet = $PARAMETERS{'sampleSheet'};}
+    if (exists($PARAMETERS{'comparisons'})){$comparisons = $PARAMETERS{'comparisons'};}
+    if (exists($PARAMETERS{'type'})){$type = $PARAMETERS{'type'};}
+    if (exists($PARAMETERS{'numProcessors'})){$numProcessors = $PARAMETERS{'numProcessors'};}
+    if (exists($PARAMETERS{'stranded'})){$stranded = $PARAMETERS{'stranded'};}
+    
+    #my $multiMap = 0;
+    #my $aligner = "";
+    #my $id = ""; 
+    #my $assembly = "";
+    #my $runBcl2fq = 0;
+    #my $runAlign = 0;
+    #my $runEdgeR = 0;
+    #my $makeTracks = 0;
+    #my $uploadASHtracks = 1;
+    #my $buildEdgeR = 0;
+    #my $runTrim = 1;
+    #my $buildBcl2fq = 0;
+    #my $buildAlign = 0;
+    #my $build4C = 0;
+    #my $run4C = 0;
+    #my $buildPeakCaller = 0;
+    #my $runPeakCaller = 0;
+    #my $buildDiffPeaks = 0;
+    #my $runDiffPeaks = 0;
+    #my $walltime = "24:00:00";
+    #my $account = "b1025";
+    #my $node = "";
+    #my $scientist = "XXX";
+    #my $s3path = "";
+    #my $fourCdescription = "";
+    #my $chipDescription = "";
+}
 
 if ($s3path eq ""){ $s3path = "ash-tracks/TANGO/$scientist";}
 
@@ -1021,7 +1074,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		print BSH "\nmodule unload R\n";
 		print BSH "module unload mpi\n";
-		print BSH "module load python\n";\\
+		print BSH "module load python\n";
 		print BSH "module load bedtools/2.17.0\n";
 		print BSH "export PATH=$NGSbartom/tools/SICER_V1.1/SICER/:\$PATH\n";
 	    }
