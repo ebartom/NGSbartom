@@ -23,6 +23,10 @@ my $NGSbartom="/projects/p20742/";
 my $distToTSS = 2000;
 my $upstream = 5000;
 my $downstream = 5000;
+my $trimString = "TRAILING:30 MINLEN:20";
+my $tophatReadMismatch = 2;
+my $tophatReadEditDist = 2;
+my $tophatMultimap = 5;
 my $outputDirectory = "";
 my $baseSpaceDirectory = "";
 my $bamDirectory = "";
@@ -31,7 +35,6 @@ my $sampleSheet = "";
 my $comparisons = "";
 my $type = "";
 my $numProcessors = 4;
-my $tophatMultimap = 5;
 my $multiMap = 0;
 my $aligner = "";
 my $stranded = 1;
@@ -73,6 +76,7 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'ChIPfile|chip=s' => \$chipDescription,
 	   'type|t=s' => \$type,
 	   'aligner|a=s' => \$aligner,
+	   'trimString|ts=s' => \$trimString,
 	   'assembly|g=s' => \$assembly,
 	   'tango|id=s' => \$id,
 	   'scientist|s=s' => \$scientist,
@@ -83,6 +87,8 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'node|n=s' => \$node,
 	   's3path|s3=s' => \$s3path,
 	   'tophatMultiMap|tm=i' => \$tophatMultimap,
+	   'tophatReadEditDist|ted=i' => \$tophatReadEditDist,
+	   'tophatReadMismatch|trm=i' => \$tophatReadMismatch,
 	   'multiMap|m=i' => \$multiMap,
 	   'buildAlign|ba=i' => \$buildAlign,
 	   'buildBcl2fq|bb=i' => \$buildBcl2fq,
@@ -196,7 +202,7 @@ print STDERR "Type of Analysis: $type\n";
 print STDERR "=====================================\nAnalysis plan:\n";
 if ($buildBcl2fq){ print STDERR "Will build scripts for de-multiplexing with Bcl2fq.\n";}
 if ($runBcl2fq){ print STDERR "Will run scripts for de-multiplexing with Bcl2fq.\n";}
-if ($runAlign && $runTrim) { print STDERR "Will trim fastq files according to trailing quality scores with Trimmomatic.\n";}
+if ($runAlign && $runTrim) { print STDERR "Will trim fastq files according to trailing quality scores with Trimmomatic ($trimString).\n";}
 if ($buildAlign){ print STDERR "Will build scripts for aligning fastq reads with $aligner.\n";}
 if ($runAlign){ print STDERR "Will run scripts for aligning fastq reads with $aligner.\n";}
 if ($buildPeakCaller){ print STDERR "Will build scripts for calling peaks according to the experimental plan in $chipDescription.\n";}
@@ -613,8 +619,8 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		    }
 		    $newfastq = "$outputDirectory\/$project\/fastq\/$fastqname";
 #		    print STDERR "Fastq: $fastq\nNewFastq: $newfastq\nFastqname = $fastqname\n";
-		    print SH "\n# Trim poor quality sequence at the end of reads if the quality drops below 30.\n";
-		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed TRAILING:30 MINLEN:20\n";
+		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed $trimString\n";
 		    print SH "gzip $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
 		    if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
 			if (-f "$1\_fastqc.html"){
@@ -634,7 +640,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 #		&datePrint("New fastqs for sample $sample are @newfastqs, and $fastqs{$sample}");
 	    }
 	    print SH "\n# Run Tophat to align data.\n";
-	    print SH "\ntophat --no-novel-juncs -p $numProcessors -g $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+	    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
 	    print SH "date\n";
 	    print SH "\nrsync -av \$TMPDIR\/$sample/* $outputDirectory\/$project\/Tophat_aln\/$sample/\n";
 #	    print SH "\nmv \$TMPDIR\/$project\_$sample\_tophatOut $outputDirectory\/$project\/Tophat_aln\/$sample\n";
@@ -748,11 +754,11 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "module load samtools/1.2\n";
 	    print SH "module load R\n";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
-	    print SH "\n# Trim poor quality sequence at the end of reads if the quality drops below 30.\n";
 	    if ($runTrim == 1){
 		print SH "module load java\n";
 		foreach my $fastq (@fastqs){
-		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed TRAILING:30 MINLEN:20\n";
+		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
 		    print SH "gzip $fastq.trimmed\n";
 		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
 			if (-f "$1\_fastqc.html"){

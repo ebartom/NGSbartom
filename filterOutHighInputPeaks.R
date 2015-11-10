@@ -24,6 +24,8 @@ if (dim(peaks)[2] == 3){
     peaks$name <- paste(basename(bedfile),rownames(peaks),sep="_")
 } else if (dim(peaks)[2] == 5){
     colnames(peaks)<-c("chr","start","end","name","score")
+} else if (dim(peaks)[2] == 6){
+    colnames(peaks)<-c("chr","start","end","name","score","strand")
 }
 rownames(peaks) <- peaks$name
 gpeaks <- as(peaks,"GRanges")
