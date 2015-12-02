@@ -38,10 +38,11 @@ combined <- deg$adj.p < adjp
 print(sum(combined))
 #head(combined)
 
-combined.genes <- deg[combined,"gene"]
-#combined.genes
+combined.genes <- na.omit(deg[combined,"gene"])
+                                        #combined.genes
+head(combined.genes)
 combined.ids <- rownames(deg[combined,])
-#head(combined.ids)
+head(combined.ids)
 #length(combined.ids)
 
 if(grepl('normCounts',countFile)){

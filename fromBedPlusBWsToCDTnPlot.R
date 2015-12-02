@@ -19,6 +19,7 @@ peaks <- import.bed(bedFile)
 peaks$ensembl_gene_id = gsub("\\.ENST\\d+$","",peaks$name)
 head(peaks)
 
+bwlist
 bws <- read.table(bwlist,header=FALSE,sep="\t")
 print(bws)
 dim(bws)
@@ -164,8 +165,9 @@ bwlist <- sub('--bwlist=','',args[grep('--bwlist=',args)])
 #print(paste("colors: ",colors,sep=""))
 pdfFile <- paste(bedFile,"mean.pdf",sep=".")
 print(pdfFile)
-pdf(pdfFile)
-plot(justData[0:binLength],type="l",col=colors[0],ylim=c(0,1.5*max(justData)),ylab="ChIP RPM",xlab="BinNumber",main=paste(basename(bedFile)," (",length(peaks),")",sep=""))
+pdf(pdfFile,width=10,height=7)
+par(mar=c(5.1,4.1,4.1,12.1),xpd=TRUE)
+plot(justData[0:binLength],type="l",col=colors[0],ylim=c(0,max(justData)),ylab="ChIP RPM",xlab="BinNumber",main=paste(basename(bedFile)," (",length(peaks),")",sep=""))
 for (i in 1:sampleNum){
     dataStart <- i*binLength+1
     dataEnd <- (i+1)*binLength
@@ -181,9 +183,9 @@ for (i in 1:sampleNum){
     lines(justData[dataStart:dataEnd],col=colors[i],lty=lty)
 }
 if (fancyLines){
-    legend("topleft",report$rename[1:sampleNum],col=colors,lty=lines,lwd=1.5)
+    legend("topright",inset=c(-0.3,0),legend=report$rename[1:sampleNum],col=colors,lty=lines,lwd=1.5,cex=0.7)
 } else {
-    legend("topleft",report$rename[1:sampleNum],col=colors,lty=1,lwd=1.5)
+    legend("topright",inset=c(-0.3,0),legend=report$rename[1:sampleNum],col=colors,lty=1,lwd=1.5,cex=0.7)
 }
 dev.off()   
 

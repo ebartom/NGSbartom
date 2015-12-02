@@ -186,7 +186,10 @@ if (runComp == 1) {
    print("SampleOrder:")
    print(allDataSampleOrder)
 #   rownames(comparisons) <- comparisons$Comparisons
-   print(rownames(comparisons))
+#   print(rownames(comparisons))
+   print ("ComparisonSampleOrder:")
+   print(colnames(comparisons))
+   print ("Reorder comparisons based on counts column order")
    comparisons <- comparisons[,allDataSampleOrder]
    print(allDataSampleOrder)
    print(colnames(comparisons))

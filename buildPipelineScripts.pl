@@ -1124,7 +1124,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "module load R\n";
 			print SH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print SH "\n# Extend peaks from the summit, adding $upstream bp upstream and $downstream bp downstream.\n";
-			print SH "module load bedtools\n";
+			print SH "module load bedtools/2.17.0\n";
 			print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
 			print SH "\n# Filter out peaks with an maximum input rpm over 1.\n";
 			print SH "Rscript $NGSbartom/tools/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
@@ -1141,14 +1141,15 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		       
 		    } elsif ($peakType eq "broad"){
 			print BSH "\n# Convert bam files to bed files, as needed.\n";
-			print BSH "if \[ \! -f \"$bamDirectory\/$ip.bed\" ]; then\n";
+			print BSH "if \[ ! -s \"$bamDirectory\/$ip.bed\" ]; then\n";
 			print BSH "\tbedtools bamtobed -i $bamDirectory\/$ip.bam > $bamDirectory\/$ip.bed\n";
 			print BSH "\tdate\n";
 			print BSH "fi\n";
-			print BSH "if \[ \! -f \"$bamDirectory\/$input.bed\" ]; then\n";
+			print BSH "if \[ ! -s \"$bamDirectory\/$input.bed\" ]; then\n";
 			print BSH "\tbedtools bamtobed -i $bamDirectory\/$input.bam > $bamDirectory\/$input.bed\n";
 			print BSH "\tdate\n";
 			print BSH "fi\n";
+			print BSH "module unload bedtools\n";
 			print BSH "\n# Call $peakType peaks for ip file $ip, input $input\n";
 			print BSH "mkdir $outputDirectory\/$project\/peaks\/$ip.sicer\n";
 			print BSH "SICER.sh $bamDirectory $ip.bed $input.bed $outputDirectory\/$project\/peaks\/$ip.sicer $reference{$project} 1 200 150 0.8 600 1e-8 >& $outputDirectory\/$project\/peaks\/$ip.sicer.log\n";
@@ -1187,7 +1188,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "date\n";
 			print BSH "\n# Find summits of peaks.\n";
 			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWtoSummit.R --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
-			print BSH "module load bedtools\n";
+			print BSH "module load bedtools/2.17.0\n";
 			print BSH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed\n";
 			print BSH "\n# Filter out peaks with an maximum input rpm over 1.\n";
 			print BSH "Rscript $NGSbartom/tools/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
