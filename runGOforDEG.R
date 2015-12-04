@@ -56,17 +56,21 @@ if (assembly == "dm3") {
 }
 organismStr
 
-listMarts(host=hostMart)
-
-bm <- useMart("ensembl")
-ds <- listDatasets(bm)
-ds <- ds[grep(organismStr,ds$dataset),]$dataset
-
-print("Loading biomart")
-bm <- useDataset(paste(ds), mart=bm)  
-
-EG2GO <- getBM(mart=bm, attributes=c('ensembl_gene_id','external_gene_name','go_id'))
+print("setting up ensembl")
+dataset = paste(organismStr,"_gene_ensembl",sep="")
+bm <- useMart("ENSEMBL_MART_ENSEMBL",host=hostMart,dataset=dataset)
+print("Retrieving GO information")
+EG2GO <- getBM(mart=bm, attributes=c('ensembl_gene_id','external_gene_id','go_id'))
 head(EG2GO)
+
+#listMarts(host=hostMart)
+#bm <- useMart("ensembl")
+#ds <- listDatasets(bm)
+#ds <- ds[grep(organismStr,ds$dataset),]$dataset
+#print("Loading biomart")
+#bm <- useDataset(paste(ds), mart=bm)  
+#EG2GO <- getBM(mart=bm, attributes=c('ensembl_gene_id','external_gene_name','go_id'))
+#head(EG2GO)
 
 ## Remove blank entries
 print("Remove blank entries")
@@ -147,7 +151,7 @@ up <- unique(rownames(deg[up,]))
 all <-unique(rownames(deg))
 up.geneList <-  factor(as.integer(all %in% up))
 names(up.geneList) <- all
-#head(up.geneList)
+print(head(up.geneList))
 
 up.setsize <- sum(as.numeric(levels(up.geneList))[up.geneList])
 print("setsize for significant genes") 

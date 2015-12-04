@@ -8,7 +8,7 @@ clusterGenes<-sub('--clusterGenes=','',args[grep('--clusterGenes=',args)])
 outputCDT <- sub('--outputCDT=','',args[grep('--outputCDT=',args)])
 
 # This Rscript takes a list of interesting genes, and a matrix of gene
-# expression values.  It will put out the set of interesting genes from
+# expression values.  It will pull out the set of interesting genes from
 # the matrix and make a heatmap from their expression.
 
 # NB: The items in the gene list need to be row names in the count file.
