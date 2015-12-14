@@ -449,6 +449,7 @@ if (($sampleSheet ne "")){
 	my $fastqlist = "";
 	#	$fastqlist = system("ls $fastqDirectory\/*.fastq.gz");
 	$fastqlist = `ls $fastqDirectory\/*.fastq.gz`;
+#	print STDERR $fastqlist;
 	if ($fastqlist eq ""){
 	    $fastqlist = `ls $fastqDirectory\/*.fq.gz`;
 	}
@@ -459,7 +460,7 @@ if (($sampleSheet ne "")){
 	    $fastqlist = `ls $fastqDirectory\/*.fq`;
 	}
 	my @fastqlist = split(/\s+/,$fastqlist);
-#	&datePrint("Found @fastqlist");
+	&datePrint("Found @fastqlist");
 	my $project_name = "thisProject";
 	if ($fastqDirectory =~ /([\w\-\_\.]+)\/fastq\/?$/){
 	    $project_name = $1;
@@ -474,7 +475,7 @@ if (($sampleSheet ne "")){
 #	print STDERR "$project_name @fastqlist\n";
 	foreach my $fastq (@fastqlist){
 #	    print STDERR "Fastq: \"$fastq\"\n";
-	    if (($fastq =~ /\/([\w\-\d\_]+)\_S\d/) || ($fastq =~ /\/([\w\-\d\_]+).fastq.gz/)){
+	    if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || ($fastq =~ /\/?([\w\-\d\_\.]+).fastq.gz/)){
 		$sample_name = $1;
 		&datePrint("Sample name is $sample_name");
 		if (!exists($fastqs{$sample_name})){
@@ -606,6 +607,7 @@ foreach my $project (keys(%samples)){
     my $cmd = "mkdir $outputDirectory\/$project\n";
     $cmd .= "mkdir $outputDirectory\/$project/scripts\n";    
     $cmd .= "mkdir $outputDirectory\/$project\/bam\n";
+    print STDERR "$cmd\n";
     system($cmd);
     my @sampleSet = split(/\,/,$samples{$project});
     print STDERR "SampleSet: @sampleSet\n";

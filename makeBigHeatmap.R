@@ -12,8 +12,8 @@ library(gplots)
 library(edgeR)
 
 ##----------load differentially expressed genes --------#
-print("Loading differential expressed gene table")
-print(degFile)
+print("Loading counts table")
+print(countFile)
 
 if(grepl('rda',countFile)){
    allCounts <- get(load(file=countFile))
@@ -21,8 +21,15 @@ if(grepl('rda',countFile)){
 if(grepl('txt',countFile)){
     allCounts <- read.delim(file=countFile,header=TRUE,sep="\t")
 #    head(allCounts)
-    
+    if (colnames(allCounts)[1] == "X"){
+        rownames(allCounts) <- allCounts$X
+        allCounts <- allCounts[,2:dim(allCounts)[2]]
+    }
+    print(colnames(allCounts))
+#    head(allCounts)
 }
+print("Loading differential expressed gene table")
+print(degFile)
 if(grepl('rda',degFile)){
    deg <- get(load(file=degFile))
 }
@@ -31,17 +38,21 @@ if(grepl('txt',degFile)){
     rownames(deg)<-deg$X
 }
 
+print("DEGfile dimensions")
 dim(deg)
+print("countfile dimensions")
 dim(allCounts)
 
+print("number of genes below p-value")
 combined <- deg$adj.p < adjp
 print(sum(combined))
-#head(combined)
+head(combined)
 
 combined.genes <- na.omit(deg[combined,"gene"])
                                         #combined.genes
 head(combined.genes)
 combined.ids <- rownames(deg[combined,])
+print(paste("IDs of genes with p-values < ",adjp,sep=""))
 head(combined.ids)
 #length(combined.ids)
 
@@ -54,10 +65,10 @@ if(grepl('normCounts',countFile)){
     counts<-allCounts[,6:(5+sampleNum)]
     sampleNum <- dim(allCounts)[2]-5
 }
-counts<-counts[,order(names(counts))]
+#counts<-counts[,order(names(counts))]
 
 dim(counts)
-#head(counts)
+head(counts)
 
 combined.counts <-counts[combined.ids,]
 colnames(combined.counts)<- gsub("\\.\\d+$","",colnames(combined.counts))
