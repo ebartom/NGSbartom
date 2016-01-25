@@ -1,6 +1,7 @@
 #!/software/activeperl/5.16/bin/perl -w
 use Getopt::Long qw(GetOptions);
 use List::Util qw(max);
+use List::MoreUtils qw(uniq);
 use strict;
 use utf8;
 use warnings;
@@ -8,18 +9,16 @@ use warnings;
 
 unless (@ARGV) {
     print "\nUsage: buildPipelineScripts.pl\n\n-config\t\t<configFile>\n-o\t\t<outputDirectory>\n-bs\t\t<baseSpaceDirectory>\n-f\t\t<fastqDirectory>\n";
-    print "-bam\t\t<bamDirectory>\n-c\t\t<comparisons.csv file>\n-4C\t\t<4C description file>\n-chip\t\t<ChIP Description file>\n";
+    print "-bam\t\t<bamDirectory>\n-c\t\tcomparisons.csv file>\n-4C\t\t<4C description file>\n-chip\t\t<ChIP Description file>\n";
     print "-p\t\t<numProcessors>\n-m\t\t<multiMap (1 = allow multi map, 0 = not)>\n";
     print "-a\t\t<aligner>\n-g\t\t<assembly/genome>\n-w\t\t<walltime>\n-t\t\t<RNA|chipseq|4C>\n-account\t<accountName>\n";
     print "-node\t\t<nodeName(eg qnode4144)>\n-scientist\t<initials>\n-s3\t\t<amazon s3 path (if non-standard)>\n-buildBcl2fq\t\t<1|0>\n";
     print "-runBcl2fq\t\t<1|0>\n-runTrim\t\t<1|0>\n-buildAlign\t\t<1|0>\n-runAlign\t\t<1|0>\n-makeTracks\t\t<1|0>\n";
-    print "-uploadASHtracks\t<1|0>\n-buildEdgeR\t\t<1|0>\n-runEdgeR\t\t<1|0>\n-buildPeakCaller\t<1|0>\n-runPeakCaller\t\t<1|0>\n";
+    print "-uploadASHtracks\t<1|0>\n-uploadBAM\t\t<1|0>\n-buildEdgeR\t\t<1|0>\n-runEdgeR\t\t<1|0>\n-buildPeakCaller\t<1|0>\n-runPeakCaller\t\t<1|0>\n";
     print "-buildDiffPeaks\t\t<1|0>\n-runDiffPeaks\t\t<1|0>\n-build4C\t\t<1|0>\n-run4C\t\t\t<1|0>\n";
 }
 
 # Set up the environment for analysis.
-#my $cmd = "export NGSbartom=/projects/p20742/\n";
-#system($cmd);
 my $NGSbartom="/projects/p20742/";
 
 my $configFile = "";
@@ -30,6 +29,7 @@ my $trimString = "TRAILING:30 MINLEN:20";
 my $tophatReadMismatch = 2;
 my $tophatReadEditDist = 2;
 my $tophatMultimap = 5;
+my $runPairedEnd = 0;
 my $outputDirectory = "";
 my $baseSpaceDirectory = "";
 my $bamDirectory = "";
@@ -48,6 +48,7 @@ my $runAlign = 0;
 my $runEdgeR = 0;
 my $makeTracks = 0;
 my $uploadASHtracks = 1;
+my $uploadBAM = 0;
 my $buildEdgeR = 0;
 my $runTrim = 1;
 my $buildBcl2fq = 0;
@@ -99,7 +100,9 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'runAlign|ra=i' => \$runAlign,
 	   'makeTracks|mt=i' => \$makeTracks,
 	   'uploadASHtracks|ut=i' => \$uploadASHtracks,
+	   'uploadBAM|ub=i' => \$uploadBAM,
 	   'runTrim|rt=i' => \$runTrim,
+	   'runPairedEnd|rpe=i' => \$runPairedEnd,
 	   'buildEdgeR|be=i' => \$buildEdgeR,
 	   'runEdgeR|re=i' => \$runEdgeR,
 	   'buildPeakCaller|bp=i' => \$buildPeakCaller,
@@ -262,6 +265,7 @@ if ($buildPeakCaller){ print STDERR "Will build scripts for calling peaks accord
 if ($runPeakCaller){ print STDERR "Will run scripts for calling peaks.\n";}
 if ($makeTracks){ print STDERR "Will make tracks appropriate for the UCSC genome browser.\n";
 		  if ($uploadASHtracks){ print STDERR "Will upload tracks to Shilatifard account on Amazon S3 (if user has correct credentials).\n";}
+		  if ($uploadBAM){ print STDERR "Will upload BAM files to Shilatifard account on Amazon S3 (if user has correct credentials).\n";}
 }
 if ($buildEdgeR){ print STDERR "Will build scripts for finding differentially expressed genes from RNAseq data.\n";}
 if ($runEdgeR){ print STDERR "Will run scripts for finding differentially expressed genes from RNAseq data.\n";}		  
@@ -573,7 +577,7 @@ if (($type eq "4C") && ($build4C == 1)){
 	    &datePrint("Job $result done.  Continuing.");
 	}
 	my $sampleList = $samples{$sample_project};
-	my @samples = split(/\,/,$sampleList);
+	my @samples = uniq(split(/\,/,$sampleList));
 	open(OUT,">$outputDirectory/Sample_Report.csv");
 	# Print labels to output file.
 	print OUT "Fastq,Sample_Name,Assembly\n";
@@ -611,10 +615,10 @@ foreach my $project (keys(%samples)){
     $cmd .= "mkdir $outputDirectory\/$project\/bam\n";
     print STDERR "$cmd\n";
     system($cmd);
-    my @sampleSet = split(/\,/,$samples{$project});
+    my @sampleSet = uniq(split(/\,/,$samples{$project}));
     print STDERR "SampleSet: @sampleSet\n";
     my @fastqSet = split(/\,/,$fastqs{$sampleSet[0]});
-    print STDERR "FastqSet:  @fastqSet\n";
+    print STDERR "FastqSet for $sampleSet[0]:  @fastqSet\n";
     if (($baseSpaceDirectory ne "") && ($type ne "4C")){
 	$cmd = "mkdir $outputDirectory\/$project\n";
 	$cmd .= "mkdir $outputDirectory\/$project\/fastq\n";
@@ -632,24 +636,25 @@ foreach my $project (keys(%samples)){
 
 # If the aligner is tophat, create the shell scripts to run tophat on all fastqs, one sample at a time.
 if (($buildAlign == 1) && ($aligner eq "tophat")){
-	&datePrint("Creating Tophat Alignment shell scripts.");
+    &datePrint("Creating Tophat Alignment shell scripts.");
     my @samples;
-	# Foreach project (TANGO/MOLNG):
-	foreach my $project (keys(%samples)){
-	    if ($scientists{$project} ne ""){ 
-		$scientist = $scientists{$project};
-		#if ($s3path eq "ash-tracks/TANGO/XXX"){ }
-		$s3path = "ash-tracks/TANGO/$scientist";
-	    }
-	    # Make a directory for the output.
+    # Foreach project (TANGO/MOLNG):
+    foreach my $project (keys(%samples)){
+	if ($scientists{$project} ne ""){ 
+	    $scientist = $scientists{$project};
+	    #if ($s3path eq "ash-tracks/TANGO/XXX"){ }
+	    $s3path = "ash-tracks/TANGO/$scientist";
+	}
+	# Make a directory for the output.
 	$cmd = "mkdir $outputDirectory\/$project\/Tophat_aln";
 	system($cmd);
-	@samples = split(/\,/,$samples{$project});
+	@samples = uniq(split(/\,/,$samples{$project}));
+	
 	# Foreach sample within the project:
 	foreach my $sample (@samples){
 	    # Create a shell script to run tophat on all fastqs for the sample at the same time.
 	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_align.sh";
-	    &datePrint("Printing $shScript");
+	    &datePrint("Printing to $shScript");
 	    open (SH,">$shScript");
 	    print SH "$header";
 	    print SH "#MSUB -N $sample\_tophat\n";
@@ -699,7 +704,37 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 #		&datePrint("New fastqs for sample $sample are @newfastqs, and $fastqs{$sample}");
 	    }
 	    print SH "\n# Run Tophat to align data.\n";
-	    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+	    if ($runPairedEnd == 0){
+		print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+	    } elsif ($runPairedEnd == 1){
+		my @read1fastqs;
+		my @read2fastqs;
+		my @read3fastqs;
+		my @fastqs = split(/\,/,$fastqs{$sample});
+		foreach my $fastq (@fastqs){
+		    if ($fastq =~ /\_R1\_?\.?/){
+			push (@read1fastqs,$fastq);
+		    } elsif ($fastq =~ /\_R2\_?\.?/){
+			push (@read2fastqs,$fastq);
+		    } elsif ($fastq =~ /\_R3\_?\.?/){
+			push (@read3fastqs,$fastq);
+		    } else {
+			print STDERR "ERR: Could not find Read Number!\n";
+		    }
+		}
+		@read1fastqs = sort(@read1fastqs);
+		@read2fastqs = sort(@read2fastqs);
+		@read3fastqs = sort(@read3fastqs);
+		my $read1fastqs = "@read1fastqs";
+		my $read2fastqs = "@read2fastqs";
+		my $read3fastqs = "@read3fastqs";
+		if (length($read3fastqs)>length($read2fastqs)){
+		    $read2fastqs = $read3fastqs;
+		}
+		$read1fastqs =~ s/\ /,/g;
+		$read2fastqs =~ s/\ /,/g;
+		print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+	    }
 	    print SH "date\n";
 	    print SH "\nrsync -av \$TMPDIR\/$sample/* $outputDirectory\/$project\/Tophat_aln\/$sample/\n";
 #	    print SH "\nmv \$TMPDIR\/$project\_$sample\_tophatOut $outputDirectory\/$project\/Tophat_aln\/$sample\n";
@@ -743,12 +778,14 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
 		    print SH "cp $outputDirectory\/$project\/bam\/$sample*.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
-		    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
-		    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
-    		    print SH "# To load, paste the following url into the custom tracks field:\n";
-		    print SH "# http://s3-us-west-2.amazonaws.com/ash-tracks/TANGO/$scientist/$scientist.$project/$sample.bam\n";
-		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
-		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
+		    if ($uploadBAM == 1){
+			print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
+			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+			print SH "# To load, paste the following url into the custom tracks field:\n";
+			print SH "# http://s3-us-west-2.amazonaws.com/ash-tracks/TANGO/$scientist/$scientist.$project/$sample.bam\n";
+			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
+			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
+		    }
 		    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 		    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 		    if ($stranded == 1){
@@ -805,7 +842,8 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 #	    if ($s3path eq "ash-tracks/TANGO/XXX"){ }
 	    $s3path = "ash-tracks/TANGO/$scientist";
 	}
-	@samples = split(/\,/,$samples{$project});
+	@samples = uniq(split(/\,/,$samples{$project}));
+	print STDERR "Samples: @samples\n";
 	# Foreach sample within the project:
 	foreach my $sample (@samples){
 	    # Create a shell script to run bowtie on all fastqs for the sample at the same time.
@@ -991,7 +1029,7 @@ if ($buildEdgeR ==1) {
 	    if ($startFromBAM == 1){
 		# If the bam directory was specified in the input (no base space directory or fastq directory)
 		if ($makeTracks == 1){
-		    my @samples = split(/\,/,$samples{$project});
+		    my @samples = uniq(split(/\,/,$samples{$project}));
 		    # Foreach sample within the project:
 		    foreach my $sample (@samples){
 		    # if the user wants tracks, put that in the downstream analysis script.
