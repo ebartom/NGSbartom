@@ -4,7 +4,7 @@ use List::Util qw(max);
 use strict;
 use utf8;
 use warnings;
-use Config::Abstract::Ini;
+#use Config::Abstract::Ini;
 
 unless (@ARGV) {
     print "\nUsage: buildPipelineScripts.pl\n\n-config\t\t<configFile>\n-o\t\t<outputDirectory>\n-bs\t\t<baseSpaceDirectory>\n-f\t\t<fastqDirectory>\n";
@@ -111,54 +111,54 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'runBcl2fq|rb=i' => \$runBcl2fq
     ) ;
 
-if ($configFile){
-    my $abstract = new Config::Abstract::Ini($configFile) or die $!;
-    print STDERR "Contents of Config file:\n$abstract\n";
-    my %PARAMETERS = $abstract->get_entry('PARAMETERS');
-    if (exists($PARAMETERS{'distToTSS'})){ $distToTSS = $PARAMETERS{'distToTSS'};}
-    if (exists($PARAMETERS{'upstream'})){$upstream = $PARAMETERS{'upstream'};}
-    if (exists($PARAMETERS{'downstream'})){$downstream = $PARAMETERS{'downstream'};}
-    if (exists($PARAMETERS{'trimString'})){$trimString = $PARAMETERS{'trimString'};}
-    if (exists($PARAMETERS{'tophatReadMismatch'})){$tophatReadMismatch = $PARAMETERS{'tophatReadMismatch'};}
-    if (exists($PARAMETERS{'tophatReadEditDist'})){$tophatReadEditDist = $PARAMETERS{'tophatReadEditDist'};}
-    if (exists($PARAMETERS{'tophatMultimap'})){$tophatMultimap = $PARAMETERS{'tophatMultimap'};}
-    if (exists($PARAMETERS{'outputDirectory'})){$outputDirectory = $PARAMETERS{'outputDirectory'};}
-    if (exists($PARAMETERS{'baseSpaceDirectory'})){$baseSpaceDirectory = $PARAMETERS{'baseSpaceDirectory'};}
-    if (exists($PARAMETERS{'bamDirectory'})){$bamDirectory = $PARAMETERS{'bamDirectory'};}
-    if (exists($PARAMETERS{'fastqDirectory'})){$fastqDirectory = $PARAMETERS{'fastqDirectory'};}
-    if (exists($PARAMETERS{'sampleSheet'})){$sampleSheet = $PARAMETERS{'sampleSheet'};}
-    if (exists($PARAMETERS{'comparisons'})){$comparisons = $PARAMETERS{'comparisons'};}
-    if (exists($PARAMETERS{'type'})){$type = $PARAMETERS{'type'};}
-    if (exists($PARAMETERS{'numProcessors'})){$numProcessors = $PARAMETERS{'numProcessors'};}
-    if (exists($PARAMETERS{'stranded'})){$stranded = $PARAMETERS{'stranded'};}
+# if ($configFile){
+#     my $abstract = new Config::Abstract::Ini($configFile) or die $!;
+#     print STDERR "Contents of Config file:\n$abstract\n";
+#     my %PARAMETERS = $abstract->get_entry('PARAMETERS');
+#     if (exists($PARAMETERS{'distToTSS'})){ $distToTSS = $PARAMETERS{'distToTSS'};}
+#     if (exists($PARAMETERS{'upstream'})){$upstream = $PARAMETERS{'upstream'};}
+#     if (exists($PARAMETERS{'downstream'})){$downstream = $PARAMETERS{'downstream'};}
+#     if (exists($PARAMETERS{'trimString'})){$trimString = $PARAMETERS{'trimString'};}
+#     if (exists($PARAMETERS{'tophatReadMismatch'})){$tophatReadMismatch = $PARAMETERS{'tophatReadMismatch'};}
+#     if (exists($PARAMETERS{'tophatReadEditDist'})){$tophatReadEditDist = $PARAMETERS{'tophatReadEditDist'};}
+#     if (exists($PARAMETERS{'tophatMultimap'})){$tophatMultimap = $PARAMETERS{'tophatMultimap'};}
+#     if (exists($PARAMETERS{'outputDirectory'})){$outputDirectory = $PARAMETERS{'outputDirectory'};}
+#     if (exists($PARAMETERS{'baseSpaceDirectory'})){$baseSpaceDirectory = $PARAMETERS{'baseSpaceDirectory'};}
+#     if (exists($PARAMETERS{'bamDirectory'})){$bamDirectory = $PARAMETERS{'bamDirectory'};}
+#     if (exists($PARAMETERS{'fastqDirectory'})){$fastqDirectory = $PARAMETERS{'fastqDirectory'};}
+#     if (exists($PARAMETERS{'sampleSheet'})){$sampleSheet = $PARAMETERS{'sampleSheet'};}
+#     if (exists($PARAMETERS{'comparisons'})){$comparisons = $PARAMETERS{'comparisons'};}
+#     if (exists($PARAMETERS{'type'})){$type = $PARAMETERS{'type'};}
+#     if (exists($PARAMETERS{'numProcessors'})){$numProcessors = $PARAMETERS{'numProcessors'};}
+#     if (exists($PARAMETERS{'stranded'})){$stranded = $PARAMETERS{'stranded'};}
     
-    #my $multiMap = 0;
-    #my $aligner = "";
-    #my $id = ""; 
-    #my $assembly = "";
-    #my $runBcl2fq = 0;
-    #my $runAlign = 0;
-    #my $runEdgeR = 0;
-    #my $makeTracks = 0;
-    #my $uploadASHtracks = 1;
-    #my $buildEdgeR = 0;
-    #my $runTrim = 1;
-    #my $buildBcl2fq = 0;
-    #my $buildAlign = 0;
-    #my $build4C = 0;
-    #my $run4C = 0;
-    #my $buildPeakCaller = 0;
-    #my $runPeakCaller = 0;
-    #my $buildDiffPeaks = 0;
-    #my $runDiffPeaks = 0;
-    #my $walltime = "24:00:00";
-    #my $account = "b1025";
-    #my $node = "";
-    #my $scientist = "XXX";
-    #my $s3path = "";
-    #my $fourCdescription = "";
-    #my $chipDescription = "";
-}
+#     #my $multiMap = 0;
+#     #my $aligner = "";
+#     #my $id = ""; 
+#     #my $assembly = "";
+#     #my $runBcl2fq = 0;
+#     #my $runAlign = 0;
+#     #my $runEdgeR = 0;
+#     #my $makeTracks = 0;
+#     #my $uploadASHtracks = 1;
+#     #my $buildEdgeR = 0;
+#     #my $runTrim = 1;
+#     #my $buildBcl2fq = 0;
+#     #my $buildAlign = 0;
+#     #my $build4C = 0;
+#     #my $run4C = 0;
+#     #my $buildPeakCaller = 0;
+#     #my $runPeakCaller = 0;
+#     #my $buildDiffPeaks = 0;
+#     #my $runDiffPeaks = 0;
+#     #my $walltime = "24:00:00";
+#     #my $account = "b1025";
+#     #my $node = "";
+#     #my $scientist = "XXX";
+#     #my $s3path = "";
+#     #my $fourCdescription = "";
+#     #my $chipDescription = "";
+# }
 
 if ($s3path eq ""){ $s3path = "ash-tracks/TANGO/$scientist";}
 
@@ -286,7 +286,9 @@ $bowtieIndex{"mm9"} = "$NGSbartom/anno/bowtie_indexes/mm9";
 $txIndex{"mm9"} = "$NGSbartom/anno/tophat_tx/mm9.Ens_67.remap";
 $txdbfile{"mm9"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens67.txdb";
 $bowtieIndex{"sacCer3"} = "$NGSbartom/anno/bowtie_indexes/sacCer3";
-$txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_78.remap";
+$txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_72.remap";
+#$txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens72.txdb";
+#$txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_78.remap";
 $txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens78.txdb";
 
 
@@ -671,6 +673,8 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		    my $newfastq = "";
 		    if ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq\.gz$)/){
 			$fastqname = $1;
+		    } elsif ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/){
+			$fastqname = $1;
 		    }
 		    $newfastq = "$outputDirectory\/$project\/fastq\/$fastqname";
 #		    print STDERR "Fastq: $fastq\nNewFastq: $newfastq\nFastqname = $fastqname\n";
@@ -739,6 +743,12 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
 		    print SH "cp $outputDirectory\/$project\/bam\/$sample*.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+		    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
+		    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+    		    print SH "# To load, paste the following url into the custom tracks field:\n";
+		    print SH "# http://s3-us-west-2.amazonaws.com/ash-tracks/TANGO/$scientist/$scientist.$project/$sample.bam\n";
+		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
+		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
 		    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 		    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 		    if ($stranded == 1){
@@ -853,6 +863,12 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
 			print SH "cp $outputDirectory\/$project\/bam\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
+			print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
+			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+			print SH "# To load, paste the following url into the custom tracks field:\n";
+			print SH "# http://s3-us-west-2.amazonaws.com/ash-tracks/TANGO/$scientist/$scientist.$project/$sample.bam\n";
+			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
+			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
@@ -1142,6 +1158,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			close SH;
 		       
 		    } elsif ($peakType eq "broad"){
+			print BSH "module load bedtools/2.17.0\n";
 			print BSH "\n# Convert bam files to bed files, as needed.\n";
 			print BSH "if \[ ! -s \"$bamDirectory\/$ip.bed\" ]; then\n";
 			print BSH "\tbedtools bamtobed -i $bamDirectory\/$ip.bam > $bamDirectory\/$ip.bed\n";
