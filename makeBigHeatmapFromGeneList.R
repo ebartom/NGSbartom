@@ -111,23 +111,26 @@ dim(gl.counts)
 
 if (assembly != "na"){
     print("Replacing Ensembl IDs with common names")
-    hostMart<-"ensembl.org"
+#    hostMart<-"ensembl.org"
+    hostMart <- "feb2014.archive.ensembl.org"
     listMarts(host=hostMart)
-    bm <- useMart("ensembl")
+#    dataset = paste(tolower(organismStr),"_gene_ensembl",sep="")
+    bm <- useMart("ENSEMBL_MART_ENSEMBL",host=hostMart)
+#    bm <- useMart("ensembl")
     ds <- listDatasets(bm)
     ds <- ds[grep(organismStr,ds$dataset),]$dataset
     print("Loading biomart")
     bm <- useDataset(paste(ds), mart=bm)  
     dataset = paste(tolower(organismStr),"gene_ensembl",sep="_")
-    anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_name','description'))
+    anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_id','description'))
     print(row.names(gl.counts))
     iv <- match(row.names(gl.counts),anno$ensembl_gene_id)
-    print("Changing ensembl ids to external gene names.")
+    print("Changing ensembl ids to external gene ids.")
     for (i in 1:length(row.names(gl.counts))){
-        if (identical(anno[iv[i],'external_gene_name'],NA_character_)){
+        if (identical(anno[iv[i],'external_gene_id'],NA_character_)){
 #            print(paste("External gene name is missing for ",row.names(gl.counts[i,]),sep=""))
         } else {
-            row.names(gl.counts)[i] <- anno[iv[i],'external_gene_name']
+            row.names(gl.counts)[i] <- anno[iv[i],'external_gene_id']
         }
     }
 }

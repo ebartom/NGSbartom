@@ -177,6 +177,7 @@ if (($sampleSheet eq "") && ($baseSpaceDirectory ne "")){
 }
 # If aligner is not specified, assume tophat for type RNA and bowtie for type DNA.
 if ($aligner eq ""){
+    if (($type eq "exome" ) || ($type eq "WGS")){ $aligner = "bwa";}
     if ($type eq "DNA"){ $aligner = "bowtie";}
     if ($type eq "RNA"){ $aligner = "tophat";}
     if ($type eq "chipseq"){ $aligner = "bowtie";}
@@ -276,20 +277,25 @@ if ($run4C){ print STDERR "Will run scripts for analyzing 4C data.\n";}
 print STDERR "=====================================\n";
 
 # Define references.
-my (%bowtieIndex,%txIndex,%txdbfile);
+my (%bowtieIndex,%txIndex,%txdbfile,%bwaIndex);
 $bowtieIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19";
+$bwaIndex{"hg19"} = "$NGSbartom/anno/bwa_indexes/hg19.fa";
 $txIndex{"hg19"} ="$NGSbartom/anno/tophat_tx/hg19.Ens_72.remap";
 $txdbfile{"hg19"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens72.txdb";
 $bowtieIndex{"dm3"} = "$NGSbartom/anno/bowtie_indexes/dm3";
+$bwaIndex{"dm3"} = "$NGSbartom/anno/bwa_indexes/dm3.fa";
 $txIndex{"dm3"} = "$NGSbartom/anno/tophat_tx/dm3.Ens_74.cuff";
 $txdbfile{"dm3"} = "$NGSbartom/anno/Txdb/dmelanogaster_gene_ensembl_Ens74.txdb";
 $bowtieIndex{"mm10"} = "$NGSbartom/anno/bowtie_indexes/mm10";
+$bwaIndex{"mm10"} = "$NGSbartom/anno/bwa_indexes/mm10.fa";
 $txIndex{"mm10"} = "$NGSbartom/anno/tophat_tx/mm10.Ens_78.cuff";
 $txdbfile{"mm10"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens78.txdb";
 $bowtieIndex{"mm9"} = "$NGSbartom/anno/bowtie_indexes/mm9";
+$bwaIndex{"mm9"} = "$NGSbartom/anno/bwa_indexes/mm9.fa";
 $txIndex{"mm9"} = "$NGSbartom/anno/tophat_tx/mm9.Ens_67.remap";
 $txdbfile{"mm9"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens67.txdb";
 $bowtieIndex{"sacCer3"} = "$NGSbartom/anno/bowtie_indexes/sacCer3";
+$bwaIndex{"sacCer3"} = "$NGSbartom/anno/bwa_indexes/sacCer3.fa";
 $txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_72.remap";
 #$txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens72.txdb";
 #$txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_78.remap";
@@ -311,6 +317,18 @@ if ($sampleSheet ne ""){
 	system($cmd); 
     }
 }
+
+if ( $fourCdescription ne ""){
+# check if SampleSheet contains windows or mac carriage returns, and remove them, if found.
+    my $wrongCarriageReturn = `grep \"\\r\" $fourCdescription`;
+#print STDERR "Carriage return test = $wrongCarriageReturn\n";
+    if ($wrongCarriageReturn ne ""){
+	&datePrint("Sample sheet contained windows or mac carriage returns.  Cleaning it.");
+	$cmd = "mv $fourCdescription $fourCdescription.old\nperl -pe \"s\/\\r\\n\/\\n\/g\" $fourCdescription.old | perl -pe  \"s\/\\r\/\\n\/g\" > $fourCdescription.fixed.txt\nmv $fourCdescription.fixed.txt $fourCdescription\n";
+	system($cmd); 
+    }
+}
+
 if ($comparisons ne ""){
 # check if Comparison File contains windows or mac carriage returns, and remove them, if found.
     my $wrongCarriageReturn = `grep \"\\r\" $comparisons`;
@@ -453,11 +471,14 @@ if (($sampleSheet ne "")){
     } elsif ($fastqDirectory ne ""){
 	&datePrint("Looking for Fastq files in $fastqDirectory.");
 	my $fastqlist = "";
-	#	$fastqlist = system("ls $fastqDirectory\/*.fastq.gz");
+	#	$fastqlist = system("ls $fastqDirectory\/*.fastq.*gz");
 	$fastqlist = `ls $fastqDirectory\/*.fastq.gz`;
 #	print STDERR $fastqlist;
 	if ($fastqlist eq ""){
 	    $fastqlist = `ls $fastqDirectory\/*.fq.gz`;
+	}
+	if ($fastqlist eq ""){
+	    $fastqlist = `ls $fastqDirectory\/*.fastq.tgz`;
 	}
 	if ($fastqlist eq ""){
 	    $fastqlist = `ls $fastqDirectory\/*.fastq`;
@@ -481,11 +502,16 @@ if (($sampleSheet ne "")){
 #	print STDERR "$project_name @fastqlist\n";
 	foreach my $fastq (@fastqlist){
 #	    print STDERR "Fastq: \"$fastq\"\n";
-	    if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || ($fastq =~ /\/?([\w\-\d\_\.]+).fastq.gz/)){
+	    if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || 
+		#		($fastq =~ /\/?([\w\-\d\_\.]+)FastqRd/) ||
+		($fastq =~ /\/?([\w\-\d\_\.]+)\_R\d/) ||
+		($fastq =~ /\/?([\w\-\d\_\.]+).fastq.t?gz/) 
+		){
 		$sample_name = $1;
 		&datePrint("Sample name is $sample_name");
 		if (!exists($fastqs{$sample_name})){
 		    $fastqs{$sample_name} = "$fastq";
+#		    &datePrint($fastqs{$sample_name});
 		    $reference{$sample_name}=$assembly;
 		}else {$fastqs{$sample_name} .= ",$fastq";}
 		# Create a hash of all samples in a give sample project (TANGO/MOLNG)
@@ -676,7 +702,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		foreach my $fastq (@fastqs){
 		    my $fastqname = "";
 		    my $newfastq = "";
-		    if ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq\.gz$)/){
+		    if ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq\.t?gz$)/){
 			$fastqname = $1;
 		    } elsif ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/){
 			$fastqname = $1;
@@ -686,7 +712,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed $trimString\n";
 		    print SH "gzip $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
-		    if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
+		    if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.t?gz$/){
 			if (-f "$1\_fastqc.html"){
 			    print SH "\# FastQC file already exists\n";
 			} else {
@@ -712,9 +738,12 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		my @read3fastqs;
 		my @fastqs = split(/\,/,$fastqs{$sample});
 		foreach my $fastq (@fastqs){
-		    if ($fastq =~ /\_R1\_?\.?/){
+#		    print STDERR "Looking for Read number in $fastq\n";
+		    if (($fastq =~ /\_R1\_?\.?/)  ){
+#			|| ($fastq =~ /Rd1/)){
 			push (@read1fastqs,$fastq);
-		    } elsif ($fastq =~ /\_R2\_?\.?/){
+		    } elsif (($fastq =~ /\_R2\_?\.?/)){
+#			|| ($fastq =~ /Rd2/)){
 			push (@read2fastqs,$fastq);
 		    } elsif ($fastq =~ /\_R3\_?\.?/){
 			push (@read3fastqs,$fastq);
@@ -759,17 +788,17 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		print SH "\n# Make Headers for UCSC genome browser.\n";
 		if ($stranded == 1){
 		    if ($multiMap == 0) {
-			print SH "echo \"track type=bigWig name=$sample.minus.bw description=$sample.minus.rpm graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.txt\n";
-			print SH "echo \"track type=bigWig name=$sample.plus.bw description=$sample.plus.rpm graphtype=bar visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.plus.bw description=$sample.plus.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.minus.bw description=$sample.minus.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.txt\n";
 		    } elsif ($multiMap == 1){
-			print SH "echo \"track type=bigWig name=$sample.minus.multi.bw description=$sample.minus.multi.rpm graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.multi.txt\n";
-			print SH "echo \"track type=bigWig name=$sample.plus.multi.bw description=$sample.plus.multi.rpm graphtype=bar visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.multi.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.plus.multi.bw description=$sample.plus.multi.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.multi.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.minus.multi.bw description=$sample.minus.multi.rpm maxHeightPixels=128:60:11 graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.multi.txt\n";
 		    }
 		} else {
 		    if ($multiMap == 0){
-			print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
 		    }elsif ($multiMap == 1) {
-			print SH "echo \"track type=bigWig name=$sample.multi.bw description=$sample.multi.rpm graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.multi.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.multi.bw description=$sample.multi.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.multi.txt\n";
 		    }
 		}
 		print SH "date\n";
@@ -916,7 +945,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
 		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
 		    print SH "\n# Make header files for tracks.\n";
-		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
+		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
 		    print SH "date\n\n";
 		}
 	    }
@@ -956,7 +985,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    }		
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Make header files for tracks.\n";
-		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
+		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
 		    print SH "date\n\n";
 		}
 	    }
@@ -969,6 +998,223 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	print STDERR "find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;\n";
     }
 }
+
+
+# If the aligner is bowtie, create the shell scripts to run bowtie on all fastqs, one sample at a time.
+if (($buildAlign == 1) && ($aligner eq "bwa")){
+    &datePrint("Creating BWA Alignment shell scripts.");
+    my @samples;
+    # Foreach project (TANGO/MOLNG):
+    foreach my $project (keys(%samples)){
+	if ($startFromBAM == 0){ $bamDirectory= "$outputDirectory\/$project\/bam";}
+	if ($scientists{$project} ne ""){ 
+	    $scientist = $scientists{$project};
+#	    if ($s3path eq "ash-tracks/TANGO/XXX"){ }
+	    $s3path = "ash-tracks/TANGO/$scientist";
+	}
+	@samples = uniq(split(/\,/,$samples{$project}));
+	print STDERR "Samples: @samples\n";
+	# Foreach sample within the project:
+	foreach my $sample (@samples){
+	    # Create a shell script to run bwa on all fastqs for the sample at the same time.
+	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_align.sh";
+	    &datePrint("Printing $shScript");
+	    open (SH,">$shScript");
+	    print SH "$header";
+	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    print SH "#MSUB -N $sample\_bwa\n";
+	    print SH "module load bwa/0.7.12\n";
+	    print SH "module load samtools/1.2\n";
+	    print SH "module load R\n";
+	    print SH "module load picard/1.131\n";
+	    print SH "module load java\n";
+	    print SH "\nmkdir $outputDirectory\/$project\/fastq\n";
+	    print SH "\nmkdir $outputDirectory\/$project\/fastqc\n";
+	    my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
+	    my @fastqs = split(/\,/,$fastqs{$sample});
+	    my @newFastqs;
+	    if ($runTrim == 1){
+		print SH "module load java\n";
+		foreach my $fastq (@fastqs){
+		    print SH "\n# Copy fastq files into outputDirectory.\n";
+		    print SH "cp $fastq $outputDirectory/$project/fastq/\n";
+		    if ($fastq =~ /\/?([\d\_\-\w\.\.]+)\.fastq\.gz$/){
+			$fastq = "$outputDirectory/$project/fastq/$1.fastq.gz";
+			push(@newFastqs,$fastq);
+		    }
+		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
+		    print SH "gzip $fastq.trimmed\n";
+		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
+			if (-f "$1\_fastqc.html"){
+			    print SH "\# FastQC file already exists\n";
+			} else {
+			    print SH "date\n$NGSbartom/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
+			    print SH "mv $fastq*fastqc* $outputDirectory/$project/fastqc/\n";
+			}
+		    }
+		    print SH "mv $fastq.trimmed.gz $fastq\n";
+		    print SH "date\n";
+		}
+		@fastqs = @newFastqs;
+	    }
+	    my @bams;
+	    my $prefix = "";
+	    foreach my $fastq (@fastqs){
+		print SH "\n# Copy fastq files into outputDirectory.\n";
+		print SH "cp $fastq $outputDirectory/$project/fastq/\n";
+		if ($fastq =~ /\/?([\d\_\-\w\.]+).fastq\.gz$/){
+		    $prefix = $1;
+		} else { $prefix = $fastq;}
+		$fastq = "$outputDirectory\/$project/fastq/$prefix.fastq.gz";
+		push(@newFastqs,$fastq);
+	    }
+	    @fastqs = @newFastqs;
+	    if ($runPairedEnd == 0){
+		foreach my $fastq (@fastqs){
+		    if ($fastq =~ /\/?([\d\_\-\w\.]+).fastq\.gz$/){
+			$prefix = $1;
+		    } else { $prefix = $fastq;}
+		    print SH "\n# Align Fastq with BWA\n";
+		    print SH "bwa mem $bwaIndex{$reference{$sample}} $fastq | samtools view -bS - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
+		    print SH "date\n\n";
+		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
+		}
+	    } elsif ($runPairedEnd == 1){
+		my @read1fastqs;
+		my @read2fastqs;
+		my @read3fastqs;
+		#my @fastqs = split(/\,/,$fastqs{$sample});
+		foreach my $fastq (@fastqs){
+		    if ($fastq =~ /\_R1\_?\.?/){
+			push (@read1fastqs,$fastq);
+		    } elsif ($fastq =~ /\_R2\_?\.?/){
+			push (@read2fastqs,$fastq);
+		    } elsif ($fastq =~ /\_R3\_?\.?/){
+			push (@read3fastqs,$fastq);
+		    } else {
+			print STDERR "ERR: Could not find Read Number!\n";
+		    }
+		}
+		@read1fastqs = sort(@read1fastqs);
+		@read2fastqs = sort(@read2fastqs);
+		@read3fastqs = sort(@read3fastqs);
+		my $read1fastqs = "@read1fastqs";
+		my $read2fastqs = "@read2fastqs";
+		my $read3fastqs = "@read3fastqs";
+		if (length($read3fastqs)>length($read2fastqs)){
+		    @read2fastqs = @read3fastqs;
+		}
+		$read1fastqs =~ s/\ /,/g;
+		$read2fastqs =~ s/\ /,/g;
+		for (my $i=0;$i <= $#read1fastqs;$i++){
+		    my $prefix = "";
+		    if ($read1fastqs[$i] =~ /\/?([\d\_\-\w\.]+)\_R1\.fastq\.gz$/){
+			$prefix = $1;
+		    } else { $prefix = $read1fastqs[$i];}
+		    print SH "\n# Align Fastq with BWA\n";
+		    print SH "bwa mem $bwaIndex{$reference{$sample}} $read1fastqs[$i] $read2fastqs[$i] | samtools view -bS - > $outputDirectory\/$project\/bam/$prefix.bam\n";
+		    print SH "date\n\n";
+		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
+		}
+	    }
+	    my $bamString = "I=@bams";
+	    $bamString =~ s/\s/ I=/g;
+	    print SH "# Merge bam files from the same sample $sample\n";
+	    print SH "java -Xmx2g -jar $PICARD MergeSamFiles $bamString O=$outputDirectory\/$project\/bam\/$sample.bam\n";
+	    print SH "date\n\n";
+	    print SH "# Mark duplicate reads in the bam file for sample $sample\n";
+	    print SH "java -Xmx2g -jar $PICARD MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup_metrics.txt\n";
+ 	    print SH "date\n\n";
+	    print SH "# Replace unmarked bam with marked bam.\n";
+ 	    print SH "mv $outputDirectory\/$project\/bam\/$sample.mdup.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+ 	    print SH "date\n";
+	    print SH "# Index bam file and gather flagstats.\n";
+ 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    print SH "samtools flagstats $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
+ 	    print SH "date\n\n";
+ 	    if ($type eq "chipseq"){
+ 		if ($makeTracks == 1){
+ 		    print SH "# Make ChIPseq tracks.\n";
+ 		    # The multi mapping argument is not used right now.
+ 		    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
+ 		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
+ 		    print SH "date\n\n";
+ 		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
+ 		    if ($uploadASHtracks == 1){
+ 			print SH "# Move tracks into Shilatifard directory structure\n";
+ 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
+ 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
+ 			print SH "cp $outputDirectory\/$project\/bam\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
+ 			print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
+ 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+ 			print SH "# To load, paste the following url into the custom tracks field:\n";
+ 			print SH "# http://s3-us-west-2.amazonaws.com/ash-tracks/TANGO/$scientist/$scientist.$project/$sample.bam\n";
+ 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
+ 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
+ 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
+ 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+ 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
+ 		    }		
+ 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
+ 		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
+ 		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
+ 		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
+ 		    print SH "\n# Make header files for tracks.\n";
+ 		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
+ 		    print SH "date\n\n";
+ 		}
+ 	    }
+ 	    if ($type eq "4C"){
+ 		if ($makeTracks == 1){
+ 		    if (exists($viewpoint{$sample})){
+ 			my ($chr,$start,$stop);
+ 			if ($viewpoint{$sample} =~ /^(chr\w+)\:(\d+)\-(\d+)/){
+ 			    $chr = $1;
+ 			    $start = $2 - 2000;
+ 			    $stop = $3 + 2000;
+ 			    print SH "\n# Remove Viewpoint from Bam files.\n";
+ 			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n"; 
+ 			    print SH "\n# Make 4C tracks.\n";
+ 			    # The multi mapping argument is not used right now.
+ 			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
+ 			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
+ 			    print SH "mv $bamDirectory\/$sample.noVP.bw $bamDirectory\/$sample.bw\n";
+ 			    print SH "date\n";
+ 			}
+ 		    } else {
+ 			print SH "\n# Make 4C tracks.\n";
+ 			# The multi mapping argument is not used right now.
+ 			# This is because Bowtie doesn't fill in the NH tag in the BAM file.
+ 			print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=0\n";
+ 		    }
+ 		    print SH "date\n\n";
+ 		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
+ 		    if ($uploadASHtracks == 1){
+ 			print SH "\n# Move tracks into Shilatifard directory structure\n";
+ 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
+ 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
+ 			print SH "cp $outputDirectory\/$project\/bam\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
+ 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
+ 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+ 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
+ 		    }		
+ 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
+ 		    print SH "\n# Make header files for tracks.\n";
+ 		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
+ 		    print SH "date\n\n";
+		}
+	    }
+	    close(SH);
+	}
+	     }
+     if ($runAlign == 0){
+ 	# Print tips on running the bwa shell scripts.
+ 	print STDERR "To execute all alignment scripts, use the following command:\n";
+ 	print STDERR "find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;\n";
+     }
+}
+
 
 if (($buildAlign ==1) && ($runAlign ==1)){
     # Submit the alignment jobs, saving the job id.
@@ -1038,8 +1284,8 @@ if ($buildEdgeR ==1) {
 			print SH "date\n\n";
 			print SH "mkdir $outputDirectory\/$project\/tracks\n";
 			print SH "\n# Make Headers for UCSC genome browser.\n";
-			print SH "echo \"track type=bigWig name=$sample.minus.bw description=$sample.minus.rpm graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.txt\n";
-			print SH "echo \"track type=bigWig name=$sample.plus.bw description=$sample.plus.rpm graphtype=bar visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.plus.bw description=$sample.plus.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.minus.bw description=$sample.minus.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.txt\n";
 			print SH "date\n";
 			if ($uploadASHtracks == 1){
 			    print SH "# Move tracks into Shilatifard directory structure.\n";
@@ -1173,7 +1419,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 				print SH "date\n";
 			    }
 			    print SH "\n# Create track description for bigBed file.\n";
-			    print SH "echo \"track type=bigBed name=$ip.macsPeaks description=\\\"MACS peaks in $ip relative to $input\\\" graphtype=bar visibility=dense color=0,0,0 itemRGB=on useScore=1 autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$ip.macsPeaks.bb\" | cat > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb.header.txt\n";
+			    print SH "echo \"track type=bigBed name=$ip.macsPeaks description=\\\"MACS peaks in $ip relative to $input\\\" graphtype=bar maxHeightPixels=128:60:11 visibility=dense color=0,0,0 itemRGB=on useScore=1 autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$ip.macsPeaks.bb\" | cat > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb.header.txt\n";
 			    print SH "date\n";
 			}
 			print SH "\n# Annotate peaks with nearby genes.\n";
@@ -1232,7 +1478,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 				print BSH "date\n";
 			    }
 			    print BSH "\n# Create track description for bigBed file.\n";
-			    print BSH "echo \"track type=bigBed name=$ip.sicerPeaks description=\\\"SICER peaks in $ip relative to $input\\\" graphtype=bar visibility=dense color=0,0,0 itemRGB=on useScore=1 autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$ip.sicerPeaks.bb\" | cat > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb.header.txt\n";
+			    print BSH "echo \"track type=bigBed name=$ip.sicerPeaks description=\\\"SICER peaks in $ip relative to $input\\\" graphtype=bar maxHeightPixels=128:60:11 visibility=dense color=0,0,0 itemRGB=on useScore=1 autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$ip.sicerPeaks.bb\" | cat > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb.header.txt\n";
 			    print BSH "date\n";
 			}
 			print BSH "\n# Add a peak name to all peaks.\n";

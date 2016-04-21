@@ -8,6 +8,7 @@ my $sampleDescFile = $ARGV[1];
 # GACGTAATTTTGGT
 my $maxMismatch = $ARGV[2];
 my $cutSiteLength = 6;
+if ($ARGV[3]){$cutSiteLength = $ARGV[3];}
 #my $resSite = "AAGCTT";
 
 if ($#ARGV <1){

@@ -26,7 +26,7 @@ if(grepl('txt',countFile)){
         allCounts <- allCounts[,2:dim(allCounts)[2]]
     }
     print(colnames(allCounts))
-#    head(allCounts)
+    head(allCounts)
 }
 print("Loading differential expressed gene table")
 print(degFile)
@@ -71,7 +71,7 @@ dim(counts)
 head(counts)
 
 combined.counts <-counts[combined.ids,]
-colnames(combined.counts)<- gsub("\\.\\d+$","",colnames(combined.counts))
+#colnames(combined.counts)<- gsub("\\.\\d+$","",colnames(combined.counts))
 dim(combined.counts)
                                         #head(combined.counts)
 if (length(unique(combined.genes)) == length(unique(combined.ids))){

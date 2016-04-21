@@ -6,6 +6,12 @@ txdbfile <-sub('--txdbfile=', '',args[grep('--txdbfile=',args)])
 numCores <- as.integer(sub('--numCores=', '', args[grep('--numCores=',args)]))
 multiMap <- sub('--multiMap=', '', args[grep('--multiMap=',args)])
 
+#assembly = "dm3"
+#txdbfile = "/projects/p20742//anno/Txdb/dmelanogaster_gene_ensembl_Ens74.txdb"
+#numCores = 4
+#multiMap = 0
+#bamDir = "/projects/b1025/etb/ryan//TANGO-046/bam/"
+
 if (identical(multiMap,character(0))){
     multiMap <- 0
 }
@@ -87,6 +93,7 @@ counts <- do.call(cbind,mclapply(BFL,counter,txdb=gnModel,mc.cores=numCores,mc.p
 colnames(counts) <-  sub(".bam","",basename(BFL))
 
 gnModel.df <- as.data.frame(gnModel)
+head(gnModel.df)
 save(gnModel.df, file=file.path("gnModel.rda"))
 write.table(gnModel.df, file=file.path("gnModel.txt"),sep="\t")
 

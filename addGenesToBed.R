@@ -79,18 +79,18 @@ head(counts)
 
 dataset = paste(tolower(organismStr),"gene_ensembl",sep="_")
 dataset
-hostMart <- "ensembl.org"
-#hostMart <- "dec2014.archive.ensembl.org"
+#hostMart <- "ensembl.org"
+hostMart <- "feb2014.archive.ensembl.org"
 bm <- useMart("ENSEMBL_MART_ENSEMBL",host=hostMart,dataset=dataset)
-anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_name'))
-#anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_name','description'))
+anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_id'))
+#anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_id','description'))
 
 counts.anno <- merge(counts,anno,by.x="nearestTSS",by.y="ensembl_gene_id")
-names(counts.anno)[names(counts.anno)=="external_gene_name"]<- "tssGeneName"
+names(counts.anno)[names(counts.anno)=="external_gene_id"]<- "tssGeneName"
 names(counts.anno)[names(counts.anno)=="gene_biotype"]<- "tssGeneBiotype"
 #names(counts.anno)[names(counts.anno)=="description"]<- "tssGeneDescription"
 counts.anno <- merge(counts.anno,anno,by.x="nearestGene",by.y="ensembl_gene_id")
-names(counts.anno)[names(counts.anno)=="external_gene_name"]<- "nearestGeneName"
+names(counts.anno)[names(counts.anno)=="external_gene_id"]<- "nearestGeneName"
 names(counts.anno)[names(counts.anno)=="gene_biotype"]<- "nearestGeneBiotype"
 counts.anno<-counts.anno[,c("chr","start","end","name","score","distToNearestGene","nearestGene","nearestGeneName","nearestGeneBiotype","distToNearestTSS","nearestTSS","tssGeneName","tssGeneBiotype")]
 head(counts.anno)
