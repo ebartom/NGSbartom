@@ -9,17 +9,24 @@ print("Loading counts table")
 print(countFile)
 
 if(grepl('rda',countFile)){
-   counts <- get(load(file=countFile))
+    counts <- get(load(file=countFile))
+    samples<-colnames(counts)[6:(5+sampleNum)]
+    counts<-counts[,6:(5+sampleNum)]
+
 }
 if(grepl('txt',countFile)){
-   counts <- read.delim(file=countFile,header=TRUE,sep="\t")
+    counts <- read.delim(file=countFile,header=TRUE,sep="\t")
+    samples <- colnames(counts[,6:(length(colnames(counts))-1)])
+    counts <- counts[,(6+1):length(colnames(counts))]
+    colnames(counts) <- samples
 }
+dim(counts)
 
-sampleNum <- dim(counts)[2] - 5
+
+sampleNum <- dim(counts)[2]
 sampleNum
-samples<-colnames(counts)[6:(5+sampleNum)]
 samples
-counts<-counts[,6:(5+sampleNum)]
+dim(samples)
 dim(counts)
 counts <- counts[rowSums(cpm(counts)>1)>=3,]
 head(counts)

@@ -1226,7 +1226,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    $s3path = "ash-tracks/TANGO/$scientist";
 	}
 	&datePrint ("Starting alignment scripts.");
-	my $result = `find $outputDirectory/$project/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;`;
+	my $result = `find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;`;
 	$result =~ s/\s+/\:/g;
 	$result =~ s/^://;
 	$result =~ s/:$//;
@@ -1516,7 +1516,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	## This will finish each project (TANGO) before starting the next.  Is this what we want?
     	foreach my $project (keys(%samples)){
     	    &datePrint ("Starting peak calling scripts.");
-    	    my $result = `find $outputDirectory/$project/scripts/ -iname \"*callPeaks.sh\" -exec msub {} ./ \\\;`;
+    	    my $result = `find $outputDirectory/*/scripts/ -iname \"*callPeaks.sh\" -exec msub {} ./ \\\;`;
 	    $result =~ s/\s+/\:/g;
 	    $result =~ s/^://;
 	    $result =~ s/:$//;
@@ -1710,7 +1710,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 	## This will finish each project (TANGO) before starting the next.  Is this what we want?
     	foreach my $project (keys(%samples)){
 	    &datePrint ("Starting diff peak scripts.");
-	    my $result = `find $outputDirectory/$project/scripts/ -iname \"*diffPeaks.sh\" -exec msub {} ./ \\\;`;
+	    my $result = `find $outputDirectory/*/scripts/ -iname \"*diffPeaks.sh\" -exec msub {} ./ \\\;`;
 	    $result =~ s/\s+/\:/g;
 	    $result =~ s/^://;
 	    $result =~ s/:$//;
