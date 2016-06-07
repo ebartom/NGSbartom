@@ -14,7 +14,7 @@
 # ##### Please replace PATHTO with your own directory ###### #
 ##############################################################
 
-SICER=/projects/b1025/tools/SICER_V1.1/SICER
+SICER=/projects/p20742/tools/SICER_V1.1/SICER
 PYTHONPATH=$SICER/lib
 export PYTHONPATH
 

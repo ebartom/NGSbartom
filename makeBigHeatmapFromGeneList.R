@@ -80,7 +80,8 @@ gl
 dim(gl)
 dim(allCounts)
 
-if((grepl('normCounts',countFile)) || (grepl('genomicMatrix',countFile))){
+if((grepl('normCounts',countFile)) || (grepl('genomicMatrix',countFile)) ||
+   (grepl('fpkms',countFile))){
     print("Keep all columns of data")
     sampleNum <- dim(allCounts)[2]
     counts<-allCounts

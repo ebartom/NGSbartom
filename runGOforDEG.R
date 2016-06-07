@@ -17,6 +17,9 @@ library(biomaRt)
 ##----------load differentially expressed genes --------#
 print("Loading differential expressed gene table")
 print(degFile)
+method <- gsub(".edgeR.txt","",degFile)
+method <- gsub("^.*\\/.*\\.","",method)
+print(method)
 
 if(grepl('rda',degFile)){
    deg <- get(load(file=degFile))
@@ -60,7 +63,7 @@ print("setting up ensembl")
 dataset = paste(organismStr,"_gene_ensembl",sep="")
 bm <- useMart("ENSEMBL_MART_ENSEMBL",host=hostMart,dataset=dataset)
 print("Retrieving GO information")
-EG2GO <- getBM(mart=bm, attributes=c('ensembl_gene_id','external_gene_id','go_id'))
+EG2GO <- getBM(mart=bm, attributes=c('ensembl_gene_id','external_gene_id','go_id','ensembl_transcript_id'))
 head(EG2GO)
 
 #listMarts(host=hostMart)
@@ -77,8 +80,13 @@ print("Remove blank entries")
 EG2GO <- EG2GO[EG2GO$go_id != '',]
 
 print("pairing GO IDs with Ensembl IDs")
-geneID2GO <- by(EG2GO$go_id,EG2GO$ensembl_gene_id,
-                function(x) as.character(x))
+if (identical(method,"rsem")){
+    geneID2GO <- by(EG2GO$go_id,EG2GO$ensembl_transcript_id,
+                    function(x) as.character(x))
+}else{
+    geneID2GO <- by(EG2GO$go_id,EG2GO$ensembl_gene_id,
+                    function(x) as.character(x))
+}
 
 xx <- as.list(GOTERM)
 
