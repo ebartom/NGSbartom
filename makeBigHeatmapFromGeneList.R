@@ -37,22 +37,12 @@ library(gplots)
 library(edgeR)
 library(biomaRt)
 
-# Set hostMart based on 
-if (assembly == "hg19") {
-   organismStr <- "hsapiens"
-}
-if (assembly == "mm9") {
-   organismStr <- "mmusculus"
-}
-if (assembly == "mm10") {
-   organismStr <- "mmusculus"
-}
-if (assembly == "sacCer3") {
-   organismStr <- "scerevisiae"
-}
-if (assembly == "dm3") {
-   organismStr <- "dmelanogaster"
-}
+# Set hostMart based on
+
+if ((assembly == "hg19") || (assembly == "hg38")) { organismStr <- "Hsapiens" }
+if ((assembly == "mm9") || (assembly == "mm10")) { organismStr <- "Mmusculus" }
+if (assembly == "sacCer3") organismStr <- "Scerevisiae"
+if (assembly == "dm3") organismStr <- "Dmelanogaster"
 
 ##----------load differentially expressed genes --------#
 print("Loading gene list")

@@ -26,9 +26,8 @@ library(biomaRt)
 library(GenomicRanges)
 
 print(assembly)
-if (assembly == "hg19") organismStr <- "Hsapiens"
-if (assembly == "mm9") organismStr <- "Mmusculus"
-if (assembly == "mm10") organismStr <- "Mmusculus"
+if ((assembly == "hg19") || (assembly == "hg38")) { organismStr <- "Hsapiens" }
+if ((assembly == "mm9") || (assembly == "mm10")) { organismStr <- "Mmusculus" }
 if (assembly == "sacCer3") organismStr <- "Scerevisiae"
 if (assembly == "dm3") organismStr <- "Dmelanogaster"
 
@@ -37,21 +36,10 @@ print(assemblyLibrary)
 
 library(assemblyLibrary,character.only=TRUE)
 
-if (assembly == "hg19") {
-    organism <- Hsapiens
-}
-if (assembly == "mm9") {
-    organism <- Mmusculus
-}
-if (assembly == "mm10") {
-    organism <- Mmusculus
-}
-if (assembly == "sacCer3") {
-    organism <- Scerevisiae
-}
-if (assembly == "dm3") {
-    organism <- Dmelanogaster
-}
+if ((assembly == "hg19") || (assembly == "hg38")) { organism <- Hsapiens }
+if ((assembly == "mm9") || (assembly == "mm10")) { organism <- Mmusculus }
+if (assembly == "sacCer3") organism <- Scerevisiae
+if (assembly == "dm3") organism <-Dmelanogaster
 
 txdb <- loadDb(txdbfile)
 txdb

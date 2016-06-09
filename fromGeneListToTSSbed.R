@@ -19,7 +19,8 @@ up
 down
 
 print(assembly)
-if (assembly == "hg19") { organismStr <- "Hsapiens"
+
+if ((assembly == "hg19") || (assembly == "hg38")) { organismStr <- "Hsapiens"
                       species <- "Homo sapiens"}
 if ((assembly == "mm9") || (assembly == "mm10")) { organismStr <- "Mmusculus"
                                                species <- "Mus musculus"}
@@ -32,7 +33,7 @@ assemblyLibrary <- paste("BSgenome.", organismStr, ".UCSC.", assembly, sep="")
 print(assemblyLibrary)
 library(assemblyLibrary,character.only=TRUE)
 
-if (assembly == "hg19") { organism <- Hsapiens }
+if ((assembly == "hg19") || (assembly == "hg38")) { organism <- Hsapiens }
 if ((assembly == "mm9") || (assembly == "mm10")) { organism <- Mmusculus }
 if (assembly == "sacCer3") { organism <- Scerevisiae}
 if (assembly == "dm3") { organism <- Dmelanogaster}

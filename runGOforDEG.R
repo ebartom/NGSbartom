@@ -41,6 +41,10 @@ if (assembly == "hg19") {
    organismStr <- "hsapiens"
    hostMart <- "feb2014.archive.ensembl.org"
 }
+if (assembly == "hg38") {
+   organismStr <- "hsapiens"
+   hostMart <- "feb2014.archive.ensembl.org"
+}
 if (assembly == "mm9") {
    organismStr <- "mmusculus"
    hostMart <- "feb2014.archive.ensembl.org"

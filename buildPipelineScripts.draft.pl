@@ -297,11 +297,11 @@ my (%bowtieIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx);
 
 $bowtieIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38";
 $bwaIndex{"hg38"} = "$NGSbartom/anno/bwa_indexes/hg38.fa";
-$txIndex{"hg38"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_72.remap";
-$txdbfile{"hg38"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens72.txdb";
-$exonbed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_72/hg38.Ens_72.exons.bed";
-$gff{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_72/hg38.Ens_72.cuff.gtf";
-$rsemTx{"hg38"} = "$NGSbartom/anno/rsemTx/hg38.Ens_72";
+$txIndex{"hg38"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
+$txdbfile{"hg38"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens78.txdb";
+$exonbed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.exons.bed";
+$gff{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.gtf";
+$rsemTx{"hg38"} = "$NGSbartom/anno/rsemTx/hg38.Ens_78";
 
 $bowtieIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19";
 $bwaIndex{"hg19"} = "$NGSbartom/anno/bwa_indexes/hg19.fa";
@@ -810,29 +810,36 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		if ($genomeBAM == 1){
 		    print SH "\n# Run Tophat to align data for paired end data.\n";
 		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
-		} elsif ($genomeBAM == 0){
-		    if ($rsem == 1){ # AND runpaired = 1
-			print SH "\n# Align fastqs to transcriptome for RSEM\n";
-			print SH "module load bowtie\n";
-			print SH "export PATH=\$PATH:$NGSbartom/tools/RSEM-1.2.30/\n";
-			print SH "date\n";
-			print SH "\n# First prepare fastqs\n";
-			#		print SH "mkdir $outputDirectory/$project/fastq/\n";
-			$read1fastqs =~ s/\,/\ /g;
-			$read2fastqs =~ s/\,/\ /g;
-			my $strandstring = "";
-			#if ($stranded == 1) { $strandstring = "--strand-specific";}
-			if ($stranded == 1) { $strandstring = "--forward-prob 0";}
-			print SH "gzip -dc $read1fastqs | cat > $outputDirectory/$project/fastq/$sample.read1.fastq\n";
-			print SH "gzip -dc $read2fastqs | cat > $outputDirectory/$project/fastq/$sample.read2.fastq\n";
-			print SH "\n# Then calculate expression for $sample.\n";
-			
-			print SH "rsem-calculate-expression --paired-end $outputDirectory/$project/fastq/$sample.read1.fastq $outputDirectory/$project/fastq/$sample.read2.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring --estimate-rspd >& $outputDirectory/$project/bam/$sample.rsem.log\n";
-			print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n";
-			print SH "ls $outputDirectory/$project/fastq/$sample.read*.fastq\n";
-			print SH "rm $outputDirectory/$project/fastq/$sample.read1.fastq\n";
-			print SH "rm $outputDirectory/$project/fastq/$sample.read2.fastq\n";
-		    }
+		} 
+		if ($rsem == 1){ # AND runpaired = 1
+		    print SH "\n# Align fastqs to transcriptome for RSEM\n";
+		    print SH "module load bowtie\n";
+		    print SH "export PATH=\$PATH:$NGSbartom/tools/RSEM-1.2.30/\n";
+		    print SH "date\n";
+		    print SH "\n# First prepare fastqs\n";
+		    #		print SH "mkdir $outputDirectory/$project/fastq/\n";
+		    $read1fastqs =~ s/\,/\ /g;
+		    $read2fastqs =~ s/\,/\ /g;
+		    my $strandstring = "";
+		    #if ($stranded == 1) { $strandstring = "--strand-specific";}
+		    if ($stranded == 1) { $strandstring = "--forward-prob 0";}
+		    print SH "gunzip $read1fastqs\n";
+		    print SH "gunzip $read2fastqs\n";
+		    $read1fastqs =~ s/.gz//g;
+		    $read2fastqs =~ s/.gz//g;
+#		    print SH "echo $read1fastqs\n";
+#		    print SH "echo $read2fastqs\n";
+		    print SH "cat $read1fastqs > $outputDirectory/$project/fastq/$sample.read1.fastq\n";
+		    print SH "cat $read2fastqs > $outputDirectory/$project/fastq/$sample.read2.fastq\n";
+		    print SH "gzip $read1fastqs &\n";		    
+		    print SH "gzip $read2fastqs &\n";
+		    print SH "\n# Then calculate expression for $sample.\n";
+		    
+		    print SH "rsem-calculate-expression --paired-end $outputDirectory/$project/fastq/$sample.read1.fastq $outputDirectory/$project/fastq/$sample.read2.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring --estimate-rspd >& $outputDirectory/$project/bam/$sample.rsem.log\n";
+		    print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n";
+		    print SH "ls $outputDirectory/$project/fastq/$sample.read*.fastq\n";
+		    print SH "rm $outputDirectory/$project/fastq/$sample.read1.fastq\n";
+		    print SH "rm $outputDirectory/$project/fastq/$sample.read2.fastq\n";
 		}
 	    }
 	    print SH "date\n";
@@ -855,8 +862,8 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 #		if ($stranded == 1) { $strandstring = "--strand-specific";}
 		if ($stranded == 1) { $strandstring = "--forward-prob 0";}
 		#		print SH "gzip -dc $fastqstring | cat > $outputDirectory/$project/fastq/$sample.fastq\n";
-		print SH "gunzip -dc $fastqstring\n";
-		$fastqstring =~ "s/.gz$//g";
+		print SH "gunzip $fastqstring\n";
+		$fastqstring =~ s/.gz//g;
 		print SH "echo $fastqstring\n";
 		print SH "cat $fastqstring > $outputDirectory/$project/fastq/$sample.fastq\n";
 		print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
