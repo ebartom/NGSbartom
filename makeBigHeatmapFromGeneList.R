@@ -77,8 +77,8 @@ if((grepl('normCounts',countFile)) || (grepl('genomicMatrix',countFile)) ||
     counts<-allCounts
 }else {
     print("Skip first 5 columns of metadata")
-    counts<-allCounts[,6:(5+sampleNum)]
     sampleNum <- dim(allCounts)[2]-5
+    counts<-allCounts[,6:(5+sampleNum)]
 }
 #counts<-counts[,order(names(counts))]
 
@@ -105,14 +105,18 @@ if (assembly != "na"){
 #    hostMart<-"ensembl.org"
     hostMart <- "feb2014.archive.ensembl.org"
     listMarts(host=hostMart)
-#    dataset = paste(tolower(organismStr),"_gene_ensembl",sep="")
-    bm <- useMart("ENSEMBL_MART_ENSEMBL",host=hostMart)
+    dataset <- paste(tolower(organismStr),"_gene_ensembl",sep="")
+    dataset
+    bm <- useMart("ENSEMBL_MART_ENSEMBL",host=hostMart,dataset=dataset)
 #    bm <- useMart("ensembl")
-    ds <- listDatasets(bm)
-    ds <- ds[grep(organismStr,ds$dataset),]$dataset
-    print("Loading biomart")
-    bm <- useDataset(paste(ds), mart=bm)  
-    dataset = paste(tolower(organismStr),"gene_ensembl",sep="_")
+#    ds <- listDatasets(bm)
+#    print(ds)
+#    ds <- ds[grep(organismStr,ds$dataset),]$dataset
+#    print(ds)
+#    print("Loading biomart")
+#    bm <- useDataset(paste(ds), mart=bm)  
+#    dataset <- paste(tolower(organismStr),"gene_ensembl",sep="_")
+#    dataset
     anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_id','description'))
     print(row.names(gl.counts))
     iv <- match(row.names(gl.counts),anno$ensembl_gene_id)

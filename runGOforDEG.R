@@ -133,13 +133,15 @@ drawBarplot <- function(go, ontology, setName, setSize){
     go$Term.full <-factor(go$Term.full, levels=go[order(go$log.p), "Term.full"]) ## sort table by adjusted p-value
     ptitle <- paste(ontology, setName, setSize) ## plot title
     ptitle <- gsub("^.*/","",ptitle)
-    pfname <- paste(setName,ontology,"png",sep=".")## name of png file
+#    pfname <- paste(setName,ontology,"png",sep=".")## name of png file
+    pfname <- paste(setName,ontology,"pdf",sep=".")## name of pdf file
     if(nrow(go) < 20 ){
         toprange <- 1:nrow(go)
     }else{
         toprange <- 1:20
     }
-    png(filename=paste(pfname),height=600,width=700)
+    pdf(pfname)
+#    png(filename=paste(pfname),height=600,width=700)
     print({
     p <- ggplot(go[toprange,], aes(y=log.p, x=Term.full)) + ## ggplot barplot function
       geom_bar(stat="identity",fill="green") +

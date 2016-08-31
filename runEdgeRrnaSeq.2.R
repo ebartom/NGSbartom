@@ -6,12 +6,20 @@ countFile <-sub('--countFile=', '', args[grep('--countFile=', args)])
 numCores <- as.integer(sub('--numCores=', '', args[grep('--numCores=',args)]))
 comparisonFile <-sub('--comparisonFile=', '', args[grep('--comparisonFile=',args)])
 runMDS <-sub('--runMDS=', '',args[grep('--runMDS=',args)])
+filterOff <-sub('--filterOff=', '',args[grep('--filterOff=',args)])
 
 # If runMDS isn't specified, default is to run it.
 if (identical(runMDS,character(0))){
    runMDS<-1
 }
 
+# If filterOff isn't specified, default is to filter genes by counts.
+if (identical(filterOff,character(0))){
+    filterOff<-0
+} else {
+    print("Genes not being filtered for minimum number of counts.");
+}
+    
 # If comparison file isn't specified, default is to skip it.
 runComp<-1
 if (identical(comparisonFile,character(0))){
@@ -101,8 +109,11 @@ if (runMDS==1){
    print("Generating MDS plot.")
    newnames <- counts[,6:length(colnames(counts))]
    newnames <- gsub("\\.\\d+$","",newnames)
-   dge <- DGEList(countData[rowSums(cpm(countData)>1)>=2,]) #filter low counts & calc lib.sizes	
-#   dge <- DGEList(countData)      #filter low counts & calc lib.sizes
+   if(filterOff==0){
+       dge <- DGEList(countData[rowSums(cpm(countData)>1)>=2,]) #filter low counts & calc lib.sizes
+   } else {
+       dge <- DGEList(countData)      #calc lib.sizes
+   }
    dge <- calcNormFactors(dge)  #calcs normalization factors based on lib.size (RNA composition effect)
    dge <- estimateCommonDisp(dge,verbose=T)
    dge <- estimateTagwiseDisp(dge)
@@ -142,6 +153,7 @@ runEdgeR <- function(data,comparison){
     print (colnames(group1))
     print (colnames(group2))
     subdata <-cbind(group1,group2)
+#    print(head(subdata))
     setup<- c(rep("group1",each=length(group1)),rep("group2",each=length(group2)))
     print(setup)
     grp <- factor(setup)
@@ -149,7 +161,8 @@ runEdgeR <- function(data,comparison){
     design <- model.matrix(~grp)
     colnames(design)<-levels(grp)
     print(head(subdata))
-    dge <- DGEList(subdata[rowSums(cpm(subdata)>1)>=2,], group=grp) #filter low counts & calc lib.sizes	
+    dge <- DGEList(subdata[rowSums(cpm(subdata)>1)>=2,], group=grp) #filter low counts & calc lib.sizes
+#    dge <- DGEList(subdata, group=grp) #calc lib.sizes	
     dge <- calcNormFactors(dge)  #calcs normalization factors based on lib.size (RNA composition effect)
     dge <- estimateGLMCommonDisp(dge,design)  #Estimates a common negative binomial dispersion
     dge <- estimateGLMTrendedDisp(dge,design) #Estimates the abundance-dispersion trend by Cox-Reid approximate profile likelihood
@@ -158,9 +171,13 @@ runEdgeR <- function(data,comparison){
     lrt <- glmLRT(fit,coef="group2") 
     foo <- rownames(lrt$table)                #List of differentially expressed genes
     stopifnot(rownames(dge$counts)==rownames(geneData[foo,]))
-    RPKM <- rpkm(subdata[foo,],gene.length=geneData[foo,]$width)
-    stopifnot(rownames(lrt$table)==rownames(RPKM))
-    df <- cbind(as.data.frame(geneData[foo,]),RPKM,lrt$table,adj.p=p.adjust(lrt$table$PValue,method="BH"))
+#    RPKM <- rpkm(subdata[foo,],gene.length=geneData[foo,]$width)
+    CPM <- cpm(subdata)[foo,]
+    stopifnot(rownames(lrt$table)==rownames(CPM))
+#    df <- cbind(as.data.frame(geneData[foo,]),RPKM,lrt$table,adj.p=p.adjust(lrt$table$PValue,method="BH"))
+#    print(topTags(lrt))
+    # Changed RPKM to CPM on July 13, 2016
+    df <- cbind(as.data.frame(geneData[foo,]),CPM,lrt$table,adj.p=p.adjust(lrt$table$PValue,method="BH"))
     if (identical(method,"rsem")){
         iv <- match(rownames(df),anno$ensembl_transcript_id)
             df$gene <- anno[iv,'external_gene_id']

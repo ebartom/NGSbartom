@@ -43,11 +43,14 @@ geneLabels<- as.graphicsAnnot(deg[topOnePercent,"gene"])
 
 adjplabel <- gsub("^0\\.","",adjp)
 comparison <- gsub("\\.edgeR.txt$","",degFile)
-pngFile <- paste(comparison,adjplabel,"MAplot.png",sep=".")
-print(pngFile)
+#pngFile <- paste(comparison,adjplabel,"MAplot.png",sep=".")
+#print(pngFile)
+pdfFile <- paste(comparison,adjplabel,"MAplot.pdf",sep=".")
+print(pdfFile)
 comparison <- gsub("^.*/","",comparison)
 
-png(pngFile,height=500,width=500)
+#png(pngFile,height=500,width=500)
+pdf(pdfFile)
 par(mar=c(5.1,4.6,4.1,2.1))
 plot(deg$logCPM,deg$logFC
       ,col="grey87"

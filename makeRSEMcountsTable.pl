@@ -7,6 +7,10 @@ my $mode = $ARGV[3];
 my $outfile = "$outputDirectory/rsem.all.counts.txt";
 print STDERR "$outfile\n";
 open(OUT, ">$outfile");
+my ($outfile2);
+if ($mode eq "isoforms"){
+    $outfile2 = "$outputDirectory/rsem.all.isopct.txt";
+}
 open(IN, $gtfFile);
 my (%length,%info,%strands,%starts,%ends,%chr);
 while (my $line = <IN>) {
@@ -59,7 +63,7 @@ if ($mode eq "genes"){
 }
 close DIR;
 my $filecount = 0;
-my (%filename_hash,%gene_hash,%counts);
+my (%filename_hash,%gene_hash,%counts,%isopct);
 foreach my $file (@files) {
 	$filecount++;
 	print "$file\n";
@@ -74,6 +78,9 @@ foreach my $file (@files) {
 		my $counts = sprintf("%.0f",$line[5]);
 		$gene_hash{$gene} = 1;
 		$counts{$filename}{$gene} = $counts;
+		if ($mode eq "isoforms"){
+		    $isopct{$filename}{$gene} = $line[7];
+		}
 	}
 	close(IN);
 } 
@@ -95,4 +102,25 @@ foreach my $j (sort {$a cmp $b} keys %gene_hash) {
 	print OUT "\n";
 }
 close(OUT);
-	
+
+if ($mode eq "isoforms"){
+    open(OUT,">$outfile2");
+    print OUT "Chr\tStart\tEnd\tLength\tStrand";
+    foreach my $i (sort {$a cmp $b} keys %filename_hash) {
+	$i =~ s/-/\./g;
+	print OUT "\t$i";
+    }
+    print OUT "\n";
+    foreach my $j (sort {$a cmp $b} keys %gene_hash) {
+	if ($j eq '') {
+	    next;
+        }
+	print OUT "$j";
+	print OUT "\t$chr{$j}\t$starts{$j}\t$ends{$j}\t$length{$j}\t$strands{$j}";
+	foreach my $i (sort {$a cmp $b} keys %filename_hash) {
+	    print OUT "\t$isopct{$i}{$j}";
+	}
+	print OUT "\n";
+    }
+    close(OUT);
+}

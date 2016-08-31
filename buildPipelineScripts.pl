@@ -1131,7 +1131,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  	    print SH "date\n";
 	    print SH "# Index bam file and gather flagstats.\n";
  	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
-	    print SH "samtools flagstats $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
+	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
  	    print SH "date\n\n";
  	    if ($type eq "chipseq"){
  		if ($makeTracks == 1){

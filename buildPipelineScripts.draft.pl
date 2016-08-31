@@ -60,7 +60,8 @@ my $runPeakCaller = 0;
 my $buildDiffPeaks = 0;
 my $runDiffPeaks = 0;
 my $walltime = "24:00:00";
-my $account = "b1025";
+my $account = "b1042";
+my $queue = "genomics";
 my $node = "";
 my $scientist = "XXX";
 my $s3path = "";
@@ -95,6 +96,7 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'processors|p=i' => \$numProcessors,
 	   'walltime|w=s' => \$walltime,
 	   'account|acc=s' => \$account,
+	   'queue|q=s' => \$queue,
 	   'node|n=s' => \$node,
 	   's3path|s3=s' => \$s3path,
 	   'tophatMultiMap|tm=i' => \$tophatMultimap,
@@ -256,12 +258,16 @@ if (($type eq "RNA") && ($granges == 1) && ($bamDirectory eq "")) {
 my $header = "#!/bin/bash\n";
 #$header .= "#MSUB -l nodes=1:ppn=$numProcessors\n"; This is now specified within specific scripts, so bcl2fq can have 8 ppn
 $header .= "#MSUB -A $account\n";
+# Currently I think it only makes sense to specify queue if you are planning on either genomics or genomicsburst, in which case, account should be b1042.
+# If you disagree, let me know at ebartom@northwestern.edu 
+if ($account eq "b1042"){
+    $header .= "#MSUB -q $queue\n";
+}
 $header .= "#MSUB -l walltime=$walltime\n";
 $header .= "#MSUB -m a\n"; # only email user if job aborts
 #$header .= "#MSUB -m abe\n"; # email user if job aborts (a), begins (b) or ends (e)
 $header .= "#MSUB -j oe\n";
 $header .= "#MOAB -W umask=0113\n";
-#$header .= "#MSUB -q normal\n";
 if ($node ne ""){
     $header .= "#MSUB -l hostlist=$node\n";
 }
@@ -1259,7 +1265,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  	    print SH "date\n";
 	    print SH "# Index bam file and gather flagstats.\n";
  	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
-	    print SH "samtools flagstats $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
+	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
  	    print SH "date\n\n";
  	    if ($type eq "chipseq"){
  		if ($makeTracks == 1){
@@ -1603,6 +1609,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH "module unload mpi\n";
 		print BSH "module load python\n";
 		print BSH "module load bedtools/2.17.0\n";
+		print BSH "module load samtools\n";
 		print BSH "export PATH=$NGSbartom/tools/SICER_V1.1/SICER/:\$PATH\n";
 	    }
 	    open(CHIP,$chipDescription);
@@ -1831,6 +1838,8 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		print SH "#MSUB -N $peakset\_diffPeak\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		print SH "module load bedtools/2.17.0\n";
+		print SH "module load samtools\n";
+		print SH "module load R\n";
 		my @samples = uniq(split(/\,/,$peaksets{$peakset}));
 		print SH "\n# Samples for this peakset $peakset are @samples\n";
 		foreach my $sample (@samples){
@@ -1880,6 +1889,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		my @coveragefiles;
 		my @coveragefiles2;
 		my $tableHeader = "chr\tstart\tstop\tname";
+		system("sh $NGSbartom/tools/moduleLoadSamtools.sh");
 		foreach my $bamfile (@bamfiles){
 		    my $outputfile = "$outputDirectory\/$project\/peaks\/$peakset.".$filename{$bamfile}.".counts.bed";
 		    my $outputfile2 = "$outputDirectory\/$project\/peaks\/$peakset.".$filename{$bamfile}.".cpm.bed";
