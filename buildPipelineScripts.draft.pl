@@ -67,10 +67,10 @@ my $scientist = "XXX";
 my $s3path = "";
 my $fourCdescription = "";
 my $chipDescription = "";
-my $htseq = 0;
+my $htseq = 1;
 my $bedtools = 0;
 my $ngsplot = 0;
-my $granges = 1;
+my $granges = 0;
 my $rsem = 0;
 my $genomeBAM = 1;
 

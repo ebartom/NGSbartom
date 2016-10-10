@@ -162,11 +162,15 @@ runEdgeR <- function(data,comparison){
     colnames(design)<-levels(grp)
     print(head(subdata))
     dge <- DGEList(subdata[rowSums(cpm(subdata)>1)>=2,], group=grp) #filter low counts & calc lib.sizes
-#    dge <- DGEList(subdata, group=grp) #calc lib.sizes	
+                                        #    dge <- DGEList(subdata, group=grp) #calc lib.sizes
+    print("Effective library size for each sample in comparison")
+    print(dge$samples)
     dge <- calcNormFactors(dge)  #calcs normalization factors based on lib.size (RNA composition effect)
+    print("Normalization factors for each sample in comparison, estimated with TMM method.")
+    print(dge$samples)
     dge <- estimateGLMCommonDisp(dge,design)  #Estimates a common negative binomial dispersion
     dge <- estimateGLMTrendedDisp(dge,design) #Estimates the abundance-dispersion trend by Cox-Reid approximate profile likelihood
-    dge <- estimateGLMTagwiseDisp(dge,design) #Compute an empirical Bayes estimate of the negative binomial dispersion parameter for each transcript, with expre
+    dge <- estimateGLMTagwiseDisp(dge,design) #Compute an empirical Bayes estimate of the negative binomial dispersion parameter for each transcript, with expression
     fit <- glmFit(dge,design)    #Fit a negative binomial generalized log-linear model to counts
     lrt <- glmLRT(fit,coef="group2") 
     foo <- rownames(lrt$table)                #List of differentially expressed genes

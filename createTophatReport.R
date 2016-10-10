@@ -25,14 +25,14 @@ topHatReport <- function(topHatDir,nClus){
       counts <- c(unique=tt[as.numeric(names(tt))==1]/1e6,
                   multi.match=sum(tt[as.numeric(names(tt))>1])/1e6,
                   unmapped=countBam(unmapped.file)$records/1e6)
-c(sprintf("%0.1fM",c(sum(counts),counts)),sprintf("%0.1f%%",counts/sum(counts)*100))
+c(sprintf("%0.2f",c(sum(counts),counts)),sprintf("%0.2f%%",counts/sum(counts)*100))
     }
     counts <-t(data.frame(mclapply(topHat.mapped,getNumber,mc.cores=nClus,mc.preschedule=FALSE)))
     rownames(counts) <- sub(".+/","",dirname(topHat.mapped))
-    colnames(counts) <- c("total reads",
-                          "singly mapped",
-                          "multiply mapped",
-                          "unmapped",
+    colnames(counts) <- c("total reads (Mr)",
+                          "singly mapped (Mr)",
+                          "multiply mapped (Mr)",
+                          "unmapped (Mr)",
                           "singly mapped (%)",
                           "multiply mapped (%)",
                           "unmapped reads (%)")

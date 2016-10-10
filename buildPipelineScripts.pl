@@ -60,12 +60,19 @@ my $runPeakCaller = 0;
 my $buildDiffPeaks = 0;
 my $runDiffPeaks = 0;
 my $walltime = "24:00:00";
-my $account = "b1025";
+my $account = "b1042";
+my $queue = "genomics";
 my $node = "";
 my $scientist = "XXX";
 my $s3path = "";
 my $fourCdescription = "";
 my $chipDescription = "";
+my $htseq = 1;
+my $bedtools = 0;
+my $ngsplot = 0;
+my $granges = 0;
+my $rsem = 0;
+my $genomeBAM = 1;
 
 # S3path is not working properly right now for non-standard s3path values.  This needs fixing.
 
@@ -89,6 +96,7 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'processors|p=i' => \$numProcessors,
 	   'walltime|w=s' => \$walltime,
 	   'account|acc=s' => \$account,
+	   'queue|q=s' => \$queue,
 	   'node|n=s' => \$node,
 	   's3path|s3=s' => \$s3path,
 	   'tophatMultiMap|tm=i' => \$tophatMultimap,
@@ -111,7 +119,13 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'runDiffPeaks|rdp=i' => \$runDiffPeaks,
 	   'build4C|b4=i' => \$build4C,
 	   'run4C|r4=i' => \$run4C,
-	   'runBcl2fq|rb=i' => \$runBcl2fq
+	   'runBcl2fq|rb=i' => \$runBcl2fq,
+	   'htseq|h=i' => \$htseq,
+	   'bedtools|bt=i' => \$bedtools,
+	   'ngsplot|np=i' => \$ngsplot,
+	   'granges|ash=i' => \$granges,
+	   'rsem=i' => \$rsem,
+	   'genomeBAM|gb=i' => \$genomeBAM
     ) ;
 
 # if ($configFile){
@@ -233,6 +247,10 @@ if (($bamDirectory ne "") && ($fastqDirectory ne "")) {
 if (($bamDirectory ne "") && ($buildAlign == 1)){
     die "ERR:  Cannot align from BAM files!  Restart analysis with runAlign and buildAlign = 0\n";
 }
+if (($type eq "RNA") && ($granges == 1) && ($bamDirectory eq "")) {
+    print STDERR "Cannot run granges without bam file, so running genomic alignment.\n";
+    $genomeBAM = 1;
+}
 
 
 
@@ -240,12 +258,16 @@ if (($bamDirectory ne "") && ($buildAlign == 1)){
 my $header = "#!/bin/bash\n";
 #$header .= "#MSUB -l nodes=1:ppn=$numProcessors\n"; This is now specified within specific scripts, so bcl2fq can have 8 ppn
 $header .= "#MSUB -A $account\n";
+# Currently I think it only makes sense to specify queue if you are planning on either genomics or genomicsburst, in which case, account should be b1042.
+# If you disagree, let me know at ebartom@northwestern.edu 
+if ($account eq "b1042"){
+    $header .= "#MSUB -q $queue\n";
+}
 $header .= "#MSUB -l walltime=$walltime\n";
 $header .= "#MSUB -m a\n"; # only email user if job aborts
 #$header .= "#MSUB -m abe\n"; # email user if job aborts (a), begins (b) or ends (e)
 $header .= "#MSUB -j oe\n";
 $header .= "#MOAB -W umask=0113\n";
-#$header .= "#MSUB -q normal\n";
 if ($node ne ""){
     $header .= "#MSUB -l hostlist=$node\n";
 }
@@ -277,30 +299,57 @@ if ($run4C){ print STDERR "Will run scripts for analyzing 4C data.\n";}
 print STDERR "=====================================\n";
 
 # Define references.
-my (%bowtieIndex,%txIndex,%txdbfile,%bwaIndex);
+my (%bowtieIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx);
+
+$bowtieIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38";
+$bwaIndex{"hg38"} = "$NGSbartom/anno/bwa_indexes/hg38.fa";
+$txIndex{"hg38"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
+$txdbfile{"hg38"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens78.txdb";
+$exonbed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.exons.bed";
+$gff{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.gtf";
+$rsemTx{"hg38"} = "$NGSbartom/anno/rsemTx/hg38.Ens_78";
+
 $bowtieIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19";
 $bwaIndex{"hg19"} = "$NGSbartom/anno/bwa_indexes/hg19.fa";
 $txIndex{"hg19"} ="$NGSbartom/anno/tophat_tx/hg19.Ens_72.remap";
 $txdbfile{"hg19"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens72.txdb";
+$exonbed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.exons.bed";
+$gff{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.cuff.gtf";
+$rsemTx{"hg19"} = "$NGSbartom/anno/rsemTx/hg19.Ens_72";
+
 $bowtieIndex{"dm3"} = "$NGSbartom/anno/bowtie_indexes/dm3";
 $bwaIndex{"dm3"} = "$NGSbartom/anno/bwa_indexes/dm3.fa";
 $txIndex{"dm3"} = "$NGSbartom/anno/tophat_tx/dm3.Ens_74.cuff";
 $txdbfile{"dm3"} = "$NGSbartom/anno/Txdb/dmelanogaster_gene_ensembl_Ens74.txdb";
+$exonbed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.exons.bed";
+$gff{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.cuff.gtf";
+$rsemTx{"dm3"} = "$NGSbartom/anno/rsemTx/dm3.Ens_74";
+
 $bowtieIndex{"mm10"} = "$NGSbartom/anno/bowtie_indexes/mm10";
 $bwaIndex{"mm10"} = "$NGSbartom/anno/bwa_indexes/mm10.fa";
 $txIndex{"mm10"} = "$NGSbartom/anno/tophat_tx/mm10.Ens_78.cuff";
 $txdbfile{"mm10"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens78.txdb";
+$exonbed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.exons.bed";
+$gff{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.cuff.gtf";
+$rsemTx{"mm10"} = "$NGSbartom/anno/rsemTx/mm10.Ens_78";
+
 $bowtieIndex{"mm9"} = "$NGSbartom/anno/bowtie_indexes/mm9";
 $bwaIndex{"mm9"} = "$NGSbartom/anno/bwa_indexes/mm9.fa";
 $txIndex{"mm9"} = "$NGSbartom/anno/tophat_tx/mm9.Ens_67.remap";
 $txdbfile{"mm9"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens67.txdb";
+$exonbed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.exons.bed";
+$gff{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.cuff.gtf";
+$rsemTx{"mm9"} = "$NGSbartom/anno/rsemTx/mm9.Ens_67";
+
 $bowtieIndex{"sacCer3"} = "$NGSbartom/anno/bowtie_indexes/sacCer3";
 $bwaIndex{"sacCer3"} = "$NGSbartom/anno/bwa_indexes/sacCer3.fa";
 $txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_72.remap";
 #$txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens72.txdb";
 #$txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_78.remap";
 $txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens78.txdb";
-
+$exonbed{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.exons.bed";
+$gff{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.cuff.gtf";
+$rsemTx{"sacCer3"} = "$NGSbartom/anno/rsemTx/sacCer3.Ens_72";
 
 if (-d "$outputDirectory") {
     print STDERR "Output Directory found.\n";
@@ -729,9 +778,11 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		$fastqs{$sample} =~ s/\s/\,/g;
 #		&datePrint("New fastqs for sample $sample are @newfastqs, and $fastqs{$sample}");
 	    }
-	    print SH "\n# Run Tophat to align data.\n";
-	    if ($runPairedEnd == 0){
-		print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+	    if ($runPairedEnd == 0){			   
+		if ($genomeBAM == 1){
+		    print SH "\n# Run Tophat to align data for single end data.\n";
+		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		}
 	    } elsif ($runPairedEnd == 1){
 		my @read1fastqs;
 		my @read2fastqs;
@@ -762,7 +813,40 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		}
 		$read1fastqs =~ s/\ /,/g;
 		$read2fastqs =~ s/\ /,/g;
-		print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		if ($genomeBAM == 1){
+		    print SH "\n# Run Tophat to align data for paired end data.\n";
+		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		} 
+		if ($rsem == 1){ # AND runpaired = 1
+		    print SH "\n# Align fastqs to transcriptome for RSEM\n";
+		    print SH "module load bowtie\n";
+		    print SH "export PATH=\$PATH:$NGSbartom/tools/RSEM-1.2.30/\n";
+		    print SH "date\n";
+		    print SH "\n# First prepare fastqs\n";
+		    #		print SH "mkdir $outputDirectory/$project/fastq/\n";
+		    $read1fastqs =~ s/\,/\ /g;
+		    $read2fastqs =~ s/\,/\ /g;
+		    my $strandstring = "";
+		    #if ($stranded == 1) { $strandstring = "--strand-specific";}
+		    if ($stranded == 1) { $strandstring = "--forward-prob 0";}
+		    print SH "gunzip $read1fastqs\n";
+		    print SH "gunzip $read2fastqs\n";
+		    $read1fastqs =~ s/.gz//g;
+		    $read2fastqs =~ s/.gz//g;
+#		    print SH "echo $read1fastqs\n";
+#		    print SH "echo $read2fastqs\n";
+		    print SH "cat $read1fastqs > $outputDirectory/$project/fastq/$sample.read1.fastq\n";
+		    print SH "cat $read2fastqs > $outputDirectory/$project/fastq/$sample.read2.fastq\n";
+		    print SH "gzip $read1fastqs &\n";		    
+		    print SH "gzip $read2fastqs &\n";
+		    print SH "\n# Then calculate expression for $sample.\n";
+		    
+		    print SH "rsem-calculate-expression --paired-end $outputDirectory/$project/fastq/$sample.read1.fastq $outputDirectory/$project/fastq/$sample.read2.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring --estimate-rspd >& $outputDirectory/$project/bam/$sample.rsem.log\n";
+		    print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n";
+		    print SH "ls $outputDirectory/$project/fastq/$sample.read*.fastq\n";
+		    print SH "rm $outputDirectory/$project/fastq/$sample.read1.fastq\n";
+		    print SH "rm $outputDirectory/$project/fastq/$sample.read2.fastq\n";
+		}
 	    }
 	    print SH "date\n";
 	    print SH "\nrsync -av \$TMPDIR\/$sample/* $outputDirectory\/$project\/Tophat_aln\/$sample/\n";
@@ -771,6 +855,56 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 	    print SH "ln -s $outputDirectory\/$project\/Tophat_aln\/$sample\/accepted_hits.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "date\n";
 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    if (($rsem == 1)&& ($runPairedEnd == 0)){
+		print SH "\n# Align fastqs to transcriptome for RSEM\n";
+		print SH "module load bowtie\n";
+		print SH "export PATH=\$PATH:$NGSbartom/tools/RSEM-1.2.30/\n";
+		print SH "date\n";
+		print SH "\n# First prepare fastqs\n";
+#		print SH "mkdir $outputDirectory/$project/fastq/\n";
+		my $fastqstring = $fastqs{$sample};
+		$fastqstring =~ s/\,/ /g;
+		my $strandstring = "";
+#		if ($stranded == 1) { $strandstring = "--strand-specific";}
+		if ($stranded == 1) { $strandstring = "--forward-prob 0";}
+		#		print SH "gzip -dc $fastqstring | cat > $outputDirectory/$project/fastq/$sample.fastq\n";
+		print SH "gunzip $fastqstring\n";
+		$fastqstring =~ s/.gz//g;
+		print SH "echo $fastqstring\n";
+		print SH "cat $fastqstring > $outputDirectory/$project/fastq/$sample.fastq\n";
+		print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
+		print SH "gzip $fastqstring &\n";
+		print SH "\n# Then calculate expression for $sample.\n";        
+		print SH "rsem-calculate-expression $outputDirectory/$project/fastq/$sample.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring >& $outputDirectory/$project/bam/$sample.rsem.log\n";
+		print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n";
+		print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
+		print SH "# rm $outputDirectory/$project/fastq/$sample.fastq\n";		
+	    }
+	    if ($htseq == 1) {
+	    	print SH "module unload mpi\n";
+	    	print SH "module load python/anaconda\n";
+		print SH "\n# Run htseq-count for $sample\n";
+		if ($stranded == 1){
+		    print SH "htseq-count -f bam -q -m intersection-nonempty -s reverse -t exon -i gene_id $outputDirectory\/$project\/bam\/$sample.bam $gff{$reference{$sample}} > $outputDirectory\/$project\/bam\/$sample.htseq.counts\n";
+		} elsif ($stranded == 0){
+		    print SH "htseq-count -f bam -q -m intersection-nonempty -s no -t exon -i gene_id $outputDirectory\/$project\/bam\/$sample.bam $gff{$reference{$sample}} > $outputDirectory\/$project\/bam\/$sample.htseq.counts\n";
+		}
+	    	print SH "\nmodule unload python/anaconda\n";
+	    	print SH "module load gcc/4.8.3\n";
+	    }
+	    if ($bedtools == 1) {
+		print SH "module load bedtools/2.17.0\n";
+		print SH "\n# Run bedtools for $sample\n";
+	    	print SH "bedtools bamtobed -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bed\n";
+		if ($stranded == 1){
+		    print SH "bedtools intersect -a $exonbed{$reference{$sample}} -b $outputDirectory\/$project\/bam\/$sample.bed -c -S > $outputDirectory\/$project\/bam\/$sample.bedtools.counts\n";
+		} elsif ($stranded == 0) {
+		    print SH "bedtools intersect -a $exonbed{$reference{$sample}} -b $outputDirectory\/$project\/bam\/$sample.bed -c > $outputDirectory\/$project\/bam\/$sample.bedtools.counts\n";
+		}
+		print SH "\n# Clean up bed files.\n";
+	    	print SH "rm $outputDirectory\/$project\/bam\/$sample.bed\n";
+	    	print SH "\nmodule unload bedtools/2.17.0\n";
+	    }
 	    print SH "date\n\n";
 #	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.flagstats.txt\n";
 	    #	    print SH "date\n";
@@ -929,7 +1063,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "# Move tracks into Shilatifard directory structure\n";
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
-			print SH "cp $outputDirectory\/$project\/bam\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
+			print SH "cp $bamDirectory\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
 			print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "# To load, paste the following url into the custom tracks field:\n";
@@ -940,7 +1074,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 		    }		
-		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
+		    print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
 		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
 		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
@@ -978,12 +1112,12 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "\n# Move tracks into Shilatifard directory structure\n";
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
-			print SH "cp $outputDirectory\/$project\/bam\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
+			print SH "cp $bamDirectory\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 		    }		
-		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
+		    print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Make header files for tracks.\n";
 		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
 		    print SH "date\n\n";
@@ -1266,6 +1400,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 
 if ($buildEdgeR ==1) {
     foreach my $project (keys(%samples)){
+	my @countsfiles;
 	open (SH, ">$outputDirectory/$project/scripts/downstreamRNAanalysis.sh");
 	print SH $header;
 	print SH "#MSUB -N downstreamRNAanalysis\n";
@@ -1274,13 +1409,79 @@ if ($buildEdgeR ==1) {
 	if ($type eq "RNA"){
 	    if ($startFromBAM == 1){
 		# If the bam directory was specified in the input (no base space directory or fastq directory)
+		if ($htseq == 1 || $bedtools == 1) {
+		    my @samples = uniq(split(/\,/,$samples{$project}));
+		    # Foreach sample within the project:		    
+		    if ($htseq == 1) {
+		    	print SH "module unload mpi\n";
+	    		print SH "module load python/anaconda\n";
+	    		my $htseq_sample_count = 0;
+			print SH "\n# Launch up to $numProcessors htseq jobs\n";
+	    		foreach my $sample (@samples){
+			    if ($stranded == 1){
+				print SH "htseq-count -f bam -q -m intersection-nonempty -s reverse -t exon -i gene_id $bamDirectory\/$sample.bam $gff{$reference{$sample}} > $bamDirectory\/$sample.htseq.counts &\n";
+			    } elsif ($stranded == 0){
+				print SH "htseq-count -f bam -q -m intersection-nonempty -s no -t exon -i gene_id $bamDirectory\/$sample.bam $gff{$reference{$sample}} > $bamDirectory\/$sample.htseq.counts &\n";
+			    }
+			    $htseq_sample_count++;
+			    if ($htseq_sample_count % $numProcessors == 0) {
+				print SH "\n# Wait for htseq jobs to finish, then start more.\n";
+				print SH "wait\n";
+			    }
+	    		}
+	    		if ($htseq_sample_count % $numProcessors > 0) {
+			    print SH "wait\n";
+			}    			
+	    		print SH "module unload python/anaconda\n";
+	    		print SH "module load gcc/4.8.3\n";
+		    }
+		    if ($bedtools == 1) {
+	    		print SH "module load bedtools/2.17.0\n";
+	    		my $bedtools_sample_count = 0;
+			print SH "\n# Launch up to $numProcessors bamtobed jobs\n";
+	    		foreach my $sample (@samples){
+			    print SH "bedtools bamtobed -i $bamDirectory\/$sample.bam > $bamDirectory\/$sample.bed &\n";
+			    $bedtools_sample_count++;
+			    if ($bedtools_sample_count % $numProcessors == 0) {
+				print SH "\n# Wait for bedtools jobs to finish.\n";
+				print SH "wait\n";
+			    }
+	    		}
+	    		if ($bedtools_sample_count % $numProcessors > 0) {
+			    print SH "\n# Wait for bedtools jobs to finish, then start more.\n";
+			    print SH "wait\n";
+	    		}
+	    		my $bedtools_sample_count2 = 0;
+			print SH "\n# Launch up to $numProcessors bedtools intersect jobs\n";
+	    		foreach my $sample (@samples){
+			    if ($stranded == 1){
+				print SH "bedtools intersect -a $exonbed{$reference{$sample}} -b $bamDirectory\/$sample.bed -c -S > $bamDirectory\/$sample.bedtools.counts &\n";
+			    } elsif ($stranded == 0) {
+				print SH "bedtools intersect -a $exonbed{$reference{$sample}} -b $bamDirectory\/$sample.bed -c > $bamDirectory\/$sample.bedtools.counts &\n";
+			    }
+			    $bedtools_sample_count2++;
+			    if ($bedtools_sample_count2 % $numProcessors == 0) {
+				print SH "wait\n\n";
+			    }
+	    		}
+	    		if ($bedtools_sample_count2 % $numProcessors > 0) {
+			    print SH "wait\n\n";
+	    		}
+			print SH "\n# Clean up bed files.\n";
+	    		foreach my $sample (@samples){
+			    print SH "rm $bamDirectory\/$sample.bed\n";
+	    		}
+	    		print SH "\nmodule unload bedtools/2.17.0\n";
+		    }
+		}
+		print SH "module load R\n";	       				
 		if ($makeTracks == 1){
 		    my @samples = uniq(split(/\,/,$samples{$project}));
 		    # Foreach sample within the project:
 		    foreach my $sample (@samples){
 		    # if the user wants tracks, put that in the downstream analysis script.
 			print SH "# Create RNA seq Tracks\n";
-			print SH "Rscript $NGSbartom/tools/createRNAseqTracks.R --assembly=$reference{$sample} --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample\n";
+			print SH "Rscript $NGSbartom/tools/createRNAseqTracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory\/ --sample=$sample\n";
 			print SH "date\n\n";
 			print SH "mkdir $outputDirectory\/$project\/tracks\n";
 			print SH "\n# Make Headers for UCSC genome browser.\n";
@@ -1291,60 +1492,90 @@ if ($buildEdgeR ==1) {
 			    print SH "# Move tracks into Shilatifard directory structure.\n";
 			    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 			    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
-			    print SH "cp $outputDirectory\/$project\/bam\/$sample.minus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
-			    print SH "cp $outputDirectory\/$project\/bam\/$sample.plus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+			    print SH "cp $bamDirectory\/$sample.minus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+			    print SH "cp $bamDirectory\/$sample.plus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
 			    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";			
 			} else {
-			    print SH "mv $outputDirectory\/$project\/bam\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
-			    print SH "mv $outputDirectory\/$project\/bam\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
+			    print SH "mv $bamDirectory\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
+			    print SH "mv $bamDirectory\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
 			}
 		    }
 		}
 	    } else { $bamDirectory = "$outputDirectory\/$project\/bam\/";}
 	    print SH "\n# Make Analysis directory for all analysis files.\n";
 	    print SH "mkdir $outputDirectory\/$project\/analysis\n";
-	    print SH "\n# Make counts table for downstream analysis.\n";
-#	    print SH "Rscript $NGSbartom/tools/createRNAcounts.R --assembly=$reference{$project} --bamDir=$bamDirectory --numCores=$numProcessors\n";
-	    print SH "Rscript $NGSbartom/tools/createRNAcounts2.R --assembly=$reference{$project} --bamDir=$bamDirectory --numCores=$numProcessors --txdbfile=$txdbfile{$reference{$project}}\n";
-	    print SH "date\n";
-	    if ($comparisons ne ""){
-		print SH "\n# Run EdgeR, using comparisons file, without MDS plot (which sometimes crashes).\n";
-		print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.R --assembly=$reference{$project} --gnModelFile=$bamDirectory\/gnModel.rda --countFile=$bamDirectory\/counts.rda --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0\n";
-		print SH "\n# Run EdgeR, creating MDS plot, but not running comparisons.\n";
-		print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.R --assembly=$reference{$project} --gnModelFile=$bamDirectory\/gnModel.rda --countFile=$bamDirectory\/counts.rda --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=1\n";
+	    my @methods;
+	    if ($granges == 1){
+		push (@methods,"granges");
+		print SH "\n# Make granges counts table for downstream analysis.\n";
+		print SH "Rscript $NGSbartom/tools/createRNAcounts2.R --assembly=$reference{$project} --bamDir=$bamDirectory --numCores=$numProcessors --txdbfile=$txdbfile{$reference{$project}}\n";
+		print SH "\n# Rename counts.txt files to specify counting method\n";
+		print SH "mv $bamDirectory/counts.txt $bamDirectory/granges.all.counts.txt\n";
+		print SH "mv $bamDirectory/counts.rda $bamDirectory/granges.all.counts.rda\n";
+		print SH "mv $bamDirectory/gnModel.txt $bamDirectory/granges.all.gnModel.txt\n";
+		print SH "mv $bamDirectory/gnModel.rda $bamDirectory/granges.all.gnModel.rda\n";
 		print SH "date\n";
-		print SH "\n# Create Correlation plot for all samples\n";
-		print SH "# This plot is still in development, so don't over-interpret.\n";
-		print SH "Rscript $NGSbartom/tools/makeCorrelationPlotAllSamples.R --countFile=$bamDirectory\/counts.rda --outputDirectory=$outputDirectory\/$project\/analysis\n";
+		push (@countsfiles,"$bamDirectory/granges.all.counts.txt");
+	    }
+	    if ($htseq == 1) {
+		push (@methods,"htseq");
+		print SH "\n# Make HTseq counts table.\n";
+	    	print SH "perl $NGSbartom/tools/makeHTseqCountsTable.pl $bamDirectory\/ $gff{$reference{$project}} $bamDirectory\/\n";
+		push (@countsfiles,"$bamDirectory/htseq.all.counts.txt");
+	    }
+	    if ($rsem == 1) {
+		push (@methods,"rsem");
+		print SH "\n# Make RSEM counts table.\n";
+	    	print SH "perl $NGSbartom/tools/makeRSEMcountsTable.pl $bamDirectory\/ $gff{$reference{$project}} $bamDirectory\/ isoforms\n";
+		push (@countsfiles,"$bamDirectory/rsem.all.counts.txt");
+	    }
+	    if ($bedtools == 1) {
+		push (@methods,"bedtools");
+		print SH "\n# Make Bedtools counts table.\n";
+	    	print SH "perl $NGSbartom/tools/makeBEDtoolsCountsTable.pl $bamDirectory\/ $bamDirectory\/\n";
+		push (@countsfiles,"$bamDirectory/htseq.all.counts.txt");
+	    }
+	    if ($comparisons ne ""){
+		foreach my $method (@methods){
+		    print SH "\n# Run EdgeR, using comparisons file, without MDS plot (which sometimes crashes), $method.\n";
+		    print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0\n";
+		    print SH "\n# Run EdgeR, creating MDS plot, but not running comparisons, $method.\n";
+		    print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=1\n";
+		    print SH "date\n";
+		    if ($method eq "granges"){
+			print SH "\n# Create Correlation plot for all samples\n";
+			print SH "# This plot is still in development, so don't over-interpret, $method.\n";
+			print SH "Rscript $NGSbartom/tools/makeCorrelationPlotAllSamples.R --countFile=$bamDirectory\/$method.all.counts.rda --outputDirectory=$outputDirectory\/$project\/analysis\n";
+		    }
+		}
 		print SH "date\n";
 		open(CMP,$comparisons);
 		while(<CMP>){
 		    chomp $_;
 		    my ($comp,@groups) = split(/\,/,$_);
 		    if ("@groups" =~ /^[1\-0\s]+/){
-			print SH "\n# Create MA plot for comparison $comp\n";
-			print SH "Rscript $NGSbartom/tools/makeMAplot.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --labelTop=1\n";
-			print SH "date\n";
-# Turning off Heatmap creation (separated up and down) in favor of a the big heatmaps.
-#			print SH "\n# Create Heatmaps for comparison $comp\n";
-#			print SH "Rscript $NGSbartom/tools/makeHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01\n";
-#			print SH "date\n";
-			print SH "\n# Create Big Heatmaps for comparison $comp\n";
-#			print SH "Rscript $NGSbartom/tools/makeBigHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --countFile=$bamDirectory\/counts.rda\n";
-			print SH "Rscript $NGSbartom/tools/makeBigHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --countFile=$outputDirectory\/$project\/analysis\/allData.normCounts.txt\n";
-			print SH "date\n";
-			print SH "\n# Run GO analysis for comparison $comp\n";
-			print SH "Rscript $NGSbartom/tools/runGOforDEG.R --degFile=$outputDirectory\/$project\/analysis\/$comp.edgeR.txt --adjp=0.01 --assembly=$reference{$project}\n";
-			print SH "date\n";
+			foreach my $method (@methods){
+			    print SH "\n# Create MA plot for comparison $comp, method $method\n";
+			    print SH "Rscript $NGSbartom/tools/makeMAplot.R --degFile=$outputDirectory\/$project\/analysis\/$comp.$method.edgeR.txt --adjp=0.01 --labelTop=1\n";
+			    print SH "date\n";
+			    print SH "\n# Create Big Heatmaps for comparison $comp, method $method\n";
+			    print SH "Rscript $NGSbartom/tools/makeBigHeatmap.R --degFile=$outputDirectory\/$project\/analysis\/$comp.$method.edgeR.txt --adjp=0.01 --countFile=$outputDirectory\/$project\/analysis\/$method.normCounts.txt\n";
+			    print SH "date\n";
+			    print SH "\n# Run GO analysis for comparison $comp, method $method\n";
+			    print SH "Rscript $NGSbartom/tools/runGOforDEG.R --degFile=$outputDirectory\/$project\/analysis\/$comp.$method.edgeR.txt --adjp=0.01 --assembly=$reference{$project}\n";
+			    print SH "date\n";
+			}
 		    }
 		}
 		close(CMP);
 	    } else {
-		print SH "\n# Create MDS plot for samples.\n";
-		print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.R --assembly=$reference{$project} --gnModelFile=$bamDirectory\/gnModel.rda --countFile=$bamDirectory\/counts.rda --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis\n";
+		foreach my $method (@methods){
+		    print SH "\n# Create MDS plot for samples, with count method $method.\n";
+		    print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis\n";
+		}		
 	    }
 	    if ($runEdgeR == 1){
 		&datePrint("Submitting job for downstream RNA-seq analysis.");
@@ -1378,6 +1609,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH "module unload mpi\n";
 		print BSH "module load python\n";
 		print BSH "module load bedtools/2.17.0\n";
+		print BSH "module load samtools\n";
 		print BSH "export PATH=$NGSbartom/tools/SICER_V1.1/SICER/:\$PATH\n";
 	    }
 	    open(CHIP,$chipDescription);
@@ -1600,19 +1832,21 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 	    }
 	    close(CHIP);
 	    foreach my $peakset (keys(%peaksets)){
-		&datePrint("Set up differential peak analysis script.");
+		&datePrint("Set up differential peak analysis script for peakset $peakset.");
 		open (SH, ">$outputDirectory/$project/scripts/$peakset\_diffPeaks.sh");
 		print SH $header;
 		print SH "#MSUB -N $peakset\_diffPeak\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		print SH "module load bedtools/2.17.0\n";
-		my @samples = split(/\,/,$peaksets{$peakset});
+		print SH "module load samtools\n";
+		print SH "module load R\n";
+		my @samples = uniq(split(/\,/,$peaksets{$peakset}));
 		print SH "\n# Samples for this peakset $peakset are @samples\n";
 		foreach my $sample (@samples){
 		    $sample = $filename{$sample};
 		    my @replicates = split(/\,/,$replicates{$sample});
 		    if ($#replicates > 0){
-			&datePrint("Finding reproducible peaks for $sample in $replicates{$sample}");
+#			&datePrint("Finding reproducible peaks for $sample in $replicates{$sample}");
 			print SH "\n# Finding reproducible peaks for $sample\n";
 #			print SH "# bedtools multiinter is used, so that replicate numbers greater than 2 can be processed without problem.\n";
 #			print SH "# The problem with multiinter is that it takes only the part of the peak that overlaps in every file, and this isn't flexible.  May need to switch to bedtools intersect instead.\n";
@@ -1628,6 +1862,9 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 			}
 			print SH $intersectstring;
 			print SH "> $outputDirectory\/$project\/peaks\/$sample.bed\n";
+			print SH "# If peaks are close together (within 1 kb), merge them.\n";
+			print SH "sort -k1,1 -k2,2n $outputDirectory\/$project\/peaks\/$sample.bed > $outputDirectory\/$project\/peaks\/$sample.sorted.bed\n";
+			print SH "bedtools merge -d 1000 -i $outputDirectory\/$project\/peaks\/$sample.sorted.bed > $outputDirectory\/$project\/peaks\/$sample.clustered.bed\n";
 			print SH "date\n";
 		    } else {
 			print SH "\n# Only one replicate for sample $sample, so just creating links.\n";
@@ -1636,7 +1873,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		}
 		@samples = split(/\,/,$peaksets{$peakset});
 		if ($#samples > 0){
-		    &datePrint("Merging peak files for all samples in the same experimental peak set $peakset: @samples");
+#		    &datePrint("Merging peak files for all samples in the same experimental peak set $peakset: @samples");
 		    print SH "\n# Merging peak files for all samples in the same experimental peak set $peakset\n";
 		    print SH "cat @samples | \\\n\tbedtools sort -i - | bedtools merge -i - | \\\n\t";
 		    print SH "awk \'{printf \"\%s\\t\%d\\t\%d\\t\%s\_\%d\\t\%d\\n\", \$1,\$2,\$3,\"$peakset\",NR,1000}\' \\\n\t";		    
@@ -1647,22 +1884,25 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		    print SH "ln -s $peaksets{$peakset} $outputDirectory\/$project\/peaks\/$peakset.bed\n";
 		}
 		my @bamfiles = split(/\,/,$bamfiles{$peakset});
-#		print SH "\n# Calculate coverage for all samples corresponding to the peakset $peakset.\n";
-		&datePrint("Calculate coverage for all samples corresponding to the peakset $peakset.");		
+		print SH "\n# Calculate coverage for all samples corresponding to the peakset $peakset.\n";
+#		&datePrint("Calculate coverage for all samples corresponding to the peakset $peakset.");		
 		my @coveragefiles;
 		my @coveragefiles2;
 		my $tableHeader = "chr\tstart\tstop\tname";
+		system("sh $NGSbartom/tools/moduleLoadSamtools.sh");
 		foreach my $bamfile (@bamfiles){
 		    my $outputfile = "$outputDirectory\/$project\/peaks\/$peakset.".$filename{$bamfile}.".counts.bed";
-		    my $outputfile2 = "$outputDirectory\/$project\/peaks\/$peakset.".$filename{$bamfile}.".normCounts.bed";
+		    my $outputfile2 = "$outputDirectory\/$project\/peaks\/$peakset.".$filename{$bamfile}.".cpm.bed";
 		    print SH "\n# Calculate coverage for $peakset in $bamfile.\n";
 		    print SH "bedtools coverage -counts -abam $bamfile -b $outputDirectory\/$project\/peaks\/$peakset.bed | \\\n\t";
 		    print SH "awk \'{printf \"\%s\\t\%d\\t\%d\\t\%s\\t\%d\\n\", \$1,\$2,\$3,\$4,\$6}\' | \\\n\t";
 		    print SH "sort -k 1,1 -k2,2n > $outputfile\n";
 		    print SH "date\n";
+		    &datePrint("Checking for number of reads in $bamfile in order to calculate cpm.");
 		    my $readCount = `samtools flagstat $bamfile | grep \"+ 0 mapped\" | awk \'{print \$1}\'`;
 		    chomp $readCount;
 		    print SH "# Num Mapped Reads in $bamfile = $readCount\n";
+		    &datePrint("Num Mapped Reads in $bamfile = $readCount");
 		    print SH "# Calculate normalized read counts for $peakset in $bamfile.\n";
 		    print SH "bedtools coverage -counts -abam $bamfile -b $outputDirectory\/$project\/peaks\/$peakset.bed | \\\n\t";
 		    print SH "awk \'{printf \"\%s\\t\%d\\t\%d\\t\%s\\t\%5.3f\\n\", \$1,\$2,\$3,\$4,\(\(\$6*1000000\)/$readCount\)}\' | \\\n\t";
@@ -1672,75 +1912,67 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		    push (@coveragefiles,$outputfile);
 		    push (@coveragefiles2,$outputfile2);
 		}
-		if ($#bamfiles >= 1){
-		    my $joinstring = "join -j 4 -o 1.1,1.2,1.3,1.4,1.5,2.5 $coveragefiles[0] $coveragefiles[1] | \\\n\t";
-		    my $joinstring2 = "join -j 4 -o 1.1,1.2,1.3,1.4,1.5,2.5 $coveragefiles2[0] $coveragefiles2[1] | \\\n\t";
-		    my $fieldstring = ",1.5";
-		    print SH "\n# Join together counts from all of the bam files for peakset $peakset\n";
-		    foreach(my $i=2;$i<=$#coveragefiles;$i++){
-			$fieldstring .= ",1.".($i+4);
-			$joinstring .= "join -j 4 -o 1.1,1.2,1.3,1.4";
-			$joinstring .= $fieldstring;
-			$joinstring .= ",2.5 - $coveragefiles[$i] | \\\n\t";
-			$joinstring2 .= "join -j 4 -o 1.1,1.2,1.3,1.4";
-			$joinstring2 .= $fieldstring;
-			$joinstring2 .= ",2.5 - $coveragefiles2[$i] | \\\n\t";
-		    }
-		    $joinstring.= "perl -pe \"s/ /\\t/g\" >> $outputDirectory\/$project\/analysis\/$peakset.counts.txt";
-		    $joinstring2.= "perl -pe \"s/ /\\t/g\" >> $outputDirectory\/$project\/analysis\/$peakset.normCounts.txt";
-		    print SH "echo \"$tableHeader\" | cat > $outputDirectory\/$project\/analysis\/$peakset.counts.txt\n";
-		    print SH "$joinstring\n";
-		    print SH "\necho \"$tableHeader\" | cat > $outputDirectory\/$project\/analysis\/$peakset.normCounts.txt\n";
-		    print SH "$joinstring2\n";
-		    print SH "date\n";
+		print SH "\n# Join together counts from all of the bam files for peakset $peakset\n";
+		print SH "perl $NGSbartom\/tools\/makePeakCountsTable.pl $outputDirectory\/$project\/peaks\/ $outputDirectory\/$project\/analysis\/ $peakset\n";
+		print SH "\n# Generate MDS plot for peakset $peakset\n";
+		print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --outputDirectory=$outputDirectory\/$project\/analysis/ --countFile=$outputDirectory\/$project\/analysis\/$peakset.all.counts.txt --numCores=$numProcessors --runMDS=1\n";
+		&datePrint("Looking for $outputDirectory\/$project\/$peakset.comparisons.csv");
+		if (-e "$outputDirectory\/$project\/$peakset.comparisons.csv"){
+		    print SH "\n# Find Differential Peaks for peakset $peakset\n";
+		    print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --outputDirectory=$outputDirectory\/$project\/analysis/ --countFile=$outputDirectory\/$project\/analysis\/$peakset.all.counts.txt --numCores=$numProcessors --comparisonFile=$outputDirectory\/$project\/$peakset.comparisons.csv --runMDS=0\n";
+
+		    ## For each comparison, go through and output Bed file of significant peaks
+		} else {
+		    &datePrint("To find differentially expressed peaks in peakset $peakset, create a comparisons file at $outputDirectory\/$project\/$peakset.comparisons.csv")
 		}
-		close(SH);
-		print SH "\n# Find Differential Peaks for peakset $peakset\n";
-		# This should really be altered so that it only runs a given comparison with a given peakset if the sample is in both the peakset and the comparison.  Something to think on.
-		# Also, this will fail because you kind of need a different comparisons file for each peakset.
-		print SH "Rscript $NGSbartom/tools/runEdgeRgeneORpeak.R --assembly=$reference{$project} --outputDirectory=$outputDirectory\/$project\/analysis/ --txdbfile=$txdbfile{$reference{$project}} --countFile=$outputDirectory\/$project\/analysis\/$peakset.counts.txt --numCores=$numProcessors --comparisonFile=$comparisons --type=$type\n";
 		print SH "date\n";
+		close(SH);
+		if ($runDiffPeaks == 1){
+		    &datePrint("Starting job $outputDirectory/$project/scripts/$peakset\_diffPeaks.sh");
+		    `msub $outputDirectory/$project/scripts/$peakset\_diffPeaks.sh`;
+		}
 	    }
 	} else {
 	    die "ERR:  ChipDescription file must be provided which specifies which samples are replicates and which are in the same peakset.\n";
 	}   
     }
-    if ($runDiffPeaks ==1){
-	# Submit the diffPeak jobs, saving the job id.
-	## This will finish each project (TANGO) before starting the next.  Is this what we want?
-    	foreach my $project (keys(%samples)){
-	    &datePrint ("Starting diff peak scripts.");
-	    my $result = `find $outputDirectory/*/scripts/ -iname \"*diffPeaks.sh\" -exec msub {} ./ \\\;`;
-	    $result =~ s/\s+/\:/g;
-	    $result =~ s/^://;
-	    $result =~ s/:$//;
-	    &datePrint( "Need to wait for the following jobs to finish:\n$result");
-	    open (SH, ">$outputDirectory/$project/scripts/diffPeakDependentScript.sh");
-	    print SH $header;
-	    print SH "#MSUB -W depend=afterok:$result\n";
-	    print SH "#MSUB -N CheckingDiffPeakProgress\n";
-	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-	    print SH "\necho \"Peaking calling jobs $result have finished.\"\n";
-	    close SH;
-	    &datePrint("Creating dependent job that will only run after diff peak scripts finish.");
-	    my $result2 = `msub $outputDirectory/$project/scripts/diffPeakDependentScript.sh`;
-	    $result2 =~ s/\s+//g;
-	    my $jobfinished = "no";
-	    # Wait until the job is Complete.
-	    &datePrint("Waiting for job $result2 to finish. (each . = 30 seconds)");
-	    # Check qstat every 30 seconds, adding a "." every time you check.
-	    until ($jobfinished eq "Completed"){
-		$jobfinished = `checkjob $result2 | grep ^State:`;
-		sleep(30);
-		print STDERR ".";
-		if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
-		print STDERR "$jobfinished";
-	    }
-	    print STDERR "\n";
-	    &datePrint("Job $result2 done.  Continuing.");
-	}
-    }
+    # if ($runDiffPeaks ==1){
+    # 	# Submit the diffPeak jobs, saving the job id.
+    # 	## This will finish each project (TANGO) before starting the next.  Is this what we want?
+    # 	foreach my $project (keys(%samples)){
+    # 	    &datePrint ("Starting diff peak scripts.");
+    # 	    my $result = `find $outputDirectory/*/scripts/ -iname \"*diffPeaks.sh\" -exec msub {} ./ \\\;`;
+    # 	    $result =~ s/\s+/\:/g;
+    # 	    $result =~ s/^://;
+    # 	    $result =~ s/:$//;
+    # 	    &datePrint( "Need to wait for the following jobs to finish:\n$result");
+    # 	    open (SH, ">$outputDirectory/$project/scripts/diffPeakDependentScript.sh");
+    # 	    print SH $header;
+    # 	    print SH "#MSUB -W depend=afterok:$result\n";
+    # 	    print SH "#MSUB -N CheckingDiffPeakProgress\n";
+    # 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+    # 	    print SH "\necho \"Peaking calling jobs $result have finished.\"\n";
+    # 	    close SH;
+    # 	    &datePrint("Creating dependent job that will only run after diff peak scripts finish.");
+    # 	    my $result2 = `msub $outputDirectory/$project/scripts/diffPeakDependentScript.sh`;
+    # 	    $result2 =~ s/\s+//g;
+    # 	    my $jobfinished = "no";
+    # 	    # Wait until the job is Complete.
+    # 	    &datePrint("Waiting for job $result2 to finish. (each . = 30 seconds)");
+    # 	    # Check qstat every 30 seconds, adding a "." every time you check.
+    # 	    until ($jobfinished eq "Completed"){
+    # 		$jobfinished = `checkjob $result2 | grep ^State:`;
+    # 		sleep(30);
+    # 		print STDERR ".";
+    # 		if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+    # 		print STDERR "$jobfinished";
+    # 	    }
+    # 	    print STDERR "\n";
+    # 	    &datePrint("Job $result2 done.  Continuing.");
+    #}
+    #}
 }
+
 
 &datePrint("Finished.");
 
