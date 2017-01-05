@@ -40,26 +40,37 @@ hostMart <- ""
 if (assembly == "hg19") {
    organismStr <- "hsapiens"
    hostMart <- "feb2014.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id','go_id')
 }
 if (assembly == "hg38") {
    organismStr <- "hsapiens"
    hostMart <- "feb2014.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id','go_id')
 }
 if (assembly == "mm9") {
-   organismStr <- "mmusculus"
-   hostMart <- "feb2014.archive.ensembl.org"
+    organismStr <- "mmusculus"
+    hostMart <- "feb2014.archive.ensembl.org"
+    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id','go_id')
 }
 if (assembly == "mm10") {
+    organismStr <- "mmusculus"
+    hostMart <- "feb2014.archive.ensembl.org"
+    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id','go_id')
+}
+if (assembly == "grcm38") {
    organismStr <- "mmusculus"
-   hostMart <- "feb2014.archive.ensembl.org"
+   hostMart <- "dec2016.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_name','description','ensembl_transcript_id','go_id')
 }
 if (assembly == "sacCer3") {
    organismStr <- "scerevisiae"
    hostMart <- "feb2014.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id','go_id')
 }
 if (assembly == "dm3") {
    organismStr <- "dmelanogaster"
    hostMart <- "feb2014.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id','go_id')
 }
 organismStr
 
@@ -67,7 +78,8 @@ print("setting up ensembl")
 dataset = paste(organismStr,"_gene_ensembl",sep="")
 bm <- useMart("ENSEMBL_MART_ENSEMBL",host=hostMart,dataset=dataset)
 print("Retrieving GO information")
-EG2GO <- getBM(mart=bm, attributes=c('ensembl_gene_id','external_gene_id','go_id','ensembl_transcript_id'))
+EG2GO <- getBM(mart=bm, attributes=attributes)
+#c('ensembl_gene_id','external_gene_id','go_id','ensembl_transcript_id'))
 head(EG2GO)
 
 #listMarts(host=hostMart)

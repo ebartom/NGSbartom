@@ -15,8 +15,13 @@ up <- as.numeric(sub('--up=','',args[grep('--up=',args)]))
 down <- as.numeric(sub('--down=','',args[grep('--down=',args)]))
 geneList <-sub('--geneList=', '', args[grep('--geneList=', args)])
 bwfile <- sub('--bwfile=','',args[grep('--bwfile=',args)])
+keepOrder <- sub('--keepOrder=','',args[grep('--keepOrder=',args)])
 up
 down
+
+if (identical(keepOrder,character(0))){
+    keepOrder <- 0
+}
 
 print(assembly)
 
@@ -112,9 +117,27 @@ bed.df <- data.frame(seqnames=seqnames(geneTss),
                      ends=end(geneTss),
                      names=paste(geneTss$ensembl_gene_id,geneTss$tx_name,sep="."),
                      scores=c(rep(".", length(geneTss))),
-                     strands=strand(geneTss))
-bed.df <- bed.df[order(bed.df$seqnames,bed.df$start),]
+                     strands=strand(geneTss),
+                     ids=geneTss$ensembl_gene_id)
+if (keepOrder == 0){
+    bed.df <- bed.df[order(bed.df$seqnames,bed.df$start),]
+} else {
+    geneList.clean <- geneList[setequal(geneList$V1,bed.df$ids),]
+#    print(geneTss)
+    print("geneList before clean")
+    length(geneList)
+    print(geneList)
+    print("geneList after clean")
+    print(geneList.clean)
+    length(geneList.clean)
+    print(length(bed.df$ids))
+    print("bed before order")
+    print(bed.df$ids)
+    bed.df <- bed.df[order(match(bed.df$ids,geneList.clean)),]
+    print("bed after order")
+    print(bed.df$ids)
+}
 
-write.table(bed.df, file=paste(geneListFile,up,down,"tss.bed",sep="."), quote=F, sep="\t", row.names=F, col.names=F)
+write.table(bed.df[,1:6], file=paste(geneListFile,up,down,"tss.bed",sep="."), quote=F, sep="\t", row.names=F, col.names=F)
 
 

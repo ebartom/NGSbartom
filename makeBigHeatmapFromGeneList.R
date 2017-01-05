@@ -5,6 +5,7 @@ countFile<-sub('--countFile=','',args[grep('--countFile=',args)])
 assembly<-sub('--assembly=','',args[grep('--assembly=',args)])
 geneOrder<-sub('--geneOrder=','',args[grep('--geneOrder=',args)])
 clusterGenes<-sub('--clusterGenes=','',args[grep('--clusterGenes=',args)])
+clusterSamples<-sub('--clusterSamples=','',args[grep('--clusterSamples=',args)])
 outputCDT <- sub('--outputCDT=','',args[grep('--outputCDT=',args)])
 
 # This Rscript takes a list of interesting genes, and a matrix of gene
@@ -28,6 +29,9 @@ if (identical(geneOrder,character(0))){
 }
 if (identical(clusterGenes,character(0))){
     clusterGenes <- 1
+}
+if (identical(clusterSamples,character(0))){
+    clusterSamples <- 0
 }
 if (identical(outputCDT,character(0))){
     outputCDT <- 0
@@ -135,8 +139,10 @@ if (assembly != "na"){
 if (geneOrder != "na"){
     print(paste("Re-ordering samples according to expression of gene ",geneOrder,sep=""))
     gl.counts <- gl.counts[,order(gl.counts[geneOrder,])]
+    print( "Reordered matrix")
+    head(gl.counts)
 }
-#head(gl.counts)
+
 
 listName <- gsub("\\.geneList.txt$","",geneListFile)
 listName <- gsub("\\.txt$","",listName)
@@ -154,12 +160,25 @@ if(grepl('_at$',rownames(gl.counts))){
 listLabel <- gsub("^.*/","",listName)
 pdf(pdfFile)
 #heatmap.2(as.matrix(gl.counts),trace="none",dendrogram="col",scale="row",Rowv=FALSE,Colv=TRUE,labRow=row.names(gl.counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=listLabel,col=colorRampPalette(c("blue","white","red"))(75))
-if (clusterGenes == 1){
+if ((clusterGenes ==1 ) && (clusterSamples==1)){
+    print("Clustering genes and samples")
+    gl.cor<-(cor(t(gl.counts),use="pairwise.complete.obs",method="pearson"))
+    gl.cor.dist<-as.dist(1-gl.cor)
+    gl.tree<-hclust(gl.cor.dist,method='average')
+    gl.cor2<-(cor(gl.counts,use="pairwise.complete.obs",method="pearson"))
+    gl.cor2.dist<-as.dist(1-gl.cor2)
+    gl.tree2<-hclust(gl.cor2.dist,method='average')
+    heatmap.2(as.matrix(gl.counts),trace="none",dendrogram="both",scale="row",Rowv=as.dendrogram(gl.tree),Colv=as.dendrogram(gl.tree2),labRow=row.names(gl.counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=listLabel,col=colorRampPalette(c("blue","white","red"))(75))
+}
+if ((clusterGenes == 1) && (clusterSamples == 0)){
+        print("Clustering genes but not samples")
     gl.cor<-(cor(t(gl.counts),use="pairwise.complete.obs",method="pearson"))
     gl.cor.dist<-as.dist(1-gl.cor)
     gl.tree<-hclust(gl.cor.dist,method='average')
     heatmap.2(as.matrix(gl.counts),trace="none",dendrogram="row",scale="row",Rowv=as.dendrogram(gl.tree),Colv=NA,labRow=row.names(gl.counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=listLabel,col=colorRampPalette(c("blue","white","red"))(75))
-} else {
+}
+if ((clusterGenes == 0) && (clusterSamples == 0)){
+    print("Clustering neither genes nore samples")
     heatmap.2(as.matrix(gl.counts),trace="none",dendrogram="none",scale="row",Rowv=NA,Colv=NA,labRow=row.names(gl.counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=listLabel,col=colorRampPalette(c("blue","white","red"))(75))
 }
 dev.off()
@@ -167,6 +186,9 @@ if (clusterGenes == 1){
     gl.sorted <-gl.counts[rev(gl.tree$order),]
 } else {
     gl.sorted <- gl.counts
+}
+if (geneOrder != "NA"){
+    gl.sorted <- gl.sorted[,order(gl.sorted[geneOrder,])]
 }
 write.table(gl.sorted,paste(listName,"clustered.txt",sep="."),sep="\t")
 if(outputCDT == 1){

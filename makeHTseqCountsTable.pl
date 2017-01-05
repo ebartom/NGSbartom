@@ -19,11 +19,16 @@ while (my $line = <IN>) {
 		my $exon_length = $exon_end - $exon_start + 1;
 		my $strand = $line[6];
 		my $info = $line[8];
-		my @info = split(";", $info);
-		my $id = $info[0];
-		$id =~ s/"//g;
-		my @id = split(" ", $id);
-		my $gene = $id[1];
+		my $gene;
+#		my @info = split(";", $info);
+#		my $id = $info[0];
+#		$id =~ s/"//g;
+#		my @id = split(" ", $id);
+		#		my $gene = $id[1];
+		if ($info =~ /gene_id \"([\w\d\-\.\_\)\(]+)\"/){
+		    $gene = $1;
+		}
+#		print STDERR "$info\n$gene\n";
 		#print "$gene	$exon_length\n";
 		$length{$gene} += $exon_length;
 		$strands{$gene} = $strand;

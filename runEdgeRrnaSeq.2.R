@@ -56,26 +56,37 @@ hostMart <- ""
 if (assembly == "hg19") {
    organismStr <- "hsapiens"
    hostMart <- "feb2014.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
 }
 if (assembly == "hg38") {
    organismStr <- "hsapiens"
    hostMart <- "feb2014.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
 }
 if (assembly == "mm9") {
-   organismStr <- "mmusculus"
-   hostMart <- "feb2014.archive.ensembl.org"
+    organismStr <- "mmusculus"
+    hostMart <- "feb2014.archive.ensembl.org"
+    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
 }
 if (assembly == "mm10") {
+    organismStr <- "mmusculus"
+    hostMart <- "feb2014.archive.ensembl.org"
+    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
+}
+if (assembly == "grcm38") {
    organismStr <- "mmusculus"
-   hostMart <- "feb2014.archive.ensembl.org"
+   hostMart <- "dec2016.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_name','description','ensembl_transcript_id')
 }
 if (assembly == "sacCer3") {
    organismStr <- "scerevisiae"
    hostMart <- "feb2014.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
 }
 if (assembly == "dm3") {
    organismStr <- "dmelanogaster"
    hostMart <- "feb2014.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
 }
 organismStr
 
@@ -88,8 +99,10 @@ dataset
 
 print("Loading biomart")
 bm <- useDataset(paste(organismStr,"_gene_ensembl",sep=""), mart=bm)
-
-anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id'))
+#bm
+#listAttributes(bm)
+#anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id'))
+anno <- getBM(mart=bm, attributes=attributes)
 
 ##----------MDS plot--------------------#
 
@@ -110,6 +123,7 @@ if (runMDS==1){
    newnames <- counts[,6:length(colnames(counts))]
    newnames <- gsub("\\.\\d+$","",newnames)
    if(filterOff==0){
+#       countData <- na.omit(countData)
        dge <- DGEList(countData[rowSums(cpm(countData)>1)>=2,]) #filter low counts & calc lib.sizes
    } else {
        dge <- DGEList(countData)      #calc lib.sizes

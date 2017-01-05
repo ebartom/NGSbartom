@@ -1,6 +1,15 @@
 args <- commandArgs()
 
 countFile<-sub('--countFile=','',args[grep('--countFile=',args)])
+filterLowCounts <- sub('--filterLowCounts=','',args[grep('--filterLowCounts=',args)])
+clusterSamples<-sub('--clusterSamples=','',args[grep('--clusterSamples=',args)])
+
+if (identical(filterLowCounts,character(0))){
+    filterLowCounts <- 0
+}
+if (identical(clusterSamples,character(0))){
+    clusterSamples <- 0
+}
 
 library(gplots)
 library(edgeR)
@@ -24,8 +33,8 @@ if(grepl('txt',countFile)){
 
 if (grepl('counts.txt$',countFile)){
     print("Skip first 5 columns of metadata")
-    counts<-allCounts[,6:(5+sampleNum)]
     sampleNum <- dim(allCounts)[2]-5
+    counts<-allCounts[,6:(5+sampleNum)]
 } else {
     print("Keep all columns of data")
     sampleNum <- dim(allCounts)[2]
@@ -36,12 +45,17 @@ if (grepl('counts.txt$',countFile)){
 dim(counts)
 head(counts)
 
-#nonZero <- rowSums(counts) >= 1
-#lowCount <- rowSums(counts) < 2
-#sum(nonZero)
-#head(counts[lowCount,])
-#counts<-counts[nonZero,]
-#dim(counts)
+if (filterLowCounts == 1) {
+    print("Filtering out genes with low counts")
+    nonZero <- rowSums(counts) >= 1
+    notLowCount <- rowSums(counts) > 2
+    print(head(notLowCount))
+    print(sum(notLowCount))
+#    head(counts[lowCount,])
+    counts<-counts[notLowCount,]
+    dim(counts)
+}
+dim(counts)
 
 countFile <- gsub("\\.txt$","",countFile)
 pdfFile <- paste(countFile,"heatmap.pdf",sep=".")
@@ -51,7 +65,15 @@ combined.cor<-(cor(t(counts[,1:sampleNum]),use="pairwise.complete.obs",method="p
 combined.cor.dist<-as.dist(1-combined.cor)
 combined.tree<-hclust(combined.cor.dist,method='average')
 pdf(pdfFile)
-heatmap.2(as.matrix(counts[,1:sampleNum]),trace="none",dendrogram="row",scale="row",Rowv=as.dendrogram(combined.tree),Colv=NA,labRow=rownames(counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=countFile,col=colorRampPalette(c("blue","white","red"))(75))
+if (clusterSamples==1){
+    print("Clustering genes and samples")
+     cor2<-(cor(counts,use="pairwise.complete.obs",method="pearson"))
+    cor2.dist<-as.dist(1-cor2)
+    tree2<-hclust(cor2.dist,method='average')
+    heatmap.2(as.matrix(counts[1:sampleNum]),trace="none",dendrogram="both",scale="row",Rowv=as.dendrogram(combined.tree),Colv=as.dendrogram(tree2),labRow=rownames(counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=countFile,col=colorRampPalette(c("blue","white","red"))(75))
+} else {
+    heatmap.2(as.matrix(counts[,1:sampleNum]),trace="none",dendrogram="row",scale="row",Rowv=as.dendrogram(combined.tree),Colv=NA,labRow=rownames(counts),cexRow=1,colsep=0,rowsep=0,cexCol=1,margins=c(12,9),main=countFile,col=colorRampPalette(c("blue","white","red"))(75))
+}
 dev.off()
 combined.sorted <-counts[rev(combined.tree$order),]
 write.table(combined.sorted,paste(countFile,"clustered.txt",sep="."),sep="\t")
