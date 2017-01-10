@@ -7,7 +7,7 @@ use utf8;
 use warnings;
 #use Config::Abstract::Ini;
 
-unless (@ARGV) {
+unless (@ARGV) { 
     print "\nUsage: buildPipelineScripts.pl\n\n-config\t\t<configFile>\n-o\t\t<outputDirectory>\n-bs\t\t<baseSpaceDirectory>\n-f\t\t<fastqDirectory>\n";
     print "-bam\t\t<bamDirectory>\n-c\t\tcomparisons.csv file>\n-4C\t\t<4C description file>\n-chip\t\t<ChIP Description file>\n";
     print "-p\t\t<numProcessors>\n-m\t\t<multiMap (1 = allow multi map, 0 = not)>\n";
@@ -490,7 +490,11 @@ if (($sampleSheet ne "")){
 	    }
 	    # Store the assembly for the sample and project.
 	    $reference{$sample_name}=$assembly;
-	    $reference{$sample_project} = $assembly;
+	    $reference{$sample_project} = $assembly;	    
+#	    if ($assembly eq "hg38.mp") {
+#		$reference{$sample_name} = "hg38";
+#		$reference{$sample_project} = "hg38";
+#	    }
 	    $scientists{$sample_project} = $sample_plate;
 	    print "$sample_name\tREF1:$reference{$sample_name}\t$bowtieIndex{$assembly}\n";
 	    if ($type ne "4C"){
@@ -571,6 +575,7 @@ if (($sampleSheet ne "")){
 	    $project_name =~ s/.seqfiles//g;
 	}
 	$reference{$project_name}=$assembly;
+#	if ($reference{$project_name} eq "hg38.mp") { $reference{$project_name} = "hg38";}
 	&datePrint("Project name is $project_name");
 #	print STDERR "$project_name @fastqlist\n";
 	foreach my $fastq (@fastqlist){

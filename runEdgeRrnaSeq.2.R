@@ -63,6 +63,11 @@ if (assembly == "hg38") {
    hostMart <- "feb2014.archive.ensembl.org"
    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
 }
+if (assembly == "hg38.mp") {
+   organismStr <- "hsapiens"
+   hostMart <- "feb2014.archive.ensembl.org"
+   attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
+}
 if (assembly == "mm9") {
     organismStr <- "mmusculus"
     hostMart <- "feb2014.archive.ensembl.org"

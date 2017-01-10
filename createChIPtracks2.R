@@ -67,6 +67,7 @@ bam2bw <- function(BF,organism){
           print (length(bd))
       }      
       seqlevels(bd,force=TRUE) <- seqlevels(bd)[grep("_",seqlevels(bd), invert=TRUE)]
+      seqlevels(bd,force=TRUE) <- seqlevels(bd)[grep("EBV",seqlevels(bd), invert=TRUE)]
       cat("convert to GRanges\n")
       mygr <- as(bd,"GRanges")
       if (extLen > 0){

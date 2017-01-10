@@ -62,6 +62,8 @@ bam2bw <- function(BF,organism){
         bd <- bd[!values(bd)$NH > 1]
     }
     seqlevels(bd,force=TRUE) <- seqlevels(bd)[grep("_",seqlevels(bd), invert=TRUE)]
+    seqlevels(bd,force=TRUE) <- seqlevels(bd)[grep("EBV",seqlevels(bd), invert=TRUE)]
+    print(seqlevels(bd))
     cat("change the strand:", BF, sep="\n")
     strand(bd) <- ifelse(strand(bd) == '+', '-', '+')
     ## plus coverage

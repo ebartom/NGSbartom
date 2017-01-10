@@ -219,6 +219,9 @@ if (($runBcl2fq == 1) && ($buildBcl2fq == 0)){
 if (($runAlign == 1) && ($buildAlign == 0)){
     $buildAlign = 1;
 }
+if (($runGenotyping == 1) && ($buildGenotyping == 0)){
+    $buildGenotyping = 1;
+}
 if (($runEdgeR == 1) && ($buildEdgeR == 0)){
     $buildEdgeR = 1;
 }
@@ -936,7 +939,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 	    if ($htseq == 1) {
 	    	print SH "module unload mpi\n";
 	    	print SH "module load python/anaconda\n";
-		print SH "\n# Run htseq-count for $sample\n";
+		print SH "\n# Run htseq-count for $sample, stranded = $stranded\n";
 		if ($stranded == 1){
 		    print SH "htseq-count -f bam -q -m intersection-nonempty -s reverse -t exon -i gene_id $outputDirectory\/$project\/bam\/$sample.bam $gff{$reference{$sample}} > $outputDirectory\/$project\/bam\/$sample.htseq.counts\n";
 		} elsif ($stranded == 0){
@@ -982,7 +985,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 			print SH "echo \"track type=bigWig name=$sample.plus.bw description=$sample.plus.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.txt\n";
 			print SH "echo \"track type=bigWig name=$sample.minus.bw description=$sample.minus.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.txt\n";
 		    } elsif ($multiMap == 1){
-			print SH "echo \"track type=bigWig name=$sample.plus.multi.bw description=$sample.plus.multi.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.multi.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.plus.multi.bw description=$sample.plus.multi.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.multi.txt\n";
 			print SH "echo \"track type=bigWig name=$sample.minus.multi.bw description=$sample.minus.multi.rpm maxHeightPixels=128:60:11 graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.multi.txt\n";
 		    }
 		} else {
@@ -1145,7 +1148,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    print SH "# Make ChIPseq tracks.\n";
 		    # The multi mapping argument is not used right now.
 		    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
-		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
+		    my $assembly = $reference{$sample};
+		    if ($assembly eq "hg38.mp"){ $assembly = "hg38";}
+		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
 		    print SH "date\n\n";
 		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
 		    if ($uploadASHtracks == 1){
@@ -1201,7 +1206,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			    print SH "\n# Make 4C tracks.\n";
 			    # The multi mapping argument is not used right now.
 			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
-			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
+			    my $assembly = $reference{$sample};
+			    if ($assembly eq "hg38.mp"){$assembly = "hg38";}
+			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
 			    print SH "mv $bamDirectory\/$sample.noVP.bw $bamDirectory\/$sample.bw\n";
 			    print SH "date\n";
 			}
@@ -1209,7 +1216,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "\n# Make 4C tracks.\n";
 			# The multi mapping argument is not used right now.
 			# This is because Bowtie doesn't fill in the NH tag in the BAM file.
-			print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=0\n";
+			my $assembly = $reference{$sample};
+			if ($assembly eq "hg38.mp"){$assembly = "hg38";}
+			print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample --extLen=0\n";
 		    }
 		    print SH "date\n\n";
 		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
@@ -1377,7 +1386,9 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  		    print SH "# Make ChIPseq tracks.\n";
  		    # The multi mapping argument is not used right now.
  		    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
- 		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
+		    my $assembly = $reference{$sample};
+		    if ($assembly eq "hg38.mp"){$assembly = "hg38";}
+ 		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
  		    print SH "date\n\n";
  		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
  		    if ($uploadASHtracks == 1){
@@ -1432,7 +1443,9 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			    print SH "\n# Make 4C tracks.\n";
  			    # The multi mapping argument is not used right now.
  			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
- 			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
+			    my $assembly = $reference{$sample};
+			    if ($assembly eq "hg38.mp"){$assembly = "hg38";}
+ 			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
  			    print SH "mv $bamDirectory\/$sample.noVP.bw $bamDirectory\/$sample.bw\n";
  			    print SH "date\n";
  			}
