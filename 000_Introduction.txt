@@ -1,4 +1,4 @@
-Ceto
+Introduction to Ceto
 
 Please see also the accompanying diagram CetoDiagram2.png.
 

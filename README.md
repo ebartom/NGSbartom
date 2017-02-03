@@ -1,5 +1,3 @@
-# Ceto
-
 ![alt text](https://github.com/ebartom/NGSbartom/blob/master/CetoDiagram2.png "Ceto Diagram")
 
 Ceto is a modular system for analyzing next generation sequence (NGS) data.  Within Ceto are many R scripts and perl scripts (the Ceto Toolbox) which are shared in this directory.
