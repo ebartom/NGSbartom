@@ -831,19 +831,22 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		if ($genomeBAM == 1){
 		   
 		    print SH "\n# Run Tophat to align data for single end data.\n";
-		    if ($buildGenotyping == 1){
-			# If genotyping, add read groups.  These could be made more accurate.
+#		    if ($buildGenotyping == 1){
+#			# If genotyping, add read groups.  These could be made more accurate.
 			if ($rgString eq ""){
 			    $rgString = "--rg-sample $sample --rg-id $sample --rg-library $sample --rg-description $sample --rg-platform-unit nextseq --rg-center ASH --rg-platform nextseq";
 			}
-		    } 
-		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    print SH "# Adding Readgroups from rgstring $rgString\n";
+		    my $libraryType = "";
+		    if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";} 
+		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
 		}
 	    } elsif ($runPairedEnd == 1){
 		my @read1fastqs;
 		my @read2fastqs;
 		my @read3fastqs;
 		my @fastqs = split(/\,/,$fastqs{$sample});
+		print STDERR "All Fastqs for Sample $sample: \n@fastqs\n";
 		foreach my $fastq (@fastqs){
 #		    print STDERR "Looking for Read number in $fastq\n";
 		    if (($fastq =~ /\_R1\_?\.?/)  ){
@@ -864,6 +867,9 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		my $read1fastqs = "@read1fastqs";
 		my $read2fastqs = "@read2fastqs";
 		my $read3fastqs = "@read3fastqs";
+		print STDERR "Read1fastqs: $read1fastqs\n";
+		print STDERR "Read2fastqs: $read2fastqs\n";
+		print STDERR "Read3fastqs: $read3fastqs\n";
 		if (length($read3fastqs)>length($read2fastqs)){
 		    $read2fastqs = $read3fastqs;
 		}
@@ -871,7 +877,13 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		$read2fastqs =~ s/\ /,/g;
 		if ($genomeBAM == 1){
 		    print SH "\n# Run Tophat to align data for paired end data.\n";
-		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    my $libraryType = "";
+		    if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";}
+		    if ($rgString eq ""){
+			$rgString = "--rg-sample $sample --rg-id $sample --rg-library $sample --rg-description $sample --rg-platform-unit nextseq --rg-center ASH --rg-platform nextseq";
+		    }
+		    print SH "# Adding Readgroups from rgstring $rgString\n";
+		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
 		} 
 		if ($rsem == 1){ # AND runpaired = 1
 		    print SH "\n# Align fastqs to transcriptome for RSEM\n";
@@ -905,7 +917,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		}
 	    }
 	    print SH "date\n";
-	    print SH "\nrsync -av \$TMPDIR\/$sample/* $outputDirectory\/$project\/Tophat_aln\/$sample/\n";
+#	    print SH "\nrsync -av \$TMPDIR\/$sample/* $outputDirectory\/$project\/Tophat_aln\/$sample/\n";
 #	    print SH "\nmv \$TMPDIR\/$project\_$sample\_tophatOut $outputDirectory\/$project\/Tophat_aln\/$sample\n";
 	    print SH "date\n";
 	    print SH "ln -s $outputDirectory\/$project\/Tophat_aln\/$sample\/accepted_hits.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
