@@ -8,7 +8,7 @@ if($#ARGV < 0) {
 }
 
 #
-# This script takes a fastq formatted file (where the sequences
+# This script takes a fasta formatted file (where the sequences
 # can be interupted by carriage returns) and identifies all sequences
 # with the same gene name.  It returns only the longest gene name, 
 # sequence pair, in fasta format (with no carriage returns).
