@@ -65,7 +65,7 @@ df <- data.frame(seqnames=seqnames(gpeaks),
 
 bedfile <- gsub(".bed$","",bedfile)
 bwLabel <- gsub(".bw$","",basename(bwfile))
-bedfile <- paste(bedfile,".score",bwLabel,".bed",sep="")
+bedfile <- paste(bedfile,".scoreMax",bwLabel,".bed",sep="")
 print(bedfile)
 
 write.table(df,file=bedfile,quote=F,sep="\t",row.names=F,col.names=F)

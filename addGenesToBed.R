@@ -77,6 +77,10 @@ dist<-as.data.frame(distanceToNearest(gcounts,tss))
 counts$distToNearestTSS<-dist$distance
 head(counts)
 
+print("Gene count")
+print(length(unique(sort(names(tss)))))
+print(head(unique(sort(names(tss)))))
+
 dataset = paste(tolower(organismStr),"gene_ensembl",sep="_")
 dataset
 #hostMart <- "ensembl.org"

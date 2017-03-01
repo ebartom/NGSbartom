@@ -43,26 +43,34 @@ foreach my $kmer (@kmerlist){
 @kmerlist = @cleanList;
 print STDERR "KmersClean @kmerlist\n";
 
+my $string = "";
 open(IN,$listfile);
 while(<IN>){
-  chomp $_;
-  if ($_ =~ /^\dmer/){
-    print $_;
-    foreach my $kmer (@kmerlist){
-	print "\t$kmer";
+    chomp $_;
+    $_ =~ s/\r\n/\n/g;
+    $_ =~ s/\r//g;
+    if (($_ =~ /^\dmer/) || ($_ =~ /^Sequence/)){
+	chomp $_;
+	print $_;
+	print "\tLength";
+	foreach my $kmer (@kmerlist){
+	    print "\t$kmer";
+	}
+	print "\n";
+    } elsif ($_ =~ /^([ACTGN]+)\s/){
+	chomp $_;
+	print $_;
+	$string = $1;
+	print "\t".length($string);
+	foreach my $kmer (@kmerlist){
+	    #      my $kmercount = ($string =~ tr/$kmer//);
+#	    my $kmercount = () = $string =~ /$kmer/g;
+	    my $kmercount = () = $string =~ /(?=\Q$kmer\E)/g;
+	    my $ratio = $kmercount/((length($string)-length($kmer)+1));
+	    #      print "\t$string:$kmer:$kmercount:$ratio";
+	    print "\t$ratio";
+	}
+	print "\n";
     }
-    print "\n";
-  } elsif ($_ =~ /^([ACTGN]+)\s/){
-    print $_;
-    my $string = $1;
-    foreach my $kmer (@kmerlist){
-#      my $kmercount = ($string =~ tr/$kmer//);
-      my $kmercount = () = $string =~ /$kmer/g;
-      my $ratio = $kmercount/((length($string)-length($kmer)+1));
-#      print "\t$string:$kmer:$kmercount:$ratio";
-      print "\t$ratio";
-    }
-    print "\n";
-  }
 }
-    
+
