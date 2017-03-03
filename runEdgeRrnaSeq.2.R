@@ -49,6 +49,12 @@ if(grepl('txt',countFile)){
     counts <- read.delim(file=countFile,header=TRUE,sep="\t")
 }
 head(counts)
+if (rownames(counts)[1] == "1"){
+    print("Problem with rownames, re-adjusting.")
+    rownames(counts) <- counts[,1]
+    counts<-data.frame(counts[,2:length(colnames(counts))])
+    head(counts)
+}
 dim(counts)
 
 hostMart <- ""
@@ -115,7 +121,7 @@ geneData <- data.frame(counts[,1:5])
 print ("Gene data from counts table")
 colnames(geneData)[4] <- "width"
 print(head(geneData))
-countData<-data.frame(counts[,6:length(colnames(counts))])	
+countData<-data.frame(counts[,6:length(colnames(counts))])
 print ("Counts data from counts table")
 print(head(countData))
 
