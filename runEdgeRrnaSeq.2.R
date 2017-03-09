@@ -1,3 +1,4 @@
+
 args <- commandArgs()
 
 assembly <-sub('--assembly=', '', args[grep('--assembly=', args)])
@@ -51,9 +52,10 @@ if(grepl('txt',countFile)){
 head(counts)
 if (rownames(counts)[1] == "1"){
     print("Problem with rownames, re-adjusting.")
-    rownames(counts) <- counts[,1]
-    counts<-data.frame(counts[,2:length(colnames(counts))])
-    head(counts)
+    newcounts<-data.frame(counts[,2:length(colnames(counts))])
+    rownames(newcounts) <- counts[,1]
+    print(head(newcounts))
+    counts <- newcounts
 }
 dim(counts)
 
@@ -137,6 +139,7 @@ if (runMDS==1){
 #       countData <- na.omit(countData)
        dge <- DGEList(countData[rowSums(cpm(countData)>1)>=2,]) #filter low counts & calc lib.sizes
    } else {
+       print ("Not filtering out low counts.")
        dge <- DGEList(countData)      #calc lib.sizes
    }
    dge <- calcNormFactors(dge)  #calcs normalization factors based on lib.size (RNA composition effect)
@@ -186,7 +189,11 @@ runEdgeR <- function(data,comparison){
     design <- model.matrix(~grp)
     colnames(design)<-levels(grp)
     print(head(subdata))
-    dge <- DGEList(subdata[rowSums(cpm(subdata)>1)>=2,], group=grp) #filter low counts & calc lib.sizes
+    if (filterOff == 1){
+        dge <- DGEList(subdata, group=grp) # calc lib.sizes
+    }else{
+        dge <- DGEList(subdata[rowSums(cpm(subdata)>1)>=2,], group=grp) #filter low counts & calc lib.sizes
+    }
                                         #    dge <- DGEList(subdata, group=grp) #calc lib.sizes
     print("Effective library size for each sample in comparison")
     print(dge$samples)
@@ -214,6 +221,10 @@ runEdgeR <- function(data,comparison){
         iv <- match(rownames(df),anno$ensembl_gene_id)
             df$gene <- anno[iv,'external_gene_id']
     }
+    if (identical(assembly,"hg38.mp")){
+        iv <- match(rownames(df),anno$external_gene_id)
+            df$gene <- anno[iv,'ensembl_gene_id']
+    } 
     up <- df$adj.p < 0.01 & df$logFC > 0
     cat("adding flags\n")
     flag <- rep(0, nrow(df))

@@ -26,9 +26,9 @@ my $distToTSS = 2000;
 my $upstream = 5000;
 my $downstream = 5000;
 my $trimString = "TRAILING:30 MINLEN:20";
-my $tophatReadMismatch = 2;
-my $tophatReadEditDist = 2;
-my $tophatMultimap = 5;
+my $tophatReadMismatch = 2; # 2 is Tophat default.
+my $tophatReadEditDist = 2; # 2 is Tophat default.
+my $tophatMultimap = 20; # 20 is Tophat default.
 my $runPairedEnd = 0;
 my $outputDirectory = "";
 my $baseSpaceDirectory = "";
@@ -534,7 +534,7 @@ if (($sampleSheet ne "")){
 		foreach my $lane ("L001","L002","L003","L004"){
 		    # Build fastq file names.
 		    # NB:  Right now it assumes single end.
-		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.fastq.gz";
+		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f\w*q.gz";
 		    print STDERR "Looking for $fastq\n";
 		    print STDERR "Looking for $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq and $outputDirectory\/$sample_project\/fastq\/$fastq\n";
 		    # Check if fastq exists in new subdirectory or old.
@@ -542,7 +542,7 @@ if (($sampleSheet ne "")){
 			#		print STDERR "$fastq exists in $baseSpaceDirectory\n";
 		    } else { 
 			# If you still can't find it, try all underscores (like in SampleSheet), again in old subdirectory or new
-			$fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.fastq.gz";
+			$fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f\w*q.gz";
 			$fastq =~ s/-/_/g;
 			print STDERR "Looking for $fastq\n";
 			if ((-e "$baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq") || (-e "$outputDirectory\/$sample_project\/fastq\/$fastq")) {
@@ -614,7 +614,8 @@ if (($sampleSheet ne "")){
 	    if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || 
 		#		($fastq =~ /\/?([\w\-\d\_\.]+)FastqRd/) ||
 		($fastq =~ /\/?([\w\-\d\_\.]+)\_R\d/) ||
-		($fastq =~ /\/?([\w\-\d\_\.]+).fastq.t?gz/) 
+		($fastq =~ /\/?([\w\-\d\_\.]+).fastq.t?gz/) ||
+		($fastq =~ /\/?([\w\-\d\_\.]+).fq.t?gz/) 
 		){
 		$sample_name = $1;
 		&datePrint("Sample name is $sample_name");
@@ -849,8 +850,12 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 			}
 		    print SH "# Adding Readgroups from rgstring $rgString\n";
 		    my $libraryType = "";
-		    if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";} 
-		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";}
+		    if ($reference{$sample} =~ /\.mp/){
+			print SH "\ntophat -G $gff{$reference{$sample}} --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors $rgString $libraryType -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    }else {
+			print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    }
 		}
 	    } elsif ($runPairedEnd == 1){
 		my @read1fastqs;
@@ -1816,7 +1821,11 @@ if ($buildEdgeR ==1) {
 	    if ($comparisons ne ""){
 		foreach my $method (@methods){
 		    print SH "\n# Run EdgeR, using comparisons file, without MDS plot (which sometimes crashes), $method.\n";
-		    print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0\n";
+		    if ($reference{$project} =~ /\.mp/){
+			print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0 --filterOff=1\n";
+		    } else {
+			print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0\n";
+		    }
 		    print SH "\n# Run EdgeR, creating MDS plot, but not running comparisons, $method.\n";
 		    print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=1\n";
 		    print SH "date\n";

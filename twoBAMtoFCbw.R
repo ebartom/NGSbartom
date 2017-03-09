@@ -73,11 +73,19 @@ twobam2bw <- function(BF1,BF2,organism){
 
     cat("Calculating fold change\n")
     fc <- rpm1/rpm2
-    
+    print(fc)
+    fc.gr <- as(log(fc), "GRanges")
+    #print(fc.gr)
+    logfc <- fc.gr[-which(is.infinite(fc.gr$score)),]
+    #print(head(logfc))
+    logfc <- logfc[!is.na(logfc$score)]
+    #print(head(logfc))
+
      ## export rpm to bigWig
      sample1 <- basename(gsub(".bam", "", BF1))
      sample2 <- basename(gsub(".bam", "", BF2))
-     logfc <- log(fc)
+     #logfc <- log(fc)
+     #print(logfc)
     outfile <- paste(sample1,sample2,"logFC.bw", sep=".")
      cat(paste("exporting to bigwig", outfile, "\n", sep="\t"))
      export.bw(logfc, outfile)
