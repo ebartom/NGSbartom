@@ -1,0 +1,6 @@
+args <- commandArgs()
+infile <-sub('--infile=', '',args[grep('--infile=',args)])
+outfile <-sub('--outfile=', '',args[grep('--outfile=',args)])
+print(infile)
+load(infile)
+write.table(as.data.frame(go.list),file=outfile,sep="\t",quote=F,col.names=F,row.names=F)

@@ -1,0 +1,3 @@
+WT_v_C3	/projects/b1025/xvault/tango/TANGO-323/TANGO-323/analysis/WT_v_C3.edgeR.txt
+WT_v_C14	/projects/b1025/xvault/tango/TANGO-323/TANGO-323/analysis/WT_v_C14.edgeR.txt
+WT_v_C3_C14	/projects/b1025/xvault/tango/TANGO-323/TANGO-323/analysis/WT_v_C3_C14.edgeR.txt

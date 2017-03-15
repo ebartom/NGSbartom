@@ -1843,7 +1843,7 @@ if ($buildEdgeR ==1) {
 		    if ("@groups" =~ /^[1\-0\s]+/){
 			foreach my $method (@methods){
 			    print SH "\n# Create Gene Lists for comparison $comp, method $method\n";
-			    print SH "Rscript $NGSbartom/tools/fromEdgeRtoGeneList.R --degFile=$outputDirectory\/$project\/analysis\/$comp.$method.edgeR.txt --adjp=0.01\n";
+			    print SH "Rscript $NGSbartom/tools/fromEdgeRtoGeneList.R --edgeRfile=$outputDirectory\/$project\/analysis\/$comp.$method.edgeR.txt --adjp=0.01\n";
 			    print SH "\n# Create MA plot for comparison $comp, method $method\n";
 			    print SH "Rscript $NGSbartom/tools/makeMAplot.R --degFile=$outputDirectory\/$project\/analysis\/$comp.$method.edgeR.txt --adjp=0.01 --labelTop=1\n";
 			    print SH "date\n";

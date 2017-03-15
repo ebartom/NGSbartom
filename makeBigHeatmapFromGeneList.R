@@ -57,7 +57,7 @@ if(grepl('rda',countFile)){
 }
 if(grepl('txt',countFile)){
     allCounts <- read.table(file=countFile,header=TRUE,sep="\t",row.names=1)
-#    head(allCounts)
+    head(allCounts)
 }
 if (countFile == "genomicMatrix"){
     allCounts <- read.table(file=countFile,header=TRUE,sep="\t",row.names=1)

@@ -1,0 +1,238 @@
+TermID	Term	Enrichment	logP	Genes in Term	Target Genes in Term	Fraction of Targets in Term	Total Target Genes	Total Genes	Entrez Gene IDs	Gene Symbols
+WP691	Tamoxifen metabolism	1	0	19	0	0	0	4455
+WP2276	Glial Cell Differentiation	1	0	8	0	0	0	4455
+WP2374	Oncostatin M Signaling Pathway	1	0	63	0	0	0	4455
+WP733	Serotonin Receptor 2 and STAT3 Signaling	1	0	4	0	0	0	4455
+WP481	Insulin Signaling	1	0	163	0	0	0	4455
+WP107	Translation Factors	1	0	57	0	0	0	4455
+WP561	Heme Biosynthesis	1	0	9	0	0	0	4455
+WP1533	Vitamin B12 Metabolism	1	0	19	0	0	0	4455
+WP127	IL-5 Signaling Pathway	1	0	69	0	0	0	4455
+WP383	Striated Muscle Contraction	1	0	38	0	0	0	4455
+WP1423	Ganglio Sphingolipid Metabolism	1	0	11	0	0	0	4455
+WP698	Glucuronidation	1	0	26	0	0	0	4455
+WP2197	Endothelin	1	0	34	0	0	0	4455
+WP2333	Trans-sulfuration pathway	1	0	10	0	0	0	4455
+WP206	Fatty Acid Omega Oxidation	1	0	15	0	0	0	4455
+WP247	Small Ligand GPCRs	1	0	19	0	0	0	4455
+WP2359	Parkin-Ubiquitin Proteasomal System pathway	1	0	73	0	0	0	4455
+WP167	Eicosanoid Synthesis	1	0	20	0	0	0	4455
+WP2064	Neural Crest Differentiation	1	0	101	0	0	0	4455
+WP49	IL-2 Signaling pathway	1	0	42	0	0	0	4455
+WP1602	Nicotine Activity on Dopaminergic Neurons	1	0	21	0	0	0	4455
+WP22	IL-9 Signaling Pathway	1	0	24	0	0	0	4455
+WP289	Myometrial Relaxation and Contraction Pathways	1	0	155	0	0	0	4455
+WP364	IL-6 Signaling Pathway	1	0	99	0	0	0	4455
+WP545	Complement Activation, Classical Pathway	1	0	17	0	0	0	4455
+WP437	EGFR1 Signaling Pathway	1	0	177	0	0	0	4455
+WP2112	IL17 signaling pathway	1	0	31	0	0	0	4455
+WP438	Non-homologous end joining	1	0	6	0	0	0	4455
+WP497	Urea cycle and metabolism of amino groups	1	0	20	0	0	0	4455
+WP363	Wnt Signaling Pathway NetPath	1	0	115	0	0	0	4455
+WP2377	Integrated Pancreatic Cancer Pathway	1	0	194	0	0	0	4455
+WP299	Nuclear receptors in lipid metabolism and toxicity	1	0	35	0	0	0	4455
+WP516	Hypertrophy Model	1	0	20	0	0	0	4455
+WP466	DNA Replication	1	0	42	0	0	0	4455
+WP1310	Selenium	1	0	7	0	0	0	4455
+WP2361	Gastric cancer network 1	1	0	42	0	0	0	4455
+WP262	EBV LMP1 signaling	1	0	22	0	0	0	4455
+WP244	Alpha6-Beta4 Integrin Signaling Pathway	1	0	69	0	0	0	4455
+WP1438	Influenza A virus infection	1	0	1	0	0	0	4455
+WP1038	Vitamin A and Carotenoid Metabolism	1	0	25	0	0	0	4455
+WP734	Serotonin Receptor 4/6/7 and NR3C Signaling	1	0	19	0	0	0	4455
+WP712	Estrogen signaling pathway	1	0	20	0	0	0	4455
+WP236	Adipogenesis	1	0	131	0	0	0	4455
+WP2011	SREBF and miR33 in cholesterol and lipid homeostasis	1	0	18	0	0	0	4455
+WP1559	TFs Regulate miRNAs related to cardiac hypertrophy	1	0	15	0	0	0	4455
+WP1272	Selenium	1	0	7	0	0	0	4455
+WP368	Mitochondrial LC-Fatty Acid Beta-Oxidation	1	0	16	0	0	0	4455
+WP3	Keap1-Nrf2 Pathway	1	0	13	0	0	0	4455
+WP117	GPCRs, Other	1	0	91	0	0	0	4455
+WP666	Hypothetical Network for Drug Addiction	1	0	32	0	0	0	4455
+WP694	Arylamine metabolism	1	0	7	0	0	0	4455
+WP623	Oxidative phosphorylation	1	0	54	0	0	0	4455
+WP2038	Regulation of Microtubule Cytoskeleton	1	0	44	0	0	0	4455
+WP2446	RB in Cancer	1	0	87	0	0	0	4455
+WP2526	PDGF Pathway	1	0	2	0	0	0	4455
+WP2035	FSH signaling pathway	1	0	27	0	0	0	4455
+WP2338	miRNA Biogenesis	1	0	1	0	0	0	4455
+WP2355	Corticotropin-releasing hormone	1	0	90	0	0	0	4455
+WP98	Prostaglandin Synthesis and Regulation	1	0	30	0	0	0	4455
+WP581	EPO Receptor Signaling	1	0	26	0	0	0	4455
+WP707	DNA damage response	1	0	67	0	0	0	4455
+WP2406	Cardiac Progenitor Differentiation	1	0	53	0	0	0	4455
+WP530	Cytokines and Inflammatory Response	1	0	23	0	0	0	4455
+WP2007	Iron metabolism in placenta	1	0	12	0	0	0	4455
+WP382	MAPK signaling pathway	1	0	163	0	0	0	4455
+WP78	TCA Cycle	1	0	17	0	0	0	4455
+WP678	Arachidonate Epoxygenase / Epoxide Hydrolase	1	0	7	0	0	0	4455
+WP2059	Alzheimers Disease	1	0	79	0	0	0	4455
+WP24	Peptide GPCRs	1	0	72	0	0	0	4455
+WP1433	NOD pathway	1	0	39	0	0	0	4455
+WP1495	Glycine Metabolism	1	0	2	0	0	0	4455
+WP2118	Arrhythmogenic right ventricular cardiomyopathy	1	0	74	0	0	0	4455
+WP1	Statin Pathway	1	0	1	0	0	0	4455
+WP1544	MicroRNAs in cardiomyocyte hypertrophy	1	0	109	0	0	0	4455
+WP550	Biogenic Amine Synthesis	1	0	15	0	0	0	4455
+WP585	Interferon type I	1	0	49	0	0	0	4455
+WP1991	SRF and miRs in Smooth Muscle Differentiation and Proliferation	1	0	19	0	0	0	4455
+WP1425	BMP signalling and regulation	1	0	12	0	0	0	4455
+WP111	Electron Transport Chain	1	0	93	0	0	0	4455
+WP2332	Interleukin-11 Signaling Pathway	1	0	40	0	0	0	4455
+WP34	Ovarian Infertility Genes	1	0	32	0	0	0	4455
+WP304	Kit Receptor Signaling Pathway	1	0	67	0	0	0	4455
+WP2036	TWEAK Signaling Pathway	1	0	43	0	0	0	4455
+WP272	Blood Clotting Cascade	1	0	24	0	0	0	4455
+WP2363	Gastric cancer network 2	1	0	34	0	0	0	4455
+WP259	Nifedipine Activity	1	0	5	0	0	0	4455
+WP2371	Parkinsons Disease Pathway	1	0	39	0	0	0	4455
+WP2267	Synaptic Vesicle Pathway	1	0	51	0	0	0	4455
+WP702	metapathway biotransformation	1	0	181	0	0	0	4455
+WP1601	Fluoropyrimidine Activity	1	0	34	0	0	0	4455
+WP334	GPCRs, Class B Secretin-like	1	0	23	0	0	0	4455
+WP1981	Thyroxine (Thyroid Hormone) Production	1	0	6	0	0	0	4455
+WP12	Osteoclast Signaling	1	0	16	0	0	0	4455
+WP1742	TP53 network	1	0	19	0	0	0	4455
+WP2324	AGE/RAGE pathway	1	0	66	0	0	0	4455
+WP465	Tryptophan metabolism	1	0	46	0	0	0	4455
+WP521	Amino acid conjugation of benzoic acid	1	0	4	0	0	0	4455
+WP2289	Drug Induction of Bile Acid Pathway	1	0	17	0	0	0	4455
+WP1273	Folic Acid Network	1	0	2	0	0	0	4455
+WP2431	Spinal Cord Injury	1	0	112	0	0	0	4455
+WP1600	Nicotine metabolism	1	0	6	0	0	0	4455
+WP1995	Effects of nitric oxide	1	0	4	0	0	0	4455
+WP422	MAPK Cascade	1	0	29	0	0	0	4455
+WP399	Wnt Signaling Pathway and Pluripotency	1	0	101	0	0	0	4455
+WP1471	TOR signaling	1	0	34	0	0	0	4455
+WP696	Benzo(a)pyrene metabolism	1	0	9	0	0	0	4455
+WP69	TCR Signaling Pathway	1	0	89	0	0	0	4455
+WP325	Triacylglyceride Synthesis	1	0	24	0	0	0	4455
+WP205	IL-7 Signaling Pathway	1	0	44	0	0	0	4455
+WP138	Androgen receptor signaling pathway	1	0	88	0	0	0	4455
+WP1403	AMPK signaling	1	0	68	0	0	0	4455
+WP619	Type II interferon signaling (IFNG)	1	0	50	0	0	0	4455
+WP688	Catalytic cycle of mammalian FMOs	1	0	5	0	0	0	4455
+WP311	Synthesis and Degradation of Ketone Bodies	1	0	5	0	0	0	4455
+WP428	Wnt Signaling Pathway	1	0	60	0	0	0	4455
+WP254	Apoptosis	1	0	83	0	0	0	4455
+WP1946	Cori Cycle	1	0	1	0	0	0	4455
+WP2113	Type III interferon signaling	1	0	10	0	0	0	4455
+WP2291	Deregulation of Rab and Rab Effector Genes in Bladder Cancer	1	0	16	0	0	0	4455
+WP314	FAS pathway and Stress induction of HSP regulation	1	0	38	0	0	0	4455
+WP1539	Angiogenesis	1	0	23	0	0	0	4455
+WP2253	pilocytic astrocytoma	1	0	4	0	0	0	4455
+WP2272	Pathogenic Escherichia coli infection	1	0	55	0	0	0	4455
+WP306	Focal Adhesion	1	0	184	0	0	0	4455
+WP357	Fatty Acid Biosynthesis	1	0	22	0	0	0	4455
+WP1422	Sphingolipid Metabolism	1	0	21	0	0	0	4455
+WP2034	Leptin signaling pathway	1	0	60	0	0	0	4455
+WP47	Hedgehog Signaling Pathway	1	0	22	0	0	0	4455
+WP136	Phase I, non P450	1	0	7	0	0	0	4455
+WP411	mRNA processing	1	0	134	0	0	0	4455
+WP496	Steroid Biosynthesis	1	0	10	0	0	0	4455
+WP727	Monoamine Transport	1	0	32	0	0	0	4455
+WP2436	Dopamine metabolism	1	0	13	0	0	0	4455
+WP23	B Cell Receptor Signaling Pathway	1	0	158	0	0	0	4455
+WP2328	Allograft Rejection	1	0	38	0	0	0	4455
+WP1971	Integrated Cancer pathway	1	0	35	0	0	0	4455
+WP2032	TSH signaling pathway	1	0	64	0	0	0	4455
+WP241	One Carbon Metabolism	1	0	29	0	0	0	4455
+WP534	Glycolysis and Gluconeogenesis	1	0	49	0	0	0	4455
+WP1531	Vitamin D synthesis	1	0	8	0	0	0	4455
+WP2447	Amyotrophic lateral sclerosis (ALS)	1	0	34	0	0	0	4455
+WP1603	Nicotine Activity on Chromaffin Cells	1	0	4	0	0	0	4455
+WP134	Pentose Phosphate Pathway	1	0	8	0	0	0	4455
+WP268	Notch Signaling Pathway	1	0	46	0	0	0	4455
+WP1984	Integrated Breast Cancer Pathway	1	0	152	0	0	0	4455
+WP28	Selenium Metabolism and Selenoproteins	1	0	43	0	0	0	4455
+WP288	NLR proteins	1	0	8	0	0	0	4455
+WP286	IL-3 Signaling Pathway	1	0	104	0	0	0	4455
+WP554	ACE Inhibitor Pathway	1	0	17	0	0	0	4455
+WP1075	Folic Acid Network	1	0	2	0	0	0	4455
+WP1604	Codeine and morphine metabolism	1	0	8	0	0	0	4455
+WP528	Acetylcholine Synthesis	1	0	7	0	0	0	4455
+WP531	Mismatch repair	1	0	9	0	0	0	4455
+WP400	p38 MAPK Signaling Pathway	1	0	34	0	0	0	4455
+WP186	Homologous recombination	1	0	14	0	0	0	4455
+WP716	Vitamin A and carotenoid metabolism	1	0	40	0	0	0	4455
+WP100	Glutathione metabolism	1	0	22	0	0	0	4455
+WP1449	Regulation of toll-like receptor signaling pathway	1	0	102	0	0	0	4455
+WP453	Inflammatory Response Pathway	1	0	30	0	0	0	4455
+WP1311	Folic Acid Network	1	0	2	0	0	0	4455
+WP430	Statin Pathway	1	0	32	0	0	0	4455
+WP80	Nucleotide GPCRs	1	0	11	0	0	0	4455
+WP536	Calcium Regulation in the Cardiac Cell	1	0	149	0	0	0	4455
+WP699	Aflatoxin B1 metabolism	1	0	8	0	0	0	4455
+WP673	ErbB signaling pathway	1	0	54	0	0	0	4455
+WP366	TGF-beta Receptor Signaling Pathway	1	0	151	0	0	0	4455
+WP313	Signaling of Hepatocyte Growth Factor Receptor	1	0	33	0	0	0	4455
+WP1545	miRNAs involved in DDR	1	0	72	0	0	0	4455
+WP2261	Signaling Pathways in Glioblastoma	1	0	80	0	0	0	4455
+WP237	Glucocorticoid &amp; Mineralcorticoid Metabolism	1	0	8	0	0	0	4455
+WP391	Mitochondrial Gene Expression	1	0	12	0	0	0	4455
+WP2203	TSLP Signaling Pathway	1	0	38	0	0	0	4455
+WP231	TNF-alpha/NF-kB Signaling Pathway	1	0	194	0	0	0	4455
+WP560	TGF Beta Signaling Pathway	1	0	55	0	0	0	4455
+WP35	G Protein Signaling Pathways	1	0	95	0	0	0	4455
+WP1530	miRNA Regulation of DNA Damage Response	1	0	9	0	0	0	4455
+WP408	Oxidative Stress	1	0	32	0	0	0	4455
+WP2037	Prolactin Signaling Pathway	1	0	75	0	0	0	4455
+WP501	GPCRs, Class C Metabotropic glutamate, pheromone	1	0	15	0	0	0	4455
+WP2525	Trans-sulfuration and one carbon metabolism	1	0	31	0	0	0	4455
+WP53	Id Signaling Pathway	1	0	52	0	0	0	4455
+WP692	Sulfation Biotransformation Reaction	1	0	18	0	0	0	4455
+WP697	Estrogen metabolism	1	0	17	0	0	0	4455
+WP690	Polyol pathway	1	0	4	0	0	0	4455
+WP2263	Prostate Cancer	1	0	109	0	0	0	4455
+WP395	IL-4 signaling Pathway	1	0	63	0	0	0	4455
+WP706	SIDS Susceptibility Pathways	1	0	160	0	0	0	4455
+WP558	Complement and Coagulation Cascades	1	0	51	0	0	0	4455
+WP1541	Energy Metabolism	1	0	48	0	0	0	4455
+WP615	Senescence and Autophagy	1	0	106	0	0	0	4455
+WP410	Diurnally regulated genes with circadian orthologs	1	0	48	0	0	0	4455
+WP2380	BDNF signaling pathway	1	0	144	0	0	0	4455
+WP129	Matrix Metalloproteinases	1	0	31	0	0	0	4455
+WP143	Fatty Acid Beta Oxidation	1	0	34	0	0	0	4455
+WP51	Regulation of Actin Cytoskeleton	1	0	145	0	0	0	4455
+WP195	IL-1 Signaling Pathway	1	0	12	0	0	0	4455
+WP2100	AhR pathway	1	0	29	0	0	0	4455
+WP1001	Peptide GPCRs	1	0	11	0	0	0	4455
+WP710	DNA damage response (only ATM dependent)	1	0	91	0	0	0	4455
+WP524	G13 Signaling Pathway	1	0	40	0	0	0	4455
+WP2516	ATM Signaling Pathway	1	0	3	0	0	0	4455
+WP1528	Physiological and Pathological Hypertrophy  of the Heart	1	0	24	0	0	0	4455
+WP1772	Apoptosis Modulation and Signaling	1	0	79	0	0	0	4455
+WP61	Delta-Notch Signaling Pathway	1	0	85	0	0	0	4455
+WP474	Endochondral Ossification	1	0	65	0	0	0	4455
+WP1584	Type II diabetes mellitus	1	0	21	0	0	0	4455
+WP1591	Heart Development	1	0	47	0	0	0	4455
+WP1589	Folate-Alcohol and Cancer Pathway	1	0	5	0	0	0	4455
+WP1982	SREBP signalling	1	0	64	0	0	0	4455
+WP2290	RalA downstream regulated genes	1	0	9	0	0	0	4455
+WP405	Eukaryotic Transcription Initiation	1	0	41	0	0	0	4455
+WP75	Toll-like receptor signaling pathway	1	0	103	0	0	0	4455
+WP170	Nuclear Receptors	1	0	38	0	0	0	4455
+WP185	Integrin-mediated cell adhesion	1	0	99	0	0	0	4455
+WP106	Alanine and aspartate metabolism	1	0	12	0	0	0	4455
+WP197	Cholesterol biosynthesis	1	0	17	0	0	0	4455
+WP477	Cytoplasmic Ribosomal Proteins	1	0	118	0	0	0	4455
+WP2018	RANKL/RANK Signaling Pathway	1	0	54	0	0	0	4455
+WP1434	Osteopontin Signaling	1	0	11	0	0	0	4455
+WP2012	miRs in Muscle Cell Differentiation	1	0	42	0	0	0	4455
+WP455	GPCRs, Class A Rhodopsin-like	1	0	257	0	0	0	4455
+WP500	Glycogen Metabolism	1	0	37	0	0	0	4455
+WP1006	metapathway biotransformation	1	0	1	0	0	0	4455
+WP15	Selenium Pathway	1	0	87	0	0	0	4455
+WP732	Serotonin Receptor 2 and ELK-SRF/GATA4 signaling	1	0	17	0	0	0	4455
+WP322	Osteoblast Signaling	1	0	13	0	0	0	4455
+WP404	Nucleotide Metabolism	1	0	20	0	0	0	4455
+WP176	Folate Metabolism	1	0	24	0	0	0	4455
+WP58	Monoamine GPCRs	1	0	33	0	0	0	4455
+WP45	G1 to S cell cycle control	1	0	68	0	0	0	4455
+WP43	cytochrome P450	1	0	62	0	0	0	4455
+WP183	Proteasome Degradation	1	0	65	0	0	0	4455
+WP229	Irinotecan Pathway	1	0	13	0	0	0	4455
+WP26	Signal Transduction of S1P Receptor	1	0	24	0	0	0	4455
+WP384	Apoptosis Modulation by HSP70	1	0	19	0	0	0	4455
+WP1455	Serotonin Transporter Activity	1	0	10	0	0	0	4455
+WP179	Cell cycle	1	0	102	0	0	0	4455
