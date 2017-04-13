@@ -78,7 +78,8 @@ my $rsem = 0;
 my $genomeBAM = 1;
 my $rgString = "";
 my $runRNAstats = 0;
-
+my $buildNGSplot = 0;
+my $ngsFCcomparison = "";
 
 # S3path is not working properly right now for non-standard s3path values.  This needs fixing.
 
@@ -136,7 +137,9 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'granges|ash=i' => \$granges,
 	   'rsem=i' => \$rsem,
 	   'genomeBAM|gb=i' => \$genomeBAM,
-	   'runRNAstats|rrs=i' => \$runRNAstats
+	   'runRNAstats|rrs=i' => \$runRNAstats,
+	   'buildNGSplot|ngsp=i' => \$buildNGSplot,
+	   'ngsFCcomparison|ngspc' => \$ngsFCcomparison
     ) ;
 
 # if ($configFile){
@@ -1883,6 +1886,10 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	if ($startFromBAM == 0){ $bamDirectory = "$outputDirectory\/$project\/bam\/";}
 	if ($chipDescription ne ""){
 	    $cmd = "mkdir $outputDirectory\/$project\/peaks";
+	    if ($buildNGSplot == 1){
+		$cmd .= "\nmkdir $outputDirectory\/$project\/analysis";
+		$cmd .= "\nmkdir $outputDirectory\/$project\/NGSplotPipeline";
+	    }
 	    system($cmd);
 	    my $broadPeakCheck = `grep -i \"broad\" $chipDescription`;
 	    if ($broadPeakCheck ne ""){
@@ -1960,6 +1967,21 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt\n";
 			print SH "Rscript $NGSbartom/tools/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
 			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			if ($buildNGSplot == 1){
+			    print SH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";	
+			    print SH "# For full description of options see https://github.com/ebartom/NGSbartom/blob/master/NGSplotPipeline/NGSplotPipeline.presentation.pdf\n";
+			    print SH "# Heatmaps will be calculated for each bed file in the $outputDirectory/$project/analysis/$ip.bedList.txt file ; default is to do each bed file separately.\n";
+			    print SH "echo \"$ip\t$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed\n\" | cat \>  $outputDirectory/$project/analysis/$ip.bedList.txt\n";
+			    print SH "perl $NGSbartom/tools/NGSplotPipeline/makeNGSplots.pl -hss $outputDirectory/$project/scripts/$ip.homer.logFC.metaPeakPlot.clustered.sh -hss2 $outputDirectory/$project/scripts/$ip.homer2.logFC.metaPeakPlot.clustered.sh \\\n";
+			    print SH "\t-os $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh \\\n";
+			    print SH "\t-o $outputDirectory/$project/NGSplotPipeline/$ip.logFC.metaPeakPlot.clustered \\\n";
+			    print SH "\t-vl 0 -lw 1 -g $reference{$project} -fl 150 -p $numProcessors \\\n";
+			    print SH "\t-c $ngsFCcomparison \\\n";
+			    print SH "\t-csb 0 -ccenb 0 -cepw 1 -cbl 5000 -chs -2,2 -chc blue:white:red -cbo km -cbc 4 -ccd 1 \\\n";
+			    print SH "\t-cb $outputDirectory/$project/analysis/$ip.bedList.txt \\\n";
+			    print SH "\n# Run created NGSplot analysis script.\n";
+			    print SH ". $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh\n";
+			}			    
 			close SH;
 		       
 		    } elsif ($peakType eq "broad"){
@@ -2010,6 +2032,21 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "\nmodule unload python\nmodule load mpi/openmpi-1.6.3-gcc-4.6.3\nmodule load R/3.2.2\n";
 			print BSH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print BSH "date\n";
+			if ($buildNGSplot == 1){
+			    print BSH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";	
+			    print BSH "# For full description of options see https://github.com/ebartom/NGSbartom/blob/master/NGSplotPipeline/NGSplotPipeline.presentation.pdf\n";
+			    print BSH "# Heatmaps will be calculated for each bed file in the $outputDirectory/$project/analysis/$ip.bedList.txt file ; default is to do each bed file separately.\n";
+			    print BSH "echo \"$ip\t$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed\n\" | cat \>  $outputDirectory/$project/analysis/$ip.bedList.txt\n";
+			    print BSH "perl $NGSbartom/tools/NGSplotPipeline/makeNGSplots.pl -hss $outputDirectory/$project/scripts/$ip.homer.logFC.metaPeakPlot.clustered.sh -hss2 $outputDirectory/$project/scripts/$ip.homer2.logFC.metaPeakPlot.clustered.sh \\\n";
+			    print BSH "\t-os $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh \\\n";
+			    print BSH "\t-o $outputDirectory/$project/NGSplotPipeline/$ip.logFC.metaPeakPlot.clustered \\\n";
+			    print BSH "\t-vl 0 -lw 1 -g $reference{$project} -fl 150 -p $numProcessors \\\n";
+			    print BSH "\t-c $ngsFCcomparison \\\n";
+			    print BSH "\t-csb 0 -ccenb 0 -cepw 1 -cbl 5000 -chs -2,2 -chc blue:white:red -cbo km -cbc 4 -ccd 1 \\\n";
+			    print BSH "\t-cb $outputDirectory/$project/analysis/$ip.bedList.txt \\\n";
+			    print BSH "\n# Run created NGSplot analysis script.\n";
+			    print BSH ". $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh\n";
+			}			    
 			print BSH "\n# Find summits of peaks.\n";
 			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWtoSummit.R --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
 			print BSH "module load bedtools/2.17.0\n";
