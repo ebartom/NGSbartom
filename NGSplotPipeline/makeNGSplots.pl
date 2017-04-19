@@ -4,7 +4,9 @@ use List::Util qw(max);
 use strict;
 use utf8;
 use warnings;
-my $ngsPlotFilesScriptsDirectory = "/projects/b1025/NGSplotPipeline/NGSplotFilesScripts";
+
+# Set up the input parameters.
+my $ngsPlotFilesScriptsDirectory = "/projects/p20742/tools/NGSplotPipeline/NGSplotFilesScripts";
 my $outputShell = "./makeNGSplots.sh";
 my $homerShellScript = "./homerShellScript.sh";
 my $homerShellScript2 = "./homerShellScript2.sh";
@@ -80,9 +82,14 @@ my $runBedParallel = 0;
 # <edgeR_name>\t<path_to_edgeR_file>  (use full paths)
 my $edgeRlist = "";
 my $edgeRpv = 0.05;
+my $account = "b1042";
+my $walltime = "24:00:00";
+
 # Read in the command line arguments.
 GetOptions('outputDirectory|o=s' => \$outputDirectory,
-	    'outputShell|os=s' => \$outputShell,
+	   'outputShell|os=s' => \$outputShell,
+	   'account|a=s' => \$account,
+	   'walltime|w=s' => \$walltime,
 	   'bamDirectory|bam=s' => \$bamDirectory,
 	   'sampleList|s=s' => \$sampleList,
 	   'bedList|b=s' => \$bedList,
@@ -133,6 +140,7 @@ GetOptions('outputDirectory|o=s' => \$outputDirectory,
            'homerShellScript2|hss2=s' => \$homerShellScript2,
            'edgeRpv|erp=f' => \$edgeRpv
     ) ;
+
 # Define references.
 my %geneAnno;
 $geneAnno{"hg19"} = "$ngsPlotFilesScriptsDirectory\/hg19.ensembl.genebody.protein_coding.txt";
@@ -162,11 +170,12 @@ $entrez{"mm9"} = "/projects/b1025/tools/homer/data/accession/mouse.description";
 $entrez{"sacCer3"} = "/projects/b1025/tools/homer/data/accession/yeast.description";
 
 if ($sampleList eq '' && $bamDirectory eq '' && $comparisons eq '') {
-	print "Need Samples!!!\nProvide sample list, comparison list, or bam Directory!";
+	die "Need Samples!!!\nProvide sample list, comparison list, or bam Directory!";
 	exit;
 }
 my @bams;
 my @samples;
+
 if ($sampleList eq '' && $bamDirectory ne '') {
 	$bamDirectory = $bamDirectory . "/";
 	opendir(DIR, $bamDirectory);
@@ -197,7 +206,9 @@ if ($sampleList eq '' && $bamDirectory ne '') {
 my @beds;
 my @bedPeakCounts;
 my @bedNames;
+
 if ($bedList eq '') {
+    print "WARN: No bed file specified.\n";
 } else {
 	open(IN, $bedList);
 	while(my $line = <IN>) {
@@ -219,7 +230,9 @@ my @comparisonNames;
 my @comparisonBeds;
 my @comparisonBedPeakCounts;
 my @comparisonBedNames;
+
 if ($comparisons eq '') {
+    print "WARN: No comparison file specified.\n";
 } else {
 	open(IN, $comparisons);
 	while(my $line = <IN>) {
@@ -264,8 +277,28 @@ if ($comparisons eq '') {
 my $ngsPlotDirectory = $outputDirectory . "/NGSplot";
 my $mkdir_ngsplot_cmd = "mkdir $ngsPlotDirectory";
 system($mkdir_ngsplot_cmd);
+
+# Define a header for the shell scripts.
+my $header = "#!/bin/bash\n";
+$header .= "#MSUB -l nodes=1:ppn=$numProcessors\n"; 
+$header .= "#MSUB -A $account\n";
+# $queue is not currently defined in this pipeline.
+## Currently I think it only makes sense to specify queue if you are planning on either genomics or genomicsburst, in which case, account should be b1042.
+## If you disagree, let me know at ebartom@northwestern.edu 
+#if ($account eq "b1042"){
+#    $header .= "#MSUB -q $queue\n";
+#}
+$header .= "#MSUB -l walltime=$walltime\n";
+$header .= "#MSUB -m a\n"; # only email user if job aborts
+#$header .= "#MSUB -m abe\n"; # email user if job aborts (a), begins (b) or ends (e)
+$header .= "#MSUB -j oe\n";
+$header .= "#MOAB -W umask=0113\n";
+
+# Create shell script $outputShell
 open(OUT, ">$outputShell");
-print OUT "module load ngsplot\n";
+print OUT $header;
+print OUT "module load ngsplot/2.47\n";
+
 my %ngsplotcompcmd;
 my %ngsplotcmd;
 my @hs;
@@ -284,12 +317,14 @@ if ($useEqualPeakWidthforComparisonBedList == 1) {
 }
 my $output = "";
 unless ($bedList eq '') {
-	my $count = -1; 
-	foreach my $bed (@beds) {
-		$count++;
-		my $bedname = $bedNames[$count];
-		if ($useEqualPeakWidthforBedList == 1 && $sortBed == 0) {
-			print OUT "perl $ngsPlotFilesScriptsDirectory\/convertToNGSplotBED.pl $bed $ngsPlotDirectory\/$bedname.same.bed\n";
+    my $count = -1;
+    foreach my $bed (@beds) {
+	print OUT "\n# Analyzing bed file $bed\n";
+	$count++;
+	my $bedname = $bedNames[$count];
+	print OUT "\n# Reformatting bed file $bed\n";
+	if ($useEqualPeakWidthforBedList == 1 && $sortBed == 0) {
+	    print OUT "perl $ngsPlotFilesScriptsDirectory\/convertToNGSplotBED.pl $bed $ngsPlotDirectory\/$bedname.same.bed\n";
         } elsif ($useEqualPeakWidthforBedList == 1 && $sortBed == 1) {
             print OUT "perl $ngsPlotFilesScriptsDirectory\/convertToNGSplotSortedBED.pl $bed $ngsPlotDirectory\/$bedname.sort.bed\n";
         } elsif ($useEqualPeakWidthforBedList == 0 && $sortBed == 1 && $centerBed == 1)  {
@@ -297,65 +332,71 @@ unless ($bedList eq '') {
         } else {
         	print OUT "perl $ngsPlotFilesScriptsDirectory\/convertToNGSplotCenteredBED.pl $bed $ngsPlotDirectory\/$bedname.center.bed\n";
         }
-		my $outfile = $ngsPlotDirectory . "/configuration.$bedname.txt";
-		open(CNFG, ">$outfile");
-		my $count2 = -1;
-		foreach my $bam (@bams) {
-			$count2++;
-			my $samplename = $samples[$count2];
-			if ($useEqualPeakWidthforBedList == 1 && $sortBed == 0) { 
-				print CNFG "$bam\t$ngsPlotDirectory\/$bedname.same.bed\t\"$samplename\"\n";
-			} elsif ($useEqualPeakWidthforBedList == 1 && $sortBed == 1) {
-				print CNFG "$bam\t$ngsPlotDirectory\/$bedname.sort.bed\t\"$samplename\"\n";
-			} elsif ($useEqualPeakWidthforBedList == 0 && $sortBed == 1 && $centerBed == 1) {
-				print CNFG "$bam\t$ngsPlotDirectory\/$bedname.sort.center.bed\t\"$samplename\"\n";
-			} else {
-				print CNFG "$bam\t$ngsPlotDirectory\/$bedname.center.bed\t\"$samplename\"\n";
-			}
-		}
-		close(CNFG);
-		my $rr = int($bedPeakCounts[$count] / 3000) * 10;
-		if ($rr < 30) {
-			$rr = 30;
-		}	
-		if ($bedOrder eq "km") {
-			if ($heatmapScale eq '') {
-				$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -KNC $bedClusters -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$bedClusters.$bedname";
-			} else {
-				$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -KNC $bedClusters -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$bedClusters.$hs[0].$hs[1].$bedname -SC $heatmapScale";
-			}
-		} else {
-			if ($sortBed == 1) {
-				if ($centerBed == 1) {
-					if ($heatmapScale eq '') {
-						$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.sorted.centered.$bedname";
-					} else {
-						$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.sorted.centered.$hs[0].$hs[1].$bedname -SC $heatmapScale";
-					}
-				} else {
-					if ($heatmapScale eq '') {
-						$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.sorted.$bedname";
-					} else {
-						$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.sorted.$hs[0].$hs[1].$bedname -SC $heatmapScale";
-					}
-				}	
-			} else {
-				if ($centerBed == 1) {
-					if ($heatmapScale eq '') {
-						$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.centered.$bedname";
-					} else {
-						$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.centered.$hs[0].$hs[1].$bedname -SC $heatmapScale";
-					}
-				} else {
-					if ($heatmapScale eq '') {
-						$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$bedname";
-					} else {
-						$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$hs[0].$hs[1].$bedname -SC $heatmapScale";
-					}
-				}	
-			}
-		}		
+	my $outfile = $ngsPlotDirectory . "/configuration.$bedname.txt";
+	open(CNFG, ">$outfile");
+	my $count2 = -1;
+	foreach my $bam (@bams) {
+	    $count2++;
+	    my $samplename = $samples[$count2];
+	    if ($useEqualPeakWidthforBedList == 1 && $sortBed == 0) { 
+		print CNFG "$bam\t$ngsPlotDirectory\/$bedname.same.bed\t\"$samplename\"\n";
+	    } elsif ($useEqualPeakWidthforBedList == 1 && $sortBed == 1) {
+		print CNFG "$bam\t$ngsPlotDirectory\/$bedname.sort.bed\t\"$samplename\"\n";
+	    } elsif ($useEqualPeakWidthforBedList == 0 && $sortBed == 1 && $centerBed == 1) {
+		print CNFG "$bam\t$ngsPlotDirectory\/$bedname.sort.center.bed\t\"$samplename\"\n";
+	    } else {
+		print CNFG "$bam\t$ngsPlotDirectory\/$bedname.center.bed\t\"$samplename\"\n";
+	    }
 	}
+	close(CNFG);
+	print OUT "\n# Bed configuration file $outfile has been set up with bam files @bams\n";
+	my $rr = int($bedPeakCounts[$count] / 3000) * 10;
+	if ($rr < 30) {
+	    $rr = 30;
+	}
+	if ($bedOrder eq "km") {
+	    print OUT "\n# Setting up Kmeans clustering with NGS plot, with $bedClusters clusters.\n";
+	    if ($heatmapScale eq '') {
+		$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -KNC $bedClusters -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$bedClusters.$bedname";
+	    } else {
+		$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -KNC $bedClusters -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$bedClusters.$hs[0].$hs[1].$bedname -SC $heatmapScale";
+	    }
+	} else {
+	    if ($sortBed == 1) {
+		if ($centerBed == 1) {
+		    print OUT "\n# Setting up NGS plot, with sorted, centered clusters.\n";
+		    if ($heatmapScale eq '') {
+			$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.sorted.centered.$bedname";
+		    } else {
+			$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.sorted.centered.$hs[0].$hs[1].$bedname -SC $heatmapScale";
+		    }
+		} else {
+		    print OUT "\n# Setting up NGS plot, with sorted, scaled clusters.\n";
+		    if ($heatmapScale eq '') {
+			$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.sorted.$bedname";
+		    } else {
+			$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.sorted.$hs[0].$hs[1].$bedname -SC $heatmapScale";
+		    }
+		}	
+	    } else {
+		if ($centerBed == 1) {
+		    print OUT "\n# Setting up NGS plot, with unsorted, centered clusters.\n";
+		    if ($heatmapScale eq '') {
+			$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.centered.$bedname";
+		    } else {
+			$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.centered.$hs[0].$hs[1].$bedname -SC $heatmapScale";
+				    }
+		} else {
+		    print OUT "\n# Setting up NGS plot, with unsorted, scaled clusters.\n";
+		    if ($heatmapScale eq '') {
+			$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$bedname";
+		    } else {
+			$ngsplotcmd{$bedname} = "ngs.plot.r -G $assembly -FL $fragmentLength -L $bedLength -R bed -C $outfile -RR $rr -GO $bedOrder -VLN $verticalLines -LWD $lineWidth -p $numBedProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$hs[0].$hs[1].$bedname -SC $heatmapScale";
+		    }
+		}	
+	    }
+		}		
+    }
 }
 unless ($comparisons eq '') {
 	if ($comparisonBedList eq '') {
@@ -615,323 +656,330 @@ if ($runTSS == 1 || $runGenebody == 1 || $runExon == 1) {
 		$rr = 70;
 	} 
 	if ($runTSS == 1) {
-		if ($geneOrder eq "km") {
-			if ($heatmapScale eq '') {
-				$ngsplottsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.tss";
-				$output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.tss";
-			} else {
-				$ngsplottsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].tss -SC $heatmapScale";
-				$output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].tss";
-			}
+	    if ($geneOrder eq "km") {
+		if ($heatmapScale eq '') {
+		    $ngsplottsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.tss";
+		    $output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.tss";
 		} else {
-			if ($heatmapScale eq '') {
-				$ngsplottsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.tss";
-				$output = "$ngsPlotDirectory\/ngsplot.$geneList.tss";
-			} else {
-				$ngsplottsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].tss -SC $heatmapScale";
-				$output = "$ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].tss";
-			}
+		    $ngsplottsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].tss -SC $heatmapScale";
+		    $output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].tss";
 		}
-		print OUT "$ngsplottsscmd\n";
-		if ($geneOrder eq "km") {
-			print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            print OUT "module load R\n";
-            print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters.pl $output.clusters.txt $output.order.list.txt\n";
-            unless ($edgeRlist eq '') {
-            	print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $geneClusters\n";
-            	#print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $geneClusters\n";
-            }
-            	
-        
-            print OUT "module load ngsplot\n";
+	    } else {
+		if ($heatmapScale eq '') {
+		    $ngsplottsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.tss";
+		    $output = "$ngsPlotDirectory\/ngsplot.$geneList.tss";
+		} else {
+		    $ngsplottsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].tss -SC $heatmapScale";
+		    $output = "$ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].tss";
 		}
+	    }
+	    print OUT "$ngsplottsscmd\n";
+	    if ($geneOrder eq "km") {
+		print OUT "\n# Formatting kmeans clusters as separate files for later follow-up analysis.\n";
+		print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
+		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		print OUT "module load R\n";
+		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters.pl $output.clusters.txt $output.order.list.txt\n";
+		unless ($edgeRlist eq '') 
+		{		    print OUT "\n# Plot RNAseq data for each Kmeans cluster\n";
+				    print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $geneClusters\n";
+				    #print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $geneClusters\n";
+		}
+		
+		
+		print OUT "module load ngsplot\n";
+	    }
 	}
 	if ($runGenebody == 1) {
-		if ($geneOrder eq "km") {
-			if ($heatmapScale eq '') {
-				$ngsplotgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.genebody";
-				$output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.genebody";
-			} else {
-				$ngsplotgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].genebody -SC $heatmapScale";
-				$output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].genebody";
-			}
+	    if ($geneOrder eq "km") {
+		if ($heatmapScale eq '') {
+		    $ngsplotgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.genebody";
+		    $output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.genebody";
 		} else {
-			if ($heatmapScale eq '') {
-				$ngsplotgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.genebody";
-				$output = "$ngsPlotDirectory\/ngsplot.$geneList.genebody";
-			} else {
-				$ngsplotgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].genebody -SC $heatmapScale";
-				$output = "$ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].genebody";
-			}
+		    $ngsplotgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].genebody -SC $heatmapScale";
+    $output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].genebody";
 		}
-		print OUT "$ngsplotgenebodycmd\n";
-		if ($geneOrder eq "km") {
-			print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            print OUT "module load R\n";
-            print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters.pl $output.clusters.txt $output.order.list.txt\n";
-            unless ($edgeRlist eq '') {
-            	print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $geneClusters\n";
-            	#print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $geneClusters\n";
-            }
-            print OUT "module load ngsplot\n";
+	    } else {
+		if ($heatmapScale eq '') {
+		    $ngsplotgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.genebody";
+		    $output = "$ngsPlotDirectory\/ngsplot.$geneList.genebody";
+		} else {
+		    $ngsplotgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].genebody -SC $heatmapScale";
+			    $output = "$ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].genebody";
 		}
+	    }
+	    print OUT "$ngsplotgenebodycmd\n";
+	    if ($geneOrder eq "km") {
+		print OUT "\n# Formatting kmeans clusters as separate files for later follow-up analysis.\n";
+		print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
+		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		print OUT "module load R\n";
+		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters.pl $output.clusters.txt $output.order.list.txt\n";
+		unless ($edgeRlist eq '') {
+		    print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $geneClusters\n";
+		    #print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $geneClusters\n";
+		}
+		print OUT "module load ngsplot\n";
+	    }
 	}
 	$rr = 70;
 	unless ($assembly eq 'sacCer3') {
-		$rr = 200;
+	    $rr = 200;
 	} 
 	if ($runExon == 1) {
-		if ($geneOrder eq "km") {
-			if ($heatmapScale eq '') {
-				$ngsplotexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.exon";
-				$output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.exon";
-			} else {
-				$ngsplotexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].exon -SC $heatmapScale";
-				$output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].exon";
-			}
+	    if ($geneOrder eq "km") {
+		if ($heatmapScale eq '') {
+		    $ngsplotexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.exon";
+		    $output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.exon";
 		} else {
-			if ($heatmapScale eq '') {
-				$ngsplotexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.exon";
-				$output = "$ngsPlotDirectory\/ngsplot.$geneList.exon";
-			} else {
-				$ngsplotexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].exon -SC $heatmapScale";
-				$output = "$ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].exon";
-			}
+		    $ngsplotexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $geneOrder -KNC $geneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].exon -SC $heatmapScale";
+		    $output = "$ngsPlotDirectory\/ngsplot.km.$geneClusters.$geneList.$hs[0].$hs[1].exon";
 		}
-		print OUT "$ngsplotexoncmd\n";
-		if ($geneOrder eq "km") {
-            print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            print OUT "module load R\n";
-            print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters.pl $output.clusters.txt $output.order.list.txt\n";
-            print OUT "module load ngsplot\n";
-        }
+	    } else {
+		if ($heatmapScale eq '') {
+		    $ngsplotexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.exon";
+		    $output = "$ngsPlotDirectory\/ngsplot.$geneList.exon";
+		} else {
+		    $ngsplotexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $geneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $heatmapColor -O $ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].exon -SC $heatmapScale";
+				$output = "$ngsPlotDirectory\/ngsplot.$geneList.$hs[0].$hs[1].exon";
+		}
+	    }
+	    print OUT "$ngsplotexoncmd\n";
+	    if ($geneOrder eq "km") {
+		print OUT "\n# Formatting kmeans clusters as separate files for later follow-up analysis.\n";
+		print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
+		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		print OUT "module load R\n";
+		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters.pl $output.clusters.txt $output.order.list.txt\n";
+		print OUT "module load ngsplot\n";
+	    }
 	}
 }		
 unless ($comparisons eq '') {
-if ($runComparisonTSS == 1 || $runComparisonGenebody == 1 || $runComparisonExon == 1) {
+    if ($runComparisonTSS == 1 || $runComparisonGenebody == 1 || $runComparisonExon == 1) {
 	my $outfile = $ngsPlotDirectory . "/configuration.comparison.tss.genebody.exon.txt";
 	open(CNFG, ">$outfile");
 	my $count = -1;
 	foreach my $bam (@comparisons) {
-		$count++;
-		my $samplename = $comparisonNames[$count];
-		if ($comparisonGeneList eq "" || $comparisonGeneList eq "default") {
-			$comparisonGeneList = "default"; 
-			print CNFG "$bam\t-1\t\"$samplename\"\n";
-		} else {
-			print CNFG "$bam\t$comparisonGeneList\t\"$samplename\"\n";
-		}
+	    $count++;
+	    my $samplename = $comparisonNames[$count];
+	    if ($comparisonGeneList eq "" || $comparisonGeneList eq "default") {
+		$comparisonGeneList = "default"; 
+		print CNFG "$bam\t-1\t\"$samplename\"\n";
+	    } else {
+		print CNFG "$bam\t$comparisonGeneList\t\"$samplename\"\n";
+	    }
 	}
 	close(CNFG);
 	unless ($comparisonGeneList eq "" || $comparisonGeneList eq "default") {
-    	$comparisonGeneList = "userCompGeneList";
-    } 
+	    $comparisonGeneList = "userCompGeneList";
+	} 
 	my $rr = 30;
 	unless ($assembly eq 'sacCer3') {
-		$rr = 70;
+	    $rr = 70;
 	} 
 	if ($runComparisonTSS == 1) {		
-		if ($comparisonGeneOrder eq "km") {
-			if ($comparisonHeatmapScale eq '') {
-				if ($comparisonCD eq '') {
-					$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.tss";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.tss";
-				} else {
-					$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.tss -CD $comparisonCD";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.tss";
-			        }
-			} else {
-				if ($comparisonCD eq '') {
-					$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].tss -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].tss";
-				} else {
-					$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].tss -CD $comparisonCD -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].tss";
-				}
-			}
+	    if ($comparisonGeneOrder eq "km") {
+		if ($comparisonHeatmapScale eq '') {
+		    if ($comparisonCD eq '') {
+			$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.tss";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.tss";
+		    } else {
+			$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.tss -CD $comparisonCD";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.tss";
+		    }
 		} else {
-			if ($comparisonHeatmapScale eq '') {
-				if ($comparisonCD eq '') {
-					$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.tss";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.tss";
-				} else {
-					$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.tss -CD $comparisonCD";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.tss";
-				}
-			} else {
-				if ($comparisonCD eq '') {
-					$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].tss -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].tss";
-				} else {
-					$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].tss -CD $comparisonCD -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].tss";
-				}
-			}
+		    if ($comparisonCD eq '') {
+			$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].tss -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].tss";
+		    } else {
+			$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].tss -CD $comparisonCD -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].tss";
+		    }
 		}
-		print OUT "$ngsplotcomptsscmd\n";
-		if ($comparisonGeneOrder eq "km") {
-            print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            print OUT "module load R\n";
-            print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters2.pl $output.clusters.txt $output.order.list.txt $edgeRlist $edgeRpv\n";
-            unless ($edgeRlist eq '') {
-            	print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
-            	#print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
-            }
-            print OUT "module load ngsplot\n";
-        }
-        unless ($comparisonGeneList eq "" || $comparisonGeneList eq "default") {
+	    } else {
+		if ($comparisonHeatmapScale eq '') {
+		    if ($comparisonCD eq '') {
+			$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.tss";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.tss";
+		    } else {
+			$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.tss -CD $comparisonCD";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.tss";
+		    }
+		} else {
+		    if ($comparisonCD eq '') {
+			$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].tss -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].tss";
+		    } else {
+			$ngsplotcomptsscmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthTSS -R tss -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].tss -CD $comparisonCD -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].tss";
+		    }
+		}
+	    }
+	    print OUT "$ngsplotcomptsscmd\n";
+	    if ($comparisonGeneOrder eq "km") {
+		print OUT "\n# Formatting kmeans clusters as separate files for later follow-up analysis.\n";
+		print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
+		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		print OUT "module load R\n";
+		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters2.pl $output.clusters.txt $output.order.list.txt $edgeRlist $edgeRpv\n";
+		unless ($edgeRlist eq '') {
+		    print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
+		    #print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
+		}
+		print OUT "module load ngsplot\n";
+	    }
+	    unless ($comparisonGeneList eq "" || $comparisonGeneList eq "default") {
         	print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            print OUT "module load R\n";
+		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		print OUT "module load R\n";
             print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly} $entrez{$assembly}\n";
-            unless ($edgeRlist eq '') {
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly} $entrez{$assembly}\n";
+		unless ($edgeRlist eq '') {
             	print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdtForGeneList.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt\n";
             	#print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
-            }
-        }
+		}
+	    }
 	}
 	if ($runComparisonGenebody == 1) {		
-		if ($comparisonGeneOrder eq "km") {
-			if ($comparisonHeatmapScale eq '') {
-				if ($comparisonCD eq '') {
-					$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.genebody";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.genebody";
-				} else {
-					$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.genebody -CD $comparisonCD";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.genebody";
-				}
-			} else {
-				if ($comparisonCD eq '') {
-					$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].genebody -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].genebody";
-				} else {
-					$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].genebody -CD $comparisonCD -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].genebody";
-				}
-			}
+	    if ($comparisonGeneOrder eq "km") {
+		if ($comparisonHeatmapScale eq '') {
+		    if ($comparisonCD eq '') {
+			$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.genebody";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.genebody";
+		    } else {
+			$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.genebody -CD $comparisonCD";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.genebody";
+		    }
 		} else {
-			if ($comparisonHeatmapScale eq '') {
-				if ($comparisonCD eq '') {
-					$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.genebody";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.genebody";
-				} else {
-					$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.genebody -CD $comparisonCD";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.genebody";
-				}
-			} else {
-				if ($comparisonCD eq '') {
-					$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].genebody -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].genebody";
-				} else {
-					$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].genebody -CD $comparisonCD -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].genebody";
-				}
-			}
+		    if ($comparisonCD eq '') {
+			$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].genebody -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].genebody";
+		    } else {
+			$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].genebody -CD $comparisonCD -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].genebody";
+		    }
 		}
-		print OUT "$ngsplotcompgenebodycmd\n";
-		if ($comparisonGeneOrder eq "km") {
-            print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            print OUT "module load R\n";
-            print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters2.pl $output.clusters.txt $output.order.list.txt $edgeRlist $edgeRpv\n";
-            unless ($edgeRlist eq '') {
-            	print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
-            	#print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
-            }
-            print OUT "module load ngsplot\n";
-        }
-        unless ($comparisonGeneList eq "" || $comparisonGeneList eq "default") {
+	    } else {
+		if ($comparisonHeatmapScale eq '') {
+		    if ($comparisonCD eq '') {
+			$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.genebody";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.genebody";
+		    } else {
+			$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.genebody -CD $comparisonCD";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.genebody";
+		    }
+		} else {
+		    if ($comparisonCD eq '') {
+			$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].genebody -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].genebody";
+		    } else {
+			$ngsplotcompgenebodycmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthGenebody -R genebody -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].genebody -CD $comparisonCD -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].genebody";
+		    }
+		}
+	    }
+	    print OUT "$ngsplotcompgenebodycmd\n";
+	    if ($comparisonGeneOrder eq "km") {
+		print OUT "\n# Formatting kmeans clusters as separate files for later follow-up analysis.\n";
+		print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
+		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		print OUT "module load R\n";
+		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters2.pl $output.clusters.txt $output.order.list.txt $edgeRlist $edgeRpv\n";
+		unless ($edgeRlist eq '') {
+		    print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
+		    #print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
+		}
+		print OUT "module load ngsplot\n";
+	    }
+	    unless ($comparisonGeneList eq "" || $comparisonGeneList eq "default") {
         	print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            print OUT "module load R\n";
-            print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
-            unless ($edgeRlist eq '') {
-            	print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdtForGeneList.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt\n";
-            	#print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
-            }
+		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		print OUT "module load R\n";
+		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
+		unless ($edgeRlist eq '') {
+		    print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdtForGeneList.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt\n";
+		    #print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdt.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
+		}
         }
 	}
 	$rr = 70;
 	unless ($assembly eq 'sacCer3') {
-		$rr = 200;
+	    $rr = 200;
 	} 
 	if ($runComparisonExon == 1) {		
-		if ($comparisonGeneOrder eq "km") {
-			if ($comparisonHeatmapScale eq '') {
-				if ($comparisonCD eq '') {
-					$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.exon";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.exon";
-				} else {
-					$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.exon -CD $comparisonCD";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.exon";
-				}
-			} else {
-				if ($comparisonCD eq '') {
-					$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].exon -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].exon";
-				} else {
-					$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].exon -CD $comparisonCD -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].exon";
-				}
-			}
+	    if ($comparisonGeneOrder eq "km") {
+		if ($comparisonHeatmapScale eq '') {
+		    if ($comparisonCD eq '') {
+			$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.exon";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.exon";
+		    } else {
+			$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.exon -CD $comparisonCD";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.exon";
+		    }
 		} else {
-			if ($comparisonHeatmapScale eq '') {
-				if ($comparisonCD eq '') {
-					$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.exon";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.exon";
-				} else {
-					$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.exon -CD $comparisonCD";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.exon";
-				}
-			} else {
-				if ($comparisonCD eq '') {
-					$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].exon -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].exon";
-				} else {
-					$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].exon -CD $comparisonCD -SC $comparisonHeatmapScale";
-					$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].exon";
-				}
-			}
+		    if ($comparisonCD eq '') {
+			$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].exon -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].exon";
+		    } else {
+			$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -KNC $comparisonGeneClusters -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].exon -CD $comparisonCD -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonGeneClusters.$comparisonGeneList.$chs[0].$chs[1].exon";
+		    }
 		}
-		print OUT "$ngsplotcompexoncmd\n";
-		if ($comparisonGeneOrder eq "km") {
-            print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            print OUT "module load R\n";
-            print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters2.pl $output.clusters.txt $output.order.list.txt $edgeRlist $edgeRpv\n";
-            print OUT "module load ngsplot\n";              
-        }
-        unless ($comparisonGeneList eq "" || $comparisonGeneList eq "default") {
+	    } else {
+		if ($comparisonHeatmapScale eq '') {
+		    if ($comparisonCD eq '') {
+			$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.exon";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.exon";
+		    } else {
+			$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.exon -CD $comparisonCD";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.exon";
+		    }
+		} else {
+		    if ($comparisonCD eq '') {
+			$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].exon -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].exon";
+		    } else {
+			$ngsplotcompexoncmd = "ngs.plot.r -G $assembly -FL $fragmentLength -L $lengthExon -R exon -C $outfile -RR $rr -GO $comparisonGeneOrder -VLN $verticalLines -LWD $lineWidth -p $numProcessors -CO $comparisonHeatmapColors -O $ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].exon -CD $comparisonCD -SC $comparisonHeatmapScale";
+			$output = "$ngsPlotDirectory\/ngsplot.comp.$comparisonGeneList.$chs[0].$chs[1].exon";
+		    }
+			}
+	    }
+	    print OUT "$ngsplotcompexoncmd\n";
+	    if ($comparisonGeneOrder eq "km") {
+		print OUT "\n# Formatting kmeans clusters as separate files for later follow-up analysis.\n";
+		print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
+		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		print OUT "module load R\n";
+		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getClusters2.pl $output.clusters.txt $output.order.list.txt $edgeRlist $edgeRpv\n";
+		print OUT "module load ngsplot\n";              
+	    }
+	    unless ($comparisonGeneList eq "" || $comparisonGeneList eq "default") {
         	print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            print OUT "module load R\n";
-            print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
-            unless ($edgeRlist eq '') {
-            	print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdtForGeneList.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt\n";
-            	#print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdtForGeneList.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
-            }
+		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		print OUT "module load R\n";
+		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		print OUT "perl $ngsPlotFilesScriptsDirectory\/getTIDs.pl $output.order.txt $output.order.list.txt $geneAnno{$assembly} $entrez{$assembly}\n";
+		unless ($edgeRlist eq '') {
+		    print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdtForGeneList.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt\n";
+		    #print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdtForGeneList.pl $geneAnno{$assembly} $edgeRlist $output.order.list.txt $comparisonGeneClusters\n";
+		}
         }
 	}
-}
+    }
 }
 unless ($bedList eq '') {
 	my $count = -1;
@@ -948,6 +996,7 @@ unless ($bedList eq '') {
 				} else {
 					$output = "$ngsPlotDirectory\/ngsplot.km.$bedClusters.$hs[0].$hs[1].$bedname";
 				}
+				print OUT "\n# Formatting kmeans clusters as separate files for later follow-up analysis.\n";
 				print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
             	print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
             	print OUT "module load R\n";
@@ -976,79 +1025,81 @@ unless ($bedList eq '') {
 	}
 }		
 unless ($comparisons eq '') {
-	if ($comparisonBedList eq '') {
-		my $count = -1; 
-		my $count2 = 0;
-		foreach my $bed (@beds) {
-			$count++;
-			$count2++;
-			my $bedname = $bedNames[$count]; 
-			if  ($runBedParallel == 0) {
-				print OUT "$ngsplotcompcmd{$bedname}\n";
-				if ($comparisonBedOrder eq 'km') {
-					if ($comparisonHeatmapScale eq '') {
-						$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonBedClusters.$bedname";
-					} else {
-						$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonBedClusters.$chs[0].$chs[1].$bedname";
-					}
-                	print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            		print OUT "module load R\n";
-            		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            		print OUT "perl $ngsPlotFilesScriptsDirectory\/getIDs.pl $output.order.txt $output.order.list.txt\n";
-            		if ($useEqualPeakWidthforComparisonBedList == 1 && $comparisonSortBed == 0) { 
-						print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.same.bed $output.order.list.txt\n";
-					} elsif ($useEqualPeakWidthforComparisonBedList == 1 && $comparisonSortBed == 1) {
-						print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.sort.bed $output.order.list.txt\n";
-					} elsif ($useEqualPeakWidthforComparisonBedList == 0 && $comparisonSortBed == 1 && $comparisonCenterBed == 1)  {
-						print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.sort.center.bed $output.order.list.txt\n";
-					} else {
-						print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.center.bed $output.order.list.txt\n";
-					}
-					unless ($edgeRlist eq '') {
-            			print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdtForBed.pl $geneAnno{$assembly} $edgeRlist $output.order.list.bed $comparisonBedClusters $edgeRpv\n";
-            			#print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdtForBed.pl $geneAnno{$assembly} $edgeRlist $output.order.list.bed $comparisonBedClusters $edgeRpv\n";
-            		}
-            		print OUT "module load ngsplot\n";
+    if ($comparisonBedList eq '') {
+	my $count = -1; 
+	my $count2 = 0;
+	foreach my $bed (@beds) {
+	    $count++;
+	    $count2++;
+	    my $bedname = $bedNames[$count]; 
+	    if  ($runBedParallel == 0) {
+		print OUT "$ngsplotcompcmd{$bedname}\n";
+		if ($comparisonBedOrder eq 'km') {
+		    if ($comparisonHeatmapScale eq '') {
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonBedClusters.$bedname";
+		    } else {
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonBedClusters.$chs[0].$chs[1].$bedname";
+		    }
+		    print OUT "\n# Formatting kmeans clusters as separate files for later follow-up analysis.\n";
+		    print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
+		    print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		    print OUT "module load R\n";
+		    print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		    print OUT "perl $ngsPlotFilesScriptsDirectory\/getIDs.pl $output.order.txt $output.order.list.txt\n";
+		    if ($useEqualPeakWidthforComparisonBedList == 1 && $comparisonSortBed == 0) { 
+			print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.same.bed $output.order.list.txt\n";
+		    } elsif ($useEqualPeakWidthforComparisonBedList == 1 && $comparisonSortBed == 1) {
+			print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.sort.bed $output.order.list.txt\n";
+		    } elsif ($useEqualPeakWidthforComparisonBedList == 0 && $comparisonSortBed == 1 && $comparisonCenterBed == 1)  {
+			print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.sort.center.bed $output.order.list.txt\n";
+		    } else {
+			print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.center.bed $output.order.list.txt\n";
+		    }
+		    unless ($edgeRlist eq '') {
+			print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdtForBed.pl $geneAnno{$assembly} $edgeRlist $output.order.list.bed $comparisonBedClusters $edgeRpv\n";
+			#print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogCPMcdtForBed.pl $geneAnno{$assembly} $edgeRlist $output.order.list.bed $comparisonBedClusters $edgeRpv\n";
+		    }
+		    print OUT "module load ngsplot\n";
                 }
-			} else {
-				print OUT "$ngsplotcompcmd{$bedname} &\n";
-				if ($count2 % $numProcessors == 0) {
-					print OUT "wait\n";
-				}
-			}
+	    } else {
+		print OUT "$ngsplotcompcmd{$bedname} &\n";
+		if ($count2 % $numProcessors == 0) {
+		    print OUT "wait\n";
 		}
-		if ($count2 % $numProcessors > 0 && $runBedParallel == 1) {
-			print OUT "wait\n";
-		}
-	} elsif ($comparisonBedList ne '') {
-		my $count = -1; 
-		my $count2 = 0;
-		foreach my $bed (@comparisonBeds) {
-			$count++;
-			$count2++;	
-			my $bedname = $comparisonBedNames[$count]; 
-			if  ($runBedParallel == 0) {
-				print OUT "$ngsplotcompcmd{$bedname}\n";
-				if ($comparisonBedOrder eq 'km') {
-					if ($comparisonHeatmapScale eq '') {
-						$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonBedClusters.$bedname";
-					} else {
-						$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonBedClusters.$chs[0].$chs[1].$bedname";
-					}
-                	print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
-            		print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
-            		print OUT "module load R\n";
-            		print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
-            		print OUT "perl $ngsPlotFilesScriptsDirectory\/getIDs.pl $output.order.txt $output.order.list.txt\n";
-            		if ($useEqualPeakWidthforComparisonBedList == 1 && $comparisonSortBed == 0) { 
-						print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.same.bed $output.order.list.txt\n";
-					} elsif ($useEqualPeakWidthforComparisonBedList == 1 && $comparisonSortBed == 1) {
-						print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.sort.bed $output.order.list.txt\n";
-					} elsif ($useEqualPeakWidthforComparisonBedList == 0 && $comparisonSortBed == 1 && $comparisonCenterBed == 1)  {
-						print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.sort.center.bed $output.order.list.txt\n";
-					} else {
-						print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.center.bed $output.order.list.txt\n";
+	    }
+	}
+	if ($count2 % $numProcessors > 0 && $runBedParallel == 1) {
+	    print OUT "wait\n";
+	}
+    } elsif ($comparisonBedList ne '') {
+	my $count = -1; 
+	my $count2 = 0;
+	foreach my $bed (@comparisonBeds) {
+	    $count++;
+	    $count2++;	
+	    my $bedname = $comparisonBedNames[$count]; 
+	    if  ($runBedParallel == 0) {
+		print OUT "$ngsplotcompcmd{$bedname}\n";
+		if ($comparisonBedOrder eq 'km') {
+		    if ($comparisonHeatmapScale eq '') {
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonBedClusters.$bedname";
+		    } else {
+			$output = "$ngsPlotDirectory\/ngsplot.comp.km.$comparisonBedClusters.$chs[0].$chs[1].$bedname";
+		    }
+		    print OUT "\n# Formatting kmeans clusters as separate files for later follow-up analysis.\n";
+		    print OUT "tac gnames_km.txt | awk ' BEGIN {FS = \"\\t\"; cluster=0; last=0} {  if (\$2>0) {  if ( ( last == 0) || last < \$2 ) { cluster++} last = \$2;  print \$1\"\\t\"cluster; } }' - > $output.clusters.txt\n";
+		    print OUT "unzip -o $output.zip -d $ngsPlotDirectory\n";
+		    print OUT "module load R\n";
+		    print OUT "Rscript $ngsPlotFilesScriptsDirectory\/getList.R --infile=$output/heatmap.RData --outfile=$output.order.txt\n";
+		    print OUT "perl $ngsPlotFilesScriptsDirectory\/getIDs.pl $output.order.txt $output.order.list.txt\n";
+		    if ($useEqualPeakWidthforComparisonBedList == 1 && $comparisonSortBed == 0) { 
+			print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.same.bed $output.order.list.txt\n";
+		    } elsif ($useEqualPeakWidthforComparisonBedList == 1 && $comparisonSortBed == 1) {
+			print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.sort.bed $output.order.list.txt\n";
+		    } elsif ($useEqualPeakWidthforComparisonBedList == 0 && $comparisonSortBed == 1 && $comparisonCenterBed == 1)  {
+			print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.sort.center.bed $output.order.list.txt\n";
+		    } else {
+			print OUT "perl $ngsPlotFilesScriptsDirectory\/getBedClusters.pl $output.clusters.txt $ngsPlotDirectory\/$bedname.center.bed $output.order.list.txt\n";
 					}
 					unless ($edgeRlist eq '') {
             			print OUT "perl $ngsPlotFilesScriptsDirectory\/makeEdgeRlogFCcdtForBed.pl $geneAnno{$assembly} $edgeRlist $output.order.list.bed $comparisonBedClusters $edgeRpv\n";
@@ -1069,6 +1120,7 @@ unless ($comparisons eq '') {
 	}
 }
 if ($assembly eq 'mm9' || $assembly eq 'mm10' || $assembly eq 'hg18' || $assembly eq 'hg19') {
+    print OUT "\n# Setting up homer analysis for assembly $assembly.\n";
 	print OUT "perl $ngsPlotFilesScriptsDirectory\/makeHOMERshellScript.pl $ngsPlotDirectory\/ $homerShellScript $assembly $promoter1k{$assembly} $cgi{$assembly}\n";
 } else {
 	print OUT "perl $ngsPlotFilesScriptsDirectory\/makeHOMERshellScript.pl $ngsPlotDirectory\/ $homerShellScript $assembly $promoter1k{$assembly}\n";
