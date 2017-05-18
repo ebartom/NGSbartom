@@ -24,6 +24,9 @@ rownames(peaks) <- peaks$name
 gpeaks <- as(peaks,"GRanges")
 head(gpeaks)
 
+cat("Remove chromosomes containing underscores from bedfile\n")
+seqlevels(gpeaks,force=TRUE) <- seqlevels(gpeaks)[grep("_",seqlevels(gpeaks), invert=TRUE)]
+
 cat("importing:", bwfile, sep="\n")
 bw.peak <- import.bw(bwfile,RangedData=FALSE,selection = BigWigSelection(gpeaks))
 cat("calc coverage\n")
@@ -41,17 +44,17 @@ bw.peak.cov <- coverage(bw.peak,weight='score')
 #gpeaks$mean.cov <- mean.cov[,1]/width(gpeaks)
 #head(mean.cov)
 
-#cat("get max coverage for peak region\n")
-#max.cov <- with(as.data.frame(gpeaks),{       
-#    mcmapply(function(seqname,start,end){
-#        max(bw.peak.cov[[seqname]][start:end])
-#    }
-#            ,mc.cores=8
-#            ,as.character(seqnames),start,end)
-#})
-#max.cov <- data.frame(max.cov)
-#head(max.cov)
-#gpeaks$max.cov <- max.cov[,1]
+cat("get max coverage for peak region\n")
+max.cov <- with(as.data.frame(gpeaks),{       
+    mcmapply(function(seqname,start,end){
+        max(bw.peak.cov[[seqname]][start:end])
+    }
+            ,mc.cores=8
+            ,as.character(seqnames),start,end)
+})
+max.cov <- data.frame(max.cov)
+head(max.cov)
+gpeaks$max.cov <- max.cov[,1]
 
 cat("get summit for peak region\n")
 summit.cov <- with(as.data.frame(gpeaks),{       
@@ -61,6 +64,7 @@ summit.cov <- with(as.data.frame(gpeaks),{
             ,mc.cores=8
             ,as.character(seqnames),start,end)
 })
+cat("creating data frame of summits")
 summit.cov <- data.frame(summit.cov)
 head(summit.cov)
 gpeaks$summit <- summit.cov[,1]+start(gpeaks)
@@ -79,4 +83,5 @@ df <- data.frame(seqnames=seqnames(gpeaks),
 filename <- sub(".bed$","",bedfile)
 filename <- paste(filename,".summits.bed",sep="")
 filename
+head(df)
 write.table(df,file=filename,quote=F,sep="\t",row.names=F,col.names=F)

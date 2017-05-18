@@ -79,7 +79,8 @@ matBin <-function(peakdf,model){
         window.cov <- function(row){
               window <- as.integer(ncol(cov)/numBins)
               window.coverage <- lapply(0:(window-1), function(jump)
-                  rowMeans(row[(jump*(numBins-1)+1):(jump*(numBins-1)+1)+(numBins-1)])
+                  rowMeans(row[((jump*numBins)+1):((jump*numBins)+1)+numBins])
+#                                        rowMeans(row[(jump*(numBins-1)+1):(jump*(numBins-1)+1)+(numBins-1)])
                                         )
               t(as.matrix(unlist(window.coverage)))
           }

@@ -1664,6 +1664,8 @@ if ($buildGenotyping ==1) {
 		print SH "# Calling SNPs and Indels with HaplotypeCaller.\n";
 		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
 		print SH "date\n\n";
+		print SH "# Calling SNPs and Indels with Mutect2.\n";
+		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T MuTect2 -R $gatkRef{$reference{$sample}} -I:tumor $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
 		close SH;
 	    }
 	    if ($runGenotyping == 1){
