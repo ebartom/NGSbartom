@@ -27,14 +27,14 @@ module load R/3.2.2
 R
 
 # Set up R packages
-source(“http://bioconductor.org/biocLite.R”)
-biocLite(“BSgenome.Mmusculus.UCSC.mm10”)
+source("http://bioconductor.org/biocLite.R")
+biocLite("BSgenome.Mmusculus.UCSC.mm10")
 biocLite("BSgenome.Mmusculus.UCSC.mm9")
 biocLite("BSgenome.Hsapiens.UCSC.hg19")
-biocLite("BSgenome.Hsapiens.UCSC.hg38”)
-biocLite("BSgenome.Scerevisiae.UCSC.sacCer3”)
-biocLite(“ChIPpeakAnno”)
-biocLite(“topGO”)
+biocLite("BSgenome.Hsapiens.UCSC.hg38")
+biocLite("BSgenome.Scerevisiae.UCSC.sacCer3")
+biocLite("ChIPpeakAnno")
+biocLite("topGO")
 
 # exit R
 q()

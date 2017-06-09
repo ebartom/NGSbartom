@@ -33,6 +33,7 @@ if ((assembly == "hg19") || (assembly == "hg38")) { organismStr <- "Hsapiens" }
 if ((assembly == "mm9") || (assembly == "mm10")) { organismStr <- "Mmusculus" }
 if (assembly == "sacCer3") organismStr <- "Scerevisiae"
 if (assembly == "dm3") organismStr <- "Dmelanogaster"
+if (assembly == "rn6") organismStr <- "Rnorvegicus"
 print(organismStr)
 
 assemblyLibrary <- paste("BSgenome.", organismStr, ".UCSC.", assembly, sep="")
@@ -44,6 +45,7 @@ if ((assembly == "hg19") || (assembly == "hg38")) { organism <- Hsapiens }
 if ((assembly == "mm9") || (assembly == "mm10")) { organism <- Mmusculus }
 if (assembly == "sacCer3") organism <- Scerevisiae
 if (assembly == "dm3") organism <- Dmelanogaster
+if (assembly == "rn6") organism <- Rnorvegicus
 
 #setwd to bamfile dir 
 setwd(bamDir)

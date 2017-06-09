@@ -29,6 +29,7 @@ txdbfile
 print(assembly)
 if ((assembly == "hg19") || (assembly == "hg38")) { organismStr <- "Hsapiens" }
 if ((assembly == "mm9") || (assembly == "mm10")) { organismStr <- "Mmusculus" }
+if ((assembly == "rn6")) { organismStr <- "Rnorvegicus" }
 if (assembly == "sacCer3") { organismStr <- "Scerevisiae"}
 if (assembly == "dm3") { organismStr <- "Dmelanogaster"}
 
@@ -40,6 +41,7 @@ if ((assembly == "hg19") || (assembly == "hg38")) { organism <- Hsapiens }
 if ((assembly == "mm9") || (assembly == "mm10")) { organism <- Mmusculus }
 if (assembly == "sacCer3") { organism <- Scerevisiae}
 if (assembly == "dm3") { organism <- Dmelanogaster}
+if (assembly == "rn6") { organism <- Rnorvegicus}
 
 txdb <- loadDb(txdbfile)
 txdb
@@ -48,11 +50,14 @@ seqlevels(txdb,force=TRUE) <- seqlevels(txdb)[grep("_|\\d+.1$",seqlevels(txdb), 
 seqlevels(txdb) <- sub("^","chr", seqlevels(txdb))
 seqlevels(txdb) <- sub("MT","M", seqlevels(txdb))
 seqlevels(txdb) <- sub("Mito","M", seqlevels(txdb))
+seqlevels(txdb)
+seqlengths(txdb)
 
 gnModel <- transcriptsBy(txdb, 'gene')
 gnModel <- unlist(gnModel)
 seqinfo(gnModel) <- seqinfo(organism)[seqlevels(gnModel)]
-
+#seqlengths(gnModel) <- seqlengths(organism)[names(gnModel)]
+print ("peakFile")
 print(peakFile)
 counts <- read.delim(file=peakFile,header=FALSE,sep="\t")
 # Ignore any columns beyond the first five.
@@ -60,12 +65,16 @@ counts <- counts[,1:5]
 colnames(counts)<-c("chr","start","end","name","score")
 counts$name <- sub(" ","",counts$name)
 counts$chr <- sub(" ","",counts$chr)
-#head(counts)
+head(counts)
 gcounts <- as(counts,"GRanges")
 genome(gcounts) <- assembly
-#gcounts
-seqlengths(gcounts) <- seqlengths(gnModel)[seqlevels(gcounts)]
+print("gcounts")
 gcounts
+seqlevels(gcounts)
+seqlengths(gcounts)
+seqlengths(gcounts) <- seqlengths(gnModel)[seqlevels(gcounts)]
+#seqlengths(gcounts) <- seqlengths(organism)[names(gcounts)]
+seqlengths(gcounts)
 
 counts$nearestGene<-names(gnModel[nearest(gcounts,gnModel)])
 dist<-as.data.frame(distanceToNearest(gcounts,gnModel))

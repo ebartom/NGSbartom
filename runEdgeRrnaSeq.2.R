@@ -86,6 +86,11 @@ if (assembly == "mm10") {
     hostMart <- "feb2014.archive.ensembl.org"
     attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
 }
+if (assembly == "rn6") {
+    organismStr <- "rnorvegicus"
+    hostMart <- "mar2016.archive.ensembl.org"
+    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
+}
 if (assembly == "grcm38") {
    organismStr <- "mmusculus"
    hostMart <- "dec2016.archive.ensembl.org"

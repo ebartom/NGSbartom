@@ -385,6 +385,16 @@ $gatkRef{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Sequence/Whole
 $knownSNPsites{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annotation/Variation/Mus_musculus.reordered2.vcf";
 $knownIndelsites{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annotation/Variation/Mus_musculus.reordered2.vcf";
 
+$bowtieIndex{"rn6"} = "$NGSbartom/anno/bowtie_indexes/rn6";
+$bwaIndex{"rn6"} = "$NGSbartom/anno/bwa_indexes/rn6.fa";
+$txIndex{"rn6"} = "$NGSbartom/anno/tophat_tx/rn6.Ens_84.cuff";
+$txdbfile{"rn6"} = "$NGSbartom/anno/Txdb/rnorvegicus_gene_ensembl_Ens84.txdb";
+$exonbed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.exons.bed";
+$genebed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.cuff.bed";
+#$gff{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.cuff.gtf";
+$gff{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/Rattus_norvegicus.Rnor_6.0.84.gtf";
+$rsemTx{"rn6"} = "$NGSbartom/anno/rsemTx/rn6.Ens_84";
+
 $bowtieIndex{"mm10"} = "$NGSbartom/anno/bowtie_indexes/mm10";
 $bwaIndex{"mm10"} = "$NGSbartom/anno/bwa_indexes/mm10.fa";
 $txIndex{"mm10"} = "$NGSbartom/anno/tophat_tx/mm10.Ens_78.cuff";
@@ -537,7 +547,7 @@ if (($sampleSheet ne "")){
 		foreach my $lane ("L001","L002","L003","L004"){
 		    # Build fastq file names.
 		    # NB:  Right now it assumes single end.
-		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f\w*q.gz";
+		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f*q.gz";
 		    print STDERR "Looking for $fastq\n";
 		    print STDERR "Looking for $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq and $outputDirectory\/$sample_project\/fastq\/$fastq\n";
 		    # Check if fastq exists in new subdirectory or old.
@@ -545,7 +555,7 @@ if (($sampleSheet ne "")){
 			#		print STDERR "$fastq exists in $baseSpaceDirectory\n";
 		    } else { 
 			# If you still can't find it, try all underscores (like in SampleSheet), again in old subdirectory or new
-			$fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f\w*q.gz";
+			$fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f*q.gz";
 			$fastq =~ s/-/_/g;
 			print STDERR "Looking for $fastq\n";
 			if ((-e "$baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq") || (-e "$outputDirectory\/$sample_project\/fastq\/$fastq")) {

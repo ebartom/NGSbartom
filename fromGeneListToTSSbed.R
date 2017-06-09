@@ -32,7 +32,9 @@ if ((assembly == "mm9") || (assembly == "mm10")) { organismStr <- "Mmusculus"
 if (assembly == "sacCer3") { organismStr <- "Scerevisiae"
                              species <- "Saccharomyces cerevisiae"}
 if (assembly == "dm3") { organismStr <- "Dmelanogaster"
-                     species <- "Drosophila melanogaster"}
+                         species <- "Drosophila melanogaster"}
+if (assembly == "rn6") { organismStr <- "Rnorvegicus"
+                         species <- "Rattus norvegicus"}
 
 assemblyLibrary <- paste("BSgenome.", organismStr, ".UCSC.", assembly, sep="")
 print(assemblyLibrary)
@@ -42,6 +44,7 @@ if ((assembly == "hg19") || (assembly == "hg38")) { organism <- Hsapiens }
 if ((assembly == "mm9") || (assembly == "mm10")) { organism <- Mmusculus }
 if (assembly == "sacCer3") { organism <- Scerevisiae}
 if (assembly == "dm3") { organism <- Dmelanogaster}
+if (assembly == "rn6") { organism <- Rnorvegicus}
 
 txdb <- loadDb(txdbfile)
 txdb
