@@ -475,7 +475,7 @@ if (($sampleSheet ne "")){
     print OUT "Fastq,Sample_Name,Assembly\n";
     while(<IN>){
 	chomp $_;
-	if (($flag eq "data") && ($_ !~ /^Sample_ID/)){
+	if (($flag eq "data") && ($_ !~ /^Sample_ID/) && ($_ !~ /SampleID/)){
 	    # Read in the metadata from the sample sheet.
 	    ($sample_ID,$sample_name,$sample_plate,$assembly,$I7_Index_ID,$index,$sample_project,$description,$stuff) = split(/\,/,$_);
 	    $sampleNum++;
@@ -1872,7 +1872,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "mv $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.named.bed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed\n";
 			print BSH "date\n";
 			print BSH "\n# Annotate peaks with nearby genes.\n";
-			print BSH "\nmodule unload python\nmodule load mpi/openmpi-1.6.3-gcc-4.6.3\nmodule load R/3.2.2\n";
+			print BSH "\nmodule unload python/anaconda\nmodule load mpi/openmpi-1.6.3-gcc-4.6.3\nmodule load R/3.2.2\n";
 			print BSH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print BSH "date\n";
 			print BSH "\n# Find summits of peaks.\n";

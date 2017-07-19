@@ -47,6 +47,11 @@ if ((assembly == "hg38") || (assembly == "hg38.mp")) {
    hostMart <- "feb2014.archive.ensembl.org"
    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id','go_id')
 }
+if (assembly == "rn6") {
+    organismStr <- "rnorvegicus"
+    hostMart <- "mar2016.archive.ensembl.org"
+    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_name','description','ensembl_transcript_id')
+}
 if (assembly == "mm9") {
     organismStr <- "mmusculus"
     hostMart <- "feb2014.archive.ensembl.org"
@@ -104,9 +109,15 @@ if (identical(method,"rsem")){
                     function(x) as.character(x))
 }
 
-if (identical(assembly,"hg38.mp")){
+if (identical(assembly,"hg38.mp")) {
     print("pairing GO IDs with Ensembl IDs")
     geneID2GO <- by(EG2GO$go_id,EG2GO$external_gene_id,
+                    function(x) as.character(x))
+}
+
+if (identical(assembly,"rn6")) {
+    print("pairing GO IDs with Ensembl IDs")
+    geneID2GO <- by(EG2GO$go_id,EG2GO$external_gene_name,
                     function(x) as.character(x))
 }
 

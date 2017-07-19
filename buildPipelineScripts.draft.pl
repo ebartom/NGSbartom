@@ -387,12 +387,13 @@ $knownIndelsites{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annota
 
 $bowtieIndex{"rn6"} = "$NGSbartom/anno/bowtie_indexes/rn6";
 $bwaIndex{"rn6"} = "$NGSbartom/anno/bwa_indexes/rn6.fa";
-$txIndex{"rn6"} = "$NGSbartom/anno/tophat_tx/rn6.Ens_84.cuff";
+$txIndex{"rn6"} = "$NGSbartom/anno/tophat_tx/rn6.UCSC";
 $txdbfile{"rn6"} = "$NGSbartom/anno/Txdb/rnorvegicus_gene_ensembl_Ens84.txdb";
 $exonbed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.exons.bed";
 $genebed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.cuff.bed";
 #$gff{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.cuff.gtf";
-$gff{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/Rattus_norvegicus.Rnor_6.0.84.gtf";
+#$gff{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/Rattus_norvegicus.Rnor_6.0.84.gtf";
+$gff{"rn6"} = "/projects/p20742/anno/Rattus_norvegicus/UCSC/rn6/Annotation/Genes/genes.gtf";
 $rsemTx{"rn6"} = "$NGSbartom/anno/rsemTx/rn6.Ens_84";
 
 $bowtieIndex{"mm10"} = "$NGSbartom/anno/bowtie_indexes/mm10";
@@ -504,6 +505,7 @@ if ($buildBcl2fq == 1){
 	print STDERR "\n";
 	&datePrint("Job $result done.  Continuing.");
     }
+    close SH;
     $cmd = "cp $baseSpaceDirectory\/runBcl2fq.sh $outputDirectory\/";
     system($cmd);
 }
@@ -524,7 +526,7 @@ if (($sampleSheet ne "")){
     print OUT "Fastq,Sample_Name,Assembly\n";
     while(<IN>){
 	chomp $_;
-	if (($flag eq "data") && ($_ !~ /^Sample_ID/)){
+	if (($flag eq "data") && ($_ !~ /^Sample_ID/) && ($_ !~ /SampleID/)){
 	    # Read in the metadata from the sample sheet.
 	    ($sample_ID,$sample_name,$sample_plate,$assembly,$I7_Index_ID,$index,$sample_project,$description,$stuff) = split(/\,/,$_);
 	    $sampleNum++;
@@ -1047,6 +1049,8 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		}
 		print SH "date\n";
 		if ($uploadASHtracks == 1){
+		    print SH "\nmodule load python/anaconda\n";
+
 		    print SH "# Move tracks into Shilatifard directory structure.\n";
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
@@ -1077,9 +1081,11 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}elsif ($multiMap == 1){
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.multi.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
-			}			    
-		    }			    
+			}
+		    }
+		    print SH "\nmodule unload python/anaconda\n";		
 		} elsif ($uploadPulmtracks == 1) {
+		    print SH "\nmodule load python/anaconda\n";	
 		    if ($uploadBAM == 1){
 			print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
@@ -1111,6 +1117,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
 		}
+		print SH "\nmodule unload python/anaconda\n";
 	    }
 	    close(SH);
 	}
@@ -1950,10 +1957,12 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "$NGSbartom/tools/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.macsPeaks.capped.bed $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb\n";
 			    print SH "date\n";
 			    if ($uploadASHtracks == 1){
+				print SH "\nmodule load python/anaconda\n\n";
 				print SH "\n# Copy bigBed to Amazon S3, for UCSC genome browser to access.\n";
 				print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 				print SH "aws s3 cp $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb s3://$s3path/$scientist.$project/ --region us-west-2\n";
 				print SH "date\n";
+				print SH "\nmodule unload python/anaconda\n";
 			    }
 			    print SH "\n# Create track description for bigBed file.\n";
 			    print SH "echo \"track type=bigBed name=$ip.macsPeaks description=\\\"MACS peaks in $ip relative to $input\\\" graphtype=bar maxHeightPixels=128:60:11 visibility=dense color=0,0,0 itemRGB=on useScore=1 autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$ip.macsPeaks.bb\" | cat > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb.header.txt\n";
@@ -1983,7 +1992,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";	
 			    print SH "# For full description of options see https://github.com/ebartom/NGSbartom/blob/master/NGSplotPipeline/NGSplotPipeline.presentation.pdf\n";
 			    print SH "# Heatmaps will be calculated for each bed file in the $outputDirectory/$project/analysis/$ip.bedList.txt file ; default is to do each bed file separately.\n";
-			    print SH "echo \"$ip\t$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed\n\" | cat \>  $outputDirectory/$project/analysis/$ip.bedList.txt\n";
+			    print SH "echo \"$ip\t$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed\" | cat \>  $outputDirectory/$project/analysis/$ip.bedList.txt\n";
 			    print SH "perl $NGSbartom/tools/NGSplotPipeline/makeNGSplots.pl -hss $outputDirectory/$project/scripts/$ip.homer.logFC.metaPeakPlot.clustered.sh -hss2 $outputDirectory/$project/scripts/$ip.homer2.logFC.metaPeakPlot.clustered.sh \\\n";
 			    print SH "\t-os $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh \\\n";
 			    print SH "\t-o $outputDirectory/$project/NGSplotPipeline/$ip.logFC.metaPeakPlot.clustered \\\n";
@@ -2027,9 +2036,11 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print BSH "$NGSbartom/tools/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb\n";
 			    print BSH "date\n";
 			    if ($uploadASHtracks == 1){
+				print BSH "\nmodule load python/anaconda\n";
 				print BSH "\n# Copy bigBed to Amazon S3, for UCSC genome browser to access.\n";
 				print BSH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 				print BSH "aws s3 cp $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb s3://$s3path/$scientist.$project/ --region us-west-2\n";
+				print BSH "\nmodule unload python/anaconda\n";
 				print BSH "date\n";
 			    }
 			    print BSH "\n# Create track description for bigBed file.\n";
@@ -2041,7 +2052,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "mv $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.named.bed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed\n";
 			print BSH "date\n";
 			print BSH "\n# Annotate peaks with nearby genes.\n";
-			print BSH "\nmodule unload python\nmodule load mpi/openmpi-1.6.3-gcc-4.6.3\nmodule load R/3.2.2\n";
+			print BSH "\nmodule unload python/anaconda\nmodule load mpi/openmpi-1.6.3-gcc-4.6.3\nmodule load R/3.2.2\n";
 			print BSH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print BSH "date\n";
 			if ($buildNGSplot == 1){

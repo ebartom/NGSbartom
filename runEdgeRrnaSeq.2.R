@@ -89,7 +89,7 @@ if (assembly == "mm10") {
 if (assembly == "rn6") {
     organismStr <- "rnorvegicus"
     hostMart <- "mar2016.archive.ensembl.org"
-    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id')
+    attributes <- c('ensembl_gene_id','gene_biotype','external_gene_name','description','ensembl_transcript_id')
 }
 if (assembly == "grcm38") {
    organismStr <- "mmusculus"
@@ -117,7 +117,7 @@ dataset
 
 print("Loading biomart")
 bm <- useDataset(paste(organismStr,"_gene_ensembl",sep=""), mart=bm)
-#bm
+bm
 #listAttributes(bm)
 #anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_id','description','ensembl_transcript_id'))
 anno <- getBM(mart=bm, attributes=attributes)
@@ -226,7 +226,8 @@ runEdgeR <- function(data,comparison){
         iv <- match(rownames(df),anno$ensembl_gene_id)
             df$gene <- anno[iv,'external_gene_id']
     }
-    if (identical(assembly,"hg38.mp")){
+    if ((identical(assembly,"hg38.mp")) || (identical(assembly,"rn6"))) {
+        head(anno)				
         iv <- match(rownames(df),anno$external_gene_id)
             df$gene <- anno[iv,'ensembl_gene_id']
     } 
