@@ -1,6 +1,6 @@
 FROM centos:7
 
-RUN yum update && yum install -y \
+RUN yum update -y && yum install -y \
     environment-modules \
     git \
     glibc-static \
