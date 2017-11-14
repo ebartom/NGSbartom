@@ -17,3 +17,7 @@ RUN curl -o /tmp/bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm https://support.illumina
 WORKDIR /tmp
 
 RUN git clone https://github.com/BenLangmead/bowtie2.git && cd bowtie2 && git checkout tags/v2.2.6 && make && make install
+
+RUN mkdir -p /software/tophat/2.1.0 && \
+    curl -O http://ccb.jhu.edu/software/tophat/downloads/tophat-2.1.0.Linux_x86_64.tar.gz && \
+    tar -xzf tophat-2.1.0.Linux_x86_64.tar.gz -C /software/tophat/2.1.0 --strip-components=1
