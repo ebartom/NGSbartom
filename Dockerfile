@@ -19,6 +19,8 @@ RUN curl -o /tmp/bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm https://support.illumina
 
 WORKDIR /tmp
 
+RUN git clone https://github.com/BenLangmead/bowtie.git && cd bowtie && git checkout tags/v1.1.2 && make && make install
+
 RUN git clone https://github.com/BenLangmead/bowtie2.git && cd bowtie2 && git checkout tags/v2.2.6 && make && make install
 
 RUN mkdir -p /software/tophat/2.1.0 && \
@@ -27,3 +29,5 @@ RUN mkdir -p /software/tophat/2.1.0 && \
 
 RUN git clone https://github.com/samtools/htslib.git && cd htslib && git checkout tags/1.2 && cd .. \
     && git clone https://github.com/samtools/samtools.git && cd samtools && git checkout tags/1.2 && make && make install
+
+RUN rm -rf *
