@@ -11,13 +11,13 @@ RUN yum update -y && yum install -y \
     make \
     zlib-devel \
     ncurses-devel \
-    java-1.8.0-openjdk
-
-RUN curl -o /tmp/bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm https://support.illumina.com/content/dam/illumina-support/documents/downloads/software/bcl2fastq/bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm && \
-    yum -y --nogpgcheck localinstall /tmp/bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm && \
-    rm /tmp/bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm
+    java-1.8.0-openjdk \
+    unzip
 
 WORKDIR /tmp
+
+RUN curl -O https://support.illumina.com/content/dam/illumina-support/documents/downloads/software/bcl2fastq/bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm && \
+    yum -y --nogpgcheck localinstall bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm
 
 RUN git clone https://github.com/BenLangmead/bowtie.git && cd bowtie && git checkout tags/v1.1.2 && make && make install
 
@@ -27,7 +27,16 @@ RUN mkdir -p /software/tophat/2.1.0 && \
     curl -O http://ccb.jhu.edu/software/tophat/downloads/tophat-2.1.0.Linux_x86_64.tar.gz && \
     tar -xzf tophat-2.1.0.Linux_x86_64.tar.gz -C /software/tophat/2.1.0 --strip-components=1
 
-RUN git clone https://github.com/samtools/htslib.git && cd htslib && git checkout tags/1.2 && cd .. \
-    && git clone https://github.com/samtools/samtools.git && cd samtools && git checkout tags/1.2 && make && make install
+RUN git clone https://github.com/samtools/htslib.git && cd htslib && git checkout tags/1.2 && cd .. && \
+    git clone https://github.com/samtools/samtools.git && cd samtools && git checkout tags/1.2 && make && make install
+
+RUN git clone https://github.com/arq5x/bedtools2.git && cd bedtools2 && git checkout tags/v2.18.0 && make && \
+    mkdir -p /software/bedtools/2.18.0 && cp bin/* /software/bedtools/2.18.0
+
+RUN git clone https://github.com/lh3/bwa.git && cd bwa && git checkout tags/0.7.12 && make && cp bwa /usr/local/bin
+
+RUN mkdir -p /software/picard/1.131 && \
+    curl -L -O https://github.com/broadinstitute/picard/releases/download/1.131/picard-tools-1.131.zip && \
+    unzip picard-tools-1.131.zip && mv picard-tools-1.131 /software/picard/1.131
 
 RUN rm -rf *
