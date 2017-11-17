@@ -12,7 +12,8 @@ RUN yum update -y && yum install -y \
     zlib-devel \
     ncurses-devel \
     java-1.8.0-openjdk \
-    unzip
+    unzip \
+    bzip2
 
 WORKDIR /tmp
 
@@ -38,5 +39,11 @@ RUN git clone https://github.com/lh3/bwa.git && cd bwa && git checkout tags/0.7.
 RUN mkdir -p /software/picard/1.131 && \
     curl -L -O https://github.com/broadinstitute/picard/releases/download/1.131/picard-tools-1.131.zip && \
     unzip picard-tools-1.131.zip && mv picard-tools-1.131 /software/picard/1.131
+
+COPY resources/environment.yml .
+
+RUN mkdir -p /software/anaconda2 && curl -L -O https://repo.continuum.io/archive/Anaconda2-2.4.1-Linux-x86_64.sh && \
+    chmod 755 Anaconda2-2.4.1-Linux-x86_64.sh && bash Anaconda2-2.4.1-Linux-x86_64.sh -p /software/anaconda2 -f -b && \
+    /software/anaconda2/bin/conda env update -f environment.yml --name root
 
 RUN rm -rf *

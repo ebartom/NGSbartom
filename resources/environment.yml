@@ -1,0 +1,9 @@
+name: root
+channels:
+- bcbio
+- conda-forge
+- defaults
+dependencies:
+- htseq=0.6.1=py27_1
+- pip:
+  - awscli==1.9.4
