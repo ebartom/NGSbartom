@@ -12,8 +12,10 @@ RUN yum update -y && yum install -y \
     zlib-devel \
     ncurses-devel \
     java-1.8.0-openjdk \
+    java-1.8.0-openjdk-devel \
     unzip \
-    bzip2
+    bzip2 \
+    gcc-gfortran
 
 WORKDIR /tmp
 
@@ -45,5 +47,10 @@ COPY resources/environment.yml .
 RUN mkdir -p /software/anaconda2 && curl -L -O https://repo.continuum.io/archive/Anaconda2-2.4.1-Linux-x86_64.sh && \
     chmod 755 Anaconda2-2.4.1-Linux-x86_64.sh && bash Anaconda2-2.4.1-Linux-x86_64.sh -p /software/anaconda2 -f -b && \
     /software/anaconda2/bin/conda env update -f environment.yml --name root
+
+RUN mkdir -p /software/R/3.2.2 && \
+    curl -O https://cran.cnr.berkeley.edu/src/base/R-3/R-3.2.2.tar.gz && \
+    tar -xzf R-3.2.2.tar.gz && cd R-3.2.2 && ./configure --prefix=/software/R/3.2.2 --without-readline --without-x && \
+    make && touch doc/NEWS.pdf && make install
 
 RUN rm -rf *
