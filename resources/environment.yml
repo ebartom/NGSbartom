@@ -1,9 +1,9 @@
 name: root
 channels:
-- bcbio
+- bioconda
 - conda-forge
 - defaults
 dependencies:
-- htseq=0.6.1=py27_1
-- pip:
-  - awscli==1.9.4
+- htseq=0.6.1p1
+- bedtools=2.26.0
+- awscli

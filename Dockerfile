@@ -33,9 +33,6 @@ RUN mkdir -p /software/tophat/2.1.0 && \
 RUN git clone https://github.com/samtools/htslib.git && cd htslib && git checkout tags/1.2 && cd .. && \
     git clone https://github.com/samtools/samtools.git && cd samtools && git checkout tags/1.2 && make && make install
 
-RUN git clone https://github.com/arq5x/bedtools2.git && cd bedtools2 && git checkout tags/v2.18.0 && make && \
-    mkdir -p /software/bedtools/2.18.0 && cp bin/* /software/bedtools/2.18.0
-
 RUN git clone https://github.com/lh3/bwa.git && cd bwa && git checkout tags/0.7.12 && make && cp bwa /usr/local/bin
 
 RUN mkdir -p /software/picard/1.131 && \
@@ -52,5 +49,10 @@ RUN mkdir -p /software/R/3.2.2 && \
     curl -O https://cran.cnr.berkeley.edu/src/base/R-3/R-3.2.2.tar.gz && \
     tar -xzf R-3.2.2.tar.gz && cd R-3.2.2 && ./configure --prefix=/software/R/3.2.2 --without-readline --without-x && \
     make && touch doc/NEWS.pdf && make install
+
+RUN mkdir -p /software/openmpi/1.6.3 && \
+    curl -O https://www.open-mpi.org/software/ompi/v1.6/downloads/openmpi-1.6.3.tar.gz && \
+    tar -xzf openmpi-1.6.3.tar.gz && cd openmpi-1.6.3 && ./configure --prefix=/software/openmpi/1.6.3 && \
+    make && make install
 
 RUN rm -rf *
