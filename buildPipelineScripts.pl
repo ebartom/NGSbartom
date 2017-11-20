@@ -929,7 +929,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 	    	print SH "module load gcc/4.8.3\n";
 	    }
 	    if ($bedtools == 1) {
-		print SH "module load bedtools/2.17.0\n";
+		print SH "module load python/anaconda\n";
 		print SH "\n# Run bedtools for $sample\n";
 	    	print SH "bedtools bamtobed -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bed\n";
 		if ($stranded == 1){
@@ -939,7 +939,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		}
 		print SH "\n# Clean up bed files.\n";
 	    	print SH "rm $outputDirectory\/$project\/bam\/$sample.bed\n";
-	    	print SH "\nmodule unload bedtools/2.17.0\n";
+	    	print SH "\nmodule unload python/anaconda\n";
 	    }
 	    print SH "date\n\n";
 #	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.flagstats.txt\n";
@@ -1590,7 +1590,7 @@ if ($buildEdgeR ==1) {
 	    		print SH "module load gcc/4.8.3\n";
 		    }
 		    if ($bedtools == 1) {
-	    		print SH "module load bedtools/2.17.0\n";
+	    		print SH "module load python/anaconda\n";
 	    		my $bedtools_sample_count = 0;
 			print SH "\n# Launch up to $numProcessors bamtobed jobs\n";
 	    		foreach my $sample (@samples){
@@ -1625,7 +1625,7 @@ if ($buildEdgeR ==1) {
 	    		foreach my $sample (@samples){
 			    print SH "rm $bamDirectory\/$sample.bed\n";
 	    		}
-	    		print SH "\nmodule unload bedtools/2.17.0\n";
+	    		print SH "\nmodule unload python/anaconda\n";
 		    }
 		}
 		print SH "module load R/3.2.2\n";	       				
@@ -1762,7 +1762,6 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH "\nmodule unload R\n";
 		print BSH "module unload mpi\n";
 		print BSH "module load python/anaconda\n";
-		print BSH "module load bedtools/2.17.0\n";
 		print BSH "module load samtools/1.2\n";
 		print BSH "export PATH=$NGSbartom/tools/SICER_V1.1/SICER/:\$PATH\n";
 	    }
@@ -1812,7 +1811,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "module load R/3.2.2\n";
 			print SH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print SH "\n# Extend peaks from the summit, adding $upstream bp upstream and $downstream bp downstream.\n";
-			print SH "module load bedtools/2.17.0\n";
+			print SH "module load python/anaconda\n";
 			print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
 			print SH "\n# Filter out peaks with an maximum input rpm over 1.\n";
 			print SH "Rscript $NGSbartom/tools/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
@@ -1828,7 +1827,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			close SH;
 		       
 		    } elsif ($peakType eq "broad"){
-			print BSH "module load bedtools/2.17.0\n";
+			print BSH "module load python/anaconda\n";
 			print BSH "\n# Convert bam files to bed files, as needed.\n";
 			print BSH "if \[ ! -s \"$bamDirectory\/$ip.bed\" ]; then\n";
 			print BSH "\tbedtools bamtobed -i $bamDirectory\/$ip.bam > $bamDirectory\/$ip.bed\n";
@@ -1877,7 +1876,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "date\n";
 			print BSH "\n# Find summits of peaks.\n";
 			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWtoSummit.R --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
-			print BSH "module load bedtools/2.17.0\n";
+			print BSH "module load python/anaconda\n";
 			print BSH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed\n";
 			print BSH "\n# Filter out peaks with an maximum input rpm over 1.\n";
 			print BSH "Rscript $NGSbartom/tools/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
@@ -1991,7 +1990,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		print SH $header;
 		print SH "#MSUB -N $peakset\_diffPeak\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-		print SH "module load bedtools/2.17.0\n";
+		print SH "module load python/anaconda\n";
 		print SH "module load samtools/1.2\n";
 		print SH "module load R/3.2.2\n";
 		my @samples = uniq(split(/\,/,$peaksets{$peakset}));
