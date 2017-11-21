@@ -7,6 +7,7 @@ RUN yum update -y && yum install -y \
     gcc \
     gcc-c++ \
     boost \
+    boost-devel \
     cmake \
     make \
     zlib-devel \
@@ -57,3 +58,14 @@ RUN mkdir -p /software/openmpi/1.6.3 && \
     make && make install
 
 RUN rm -rf *
+
+COPY resources/modulefiles/ /etc/modulefiles/
+
+RUN mkdir -p /software/ceto
+
+# copy all R and perl scripts into image
+COPY *.R *.pl /software/ceto/
+
+WORKDIR /software/ceto
+
+ENTRYPOINT /bin/bash

@@ -1,0 +1,12 @@
+#%Module
+
+proc ModulesHelp { } {
+   puts stderr "This module adds [ module-info name ], the Anaconda Python Version 2 Distribution"
+   puts stderr " ... "
+   puts stderr "Documentation: http://docs.continuum.io/anaconda/"
+   puts stderr " ... "
+}
+
+module-whatis "This module adds [ module-info name ], the Anaconda Python Version 2 Distribution"
+
+prepend-path PATH "/software/anaconda2/bin"

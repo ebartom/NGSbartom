@@ -1,0 +1,7 @@
+#%Module
+
+proc ModulesHelp { } {
+   puts stderr "This module adds [ module-info name ]"
+}
+
+module-whatis   "This module adds [ module-info name ] "
