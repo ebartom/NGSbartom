@@ -320,29 +320,29 @@ my (%bowtieIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx);
 my (%gatkRef,%knownSNPsites,%knownIndelsites);
 
 $bowtieIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38";
-$bwaIndex{"hg38"} = "$NGSbartom/anno/bwa_indexes/hg38.fa";
+$bwaIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38/hg38.fa";
 $txIndex{"hg38"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
 $txdbfile{"hg38"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens78.txdb";
 $exonbed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.exons.bed";
 $gff{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.gtf";
 $rsemTx{"hg38"} = "$NGSbartom/anno/rsemTx/hg38.Ens_78";
-$gatkRef{"hg38"} = "$NGSbartom/anno/picardDict/hg38.fa";
+$gatkRef{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38/hg38.fa";
 $knownSNPsites{"hg38"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
 $knownIndelsites{"hg38"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_standard.indels.hg38.vcf";
 
 $bowtieIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19";
-$bwaIndex{"hg19"} = "$NGSbartom/anno/bwa_indexes/hg19.fa";
+$bwaIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19/hg19.fa";
 $txIndex{"hg19"} ="$NGSbartom/anno/tophat_tx/hg19.Ens_72.remap";
 $txdbfile{"hg19"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens72.txdb";
 $exonbed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.exons.bed";
 $gff{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.cuff.gtf";
 $rsemTx{"hg19"} = "$NGSbartom/anno/rsemTx/hg19.Ens_72";
-$gatkRef{"hg19"} = "$NGSbartom/anno/picardDict/hg19.fa";
+$gatkRef{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19/hg19.fa";
 $knownSNPsites{"hg19"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg19.sites.noContigs.vcf";
 $knownIndelsites{"hg19"} = "$NGSbartom/anno/picardDict/1000G_phase1.indels.hg19.sites.noContigs.vcf";
 
 $bowtieIndex{"dm3"} = "$NGSbartom/anno/bowtie_indexes/dm3";
-$bwaIndex{"dm3"} = "$NGSbartom/anno/bwa_indexes/dm3.fa";
+$bwaIndex{"dm3"} = "$NGSbartom/anno/bowtie_indexes/dm3/dm3.fa";
 $txIndex{"dm3"} = "$NGSbartom/anno/tophat_tx/dm3.Ens_74.cuff";
 $txdbfile{"dm3"} = "$NGSbartom/anno/Txdb/dmelanogaster_gene_ensembl_Ens74.txdb";
 $exonbed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.exons.bed";
@@ -350,7 +350,7 @@ $gff{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.cuff.gtf";
 $rsemTx{"dm3"} = "$NGSbartom/anno/rsemTx/dm3.Ens_74";
 
 $bowtieIndex{"mm10"} = "$NGSbartom/anno/bowtie_indexes/mm10";
-$bwaIndex{"mm10"} = "$NGSbartom/anno/bwa_indexes/mm10.fa";
+$bwaIndex{"mm10"} = "$NGSbartom/anno/bowtie_indexes/mm10/mm10.fa";
 $txIndex{"mm10"} = "$NGSbartom/anno/tophat_tx/mm10.Ens_78.cuff";
 $txdbfile{"mm10"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens78.txdb";
 $exonbed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.exons.bed";
@@ -358,7 +358,7 @@ $gff{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.cuff.gtf";
 $rsemTx{"mm10"} = "$NGSbartom/anno/rsemTx/mm10.Ens_78";
 
 $bowtieIndex{"mm9"} = "$NGSbartom/anno/bowtie_indexes/mm9";
-$bwaIndex{"mm9"} = "$NGSbartom/anno/bwa_indexes/mm9.fa";
+$bwaIndex{"mm9"} = "$NGSbartom/anno/bowtie_indexes/mm9/mm9.fa";
 $txIndex{"mm9"} = "$NGSbartom/anno/tophat_tx/mm9.Ens_67.remap";
 $txdbfile{"mm9"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens67.txdb";
 $exonbed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.exons.bed";
@@ -366,7 +366,7 @@ $gff{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.cuff.gtf";
 $rsemTx{"mm9"} = "$NGSbartom/anno/rsemTx/mm9.Ens_67";
 
 $bowtieIndex{"sacCer3"} = "$NGSbartom/anno/bowtie_indexes/sacCer3";
-$bwaIndex{"sacCer3"} = "$NGSbartom/anno/bwa_indexes/sacCer3.fa";
+$bwaIndex{"sacCer3"} = "$NGSbartom/anno/bowtie_indexes/sacCer3/sacCer3.fa";
 $txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_72.remap";
 #$txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens72.txdb";
 #$txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_78.remap";
