@@ -3,12 +3,16 @@ args <- commandArgs()
 countFile<-sub('--countFile=','',args[grep('--countFile=',args)])
 filterLowCounts <- sub('--filterLowCounts=','',args[grep('--filterLowCounts=',args)])
 clusterSamples<-sub('--clusterSamples=','',args[grep('--clusterSamples=',args)])
+outputCDT <- sub('--outputCDT=','',args[grep('--outputCDT=',args)])
 
 if (identical(filterLowCounts,character(0))){
     filterLowCounts <- 0
 }
 if (identical(clusterSamples,character(0))){
     clusterSamples <- 0
+}
+if (identical(outputCDT,character(0))){
+    outputCDT <- 0
 }
 
 library(gplots)
@@ -35,6 +39,18 @@ if (grepl('counts.txt$',countFile)){
     print("Skip first 5 columns of metadata")
     sampleNum <- dim(allCounts)[2]-5
     counts<-allCounts[,6:(5+sampleNum)]
+} else if (grepl('fractions.txt$',countFile)){
+    print("Skip first two columns of metadata")
+    sampleNum <- dim(allCounts)[2]-2
+    print(paste("SampleNum is",sampleNum))
+    counts<-allCounts[,3:(2+sampleNum)]
+    rownames(counts)<-allCounts[,2]
+} else if (grepl('coverages.txt$',countFile)){
+    print("Skip first two columns of metadata")
+    sampleNum <- dim(allCounts)[2]-2
+    print(paste("SampleNum is",sampleNum))	
+    counts<-allCounts[,3:(2+sampleNum)]
+    rownames(counts)<-allCounts[,2]
 } else {
     print("Keep all columns of data")
     sampleNum <- dim(allCounts)[2]
@@ -61,7 +77,8 @@ countFile <- gsub("\\.txt$","",countFile)
 pdfFile <- paste(countFile,"heatmap.pdf",sep=".")
 print(pdfFile)
 
-combined.cor<-(cor(t(counts[,1:sampleNum]),use="pairwise.complete.obs",method="pearson"))
+#combined.cor<-(cor(t(counts[,1:sampleNum]),use="pairwise.complete.obs",method="pearson"))
+combined.cor<-(cor(t(counts),use="pairwise.complete.obs",method="pearson"))
 combined.cor.dist<-as.dist(1-combined.cor)
 combined.tree<-hclust(combined.cor.dist,method='average')
 pdf(pdfFile)
@@ -78,3 +95,7 @@ dev.off()
 combined.sorted <-counts[rev(combined.tree$order),]
 write.table(combined.sorted,paste(countFile,"clustered.txt",sep="."),sep="\t")
 
+if(outputCDT == 1){
+    gl.sorted <- cbind(row.names(combined.sorted),combined.sorted)
+    write.table(combined.sorted,paste(countFile,"cdt",sep="."),sep="\t")
+}

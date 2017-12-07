@@ -50,6 +50,7 @@ txdb <- loadDb(txdbfile)
 txdb
 
 seqlevels(txdb,force=TRUE) <- seqlevels(txdb)[grep("_|\\d+.1$",seqlevels(txdb), invert=TRUE)]
+seqlevels(txdb,force=TRUE) <- seqlevels(txdb)[grep("^GL",seqlevels(txdb), invert=TRUE)]
 seqlevels(txdb) <- sub("^","chr", seqlevels(txdb))
 seqlevels(txdb) <- sub("MT","M", seqlevels(txdb))
 seqlevels(txdb) <- sub("Mito","M", seqlevels(txdb))

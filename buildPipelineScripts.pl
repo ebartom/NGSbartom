@@ -7,7 +7,7 @@ use utf8;
 use warnings;
 #use Config::Abstract::Ini;
 
-unless (@ARGV) { 
+unless (@ARGV) {
     print "\nUsage: buildPipelineScripts.pl\n\n-config\t\t<configFile>\n-o\t\t<outputDirectory>\n-bs\t\t<baseSpaceDirectory>\n-f\t\t<fastqDirectory>\n";
     print "-bam\t\t<bamDirectory>\n-c\t\tcomparisons.csv file>\n-4C\t\t<4C description file>\n-chip\t\t<ChIP Description file>\n";
     print "-p\t\t<numProcessors>\n-m\t\t<multiMap (1 = allow multi map, 0 = not)>\n";
@@ -15,7 +15,7 @@ unless (@ARGV) {
     print "-node\t\t<nodeName(eg qnode4144)>\n-scientist\t<initials>\n-s3\t\t<amazon s3 path (if non-standard)>\n-buildBcl2fq\t\t<1|0>\n";
     print "-runBcl2fq\t\t<1|0>\n-runTrim\t\t<1|0>\n-buildAlign\t\t<1|0>\n-runAlign\t\t<1|0>\n-makeTracks\t\t<1|0>\n";
     print "-uploadASHtracks\t<1|0>\n-uploadBAM\t\t<1|0>\n-buildEdgeR\t\t<1|0>\n-runEdgeR\t\t<1|0>\n-buildPeakCaller\t<1|0>\n-runPeakCaller\t\t<1|0>\n";
-    print "-buildDiffPeaks\t\t<1|0>\n-runDiffPeaks\t\t<1|0>\n-build4C\t\t<1|0>\n-run4C\t\t\t<1|0>\n";
+    print "-buildDiffPeaks\t\t<1|0>\n-runDiffPeaks\t\t<1|0>\n-build4C\t\t<1|0>\n-run4C\t\t\t<1|0>\n-runRNAstats\t\t<1|0>\n";
 }
 
 # Set up the environment for analysis.
@@ -26,9 +26,9 @@ my $distToTSS = 2000;
 my $upstream = 5000;
 my $downstream = 5000;
 my $trimString = "TRAILING:30 MINLEN:20";
-my $tophatReadMismatch = 2;
-my $tophatReadEditDist = 2;
-my $tophatMultimap = 5;
+my $tophatReadMismatch = 2; # 2 is Tophat default.
+my $tophatReadEditDist = 2; # 2 is Tophat default.
+my $tophatMultimap = 20; # 20 is Tophat default.
 my $runPairedEnd = 0;
 my $outputDirectory = "";
 my $baseSpaceDirectory = "";
@@ -77,6 +77,9 @@ my $granges = 0;
 my $rsem = 0;
 my $genomeBAM = 1;
 my $rgString = "";
+my $runRNAstats = 0;
+my $buildNGSplot = 0;
+my $ngsFCcomparison = "";
 
 # S3path is not working properly right now for non-standard s3path values.  This needs fixing.
 
@@ -133,7 +136,10 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'ngsplot|np=i' => \$ngsplot,
 	   'granges|ash=i' => \$granges,
 	   'rsem=i' => \$rsem,
-	   'genomeBAM|gb=i' => \$genomeBAM
+	   'genomeBAM|gb=i' => \$genomeBAM,
+	   'runRNAstats|rrs=i' => \$runRNAstats,
+	   'buildNGSplot|ngsp=i' => \$buildNGSplot,
+	   'ngsFCcomparison|ngspc' => \$ngsFCcomparison
     ) ;
 
 # if ($configFile){
@@ -219,6 +225,9 @@ if (($runBcl2fq == 1) && ($buildBcl2fq == 0)){
 if (($runAlign == 1) && ($buildAlign == 0)){
     $buildAlign = 1;
 }
+if (($runGenotyping == 1) && ($buildGenotyping == 0)){
+    $buildGenotyping = 1;
+}
 if (($runEdgeR == 1) && ($buildEdgeR == 0)){
     $buildEdgeR = 1;
 }
@@ -276,7 +285,10 @@ $header .= "#MSUB -A $account\n";
 # If you disagree, let me know at ebartom@northwestern.edu 
 if ($account eq "b1042"){
     $header .= "#MSUB -q $queue\n";
+} elsif ($account eq "e30258"){
+    $header .= "#MSUB -q $queue\n";
 }
+print STDERR "Account: $account\nQueue: $queue\n";
 $header .= "#MSUB -l walltime=$walltime\n";
 $header .= "#MSUB -m a\n"; # only email user if job aborts
 #$header .= "#MSUB -m abe\n"; # email user if job aborts (a), begins (b) or ends (e)
@@ -305,6 +317,7 @@ if ($makeTracks){ print STDERR "Will make tracks appropriate for the UCSC genome
 		  if ($uploadPulmtracks){ print STDERR "Will upload tracks to Pulmonology account on Amazon S3 (if user has correct credentials).\n";}
 		  if ($uploadBAM){ print STDERR "Will upload BAM files to Shilatifard account on Amazon S3 (if user has correct credentials).\n";}
 }
+if ($runRNAstats) { print STDERR "Will launch a script to assess RNAseq quality based on BAM files.\n";}
 if ($buildEdgeR){ print STDERR "Will build scripts for finding differentially expressed genes from RNAseq data.\n";}
 if ($runEdgeR){ print STDERR "Will run scripts for finding differentially expressed genes from RNAseq data.\n";}		  
 if ($buildDiffPeaks) { print STDERR "Will build scripts to find differentially expressed peaks based on $chipDescription and $comparisons.\n";}
@@ -316,7 +329,7 @@ if ($runGenotyping){ print STDERR "Will run scripts for genotyping samples.\n";}
 print STDERR "=====================================\n";
 
 # Define references.
-my (%bowtieIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx);
+my (%bowtieIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx,%genebed);
 my (%gatkRef,%knownSNPsites,%knownIndelsites);
 
 $bowtieIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38";
@@ -325,16 +338,30 @@ $txIndex{"hg38"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
 $txdbfile{"hg38"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens78.txdb";
 $exonbed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.exons.bed";
 $gff{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.gtf";
+$genebed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.bed"; # Created with gtf2bed tool
 $rsemTx{"hg38"} = "$NGSbartom/anno/rsemTx/hg38.Ens_78";
 $gatkRef{"hg38"} = "$NGSbartom/anno/picardDict/hg38.fa";
 $knownSNPsites{"hg38"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
 $knownIndelsites{"hg38"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_standard.indels.hg38.vcf";
+
+$bowtieIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/Bowtie2Index/genome";
+$bwaIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/BWAIndex/genome.fa";
+$txIndex{"hg38.mp"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
+$txdbfile{"hg38.mp"} = "$NGSbartom/anno/Txdb/UCSC.hg38.mp.txdb";
+$exonbed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf.bed";
+$genebed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf.bed";
+$gff{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf";
+$rsemTx{"hg38.mp"} = "NEEDS TO BE UPDATED $NGSbartom/anno/rsemTx/hg38.Ens_78";
+$gatkRef{"hg38.mp"} = "$NGSbartom/anno/picardDict/hg38.fa";
+$knownSNPsites{"hg38.mp"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
+$knownIndelsites{"hg38.mp"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_standard.indels.hg38.vcf";
 
 $bowtieIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19";
 $bwaIndex{"hg19"} = "$NGSbartom/anno/bwa_indexes/hg19.fa";
 $txIndex{"hg19"} ="$NGSbartom/anno/tophat_tx/hg19.Ens_72.remap";
 $txdbfile{"hg19"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens72.txdb";
 $exonbed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.exons.bed";
+$genebed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.cuff.bed";
 $gff{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.cuff.gtf";
 $rsemTx{"hg19"} = "$NGSbartom/anno/rsemTx/hg19.Ens_72";
 $gatkRef{"hg19"} = "$NGSbartom/anno/picardDict/hg19.fa";
@@ -346,14 +373,38 @@ $bwaIndex{"dm3"} = "$NGSbartom/anno/bwa_indexes/dm3.fa";
 $txIndex{"dm3"} = "$NGSbartom/anno/tophat_tx/dm3.Ens_74.cuff";
 $txdbfile{"dm3"} = "$NGSbartom/anno/Txdb/dmelanogaster_gene_ensembl_Ens74.txdb";
 $exonbed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.exons.bed";
+$genebed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.cuff.bed";
 $gff{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.cuff.gtf";
 $rsemTx{"dm3"} = "$NGSbartom/anno/rsemTx/dm3.Ens_74";
+
+$bowtieIndex{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Sequence/Bowtie2Index/genome";
+$bwaIndex{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Sequence/BWAIndex/genome.fa";
+$txIndex{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annotation/Genes/genes.txIndex";
+$txdbfile{"grcm38"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens87.txdb";
+$exonbed{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annotation/Genes/exons.bed";
+$gff{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annotation/Genes/genes.gtf";
+$rsemTx{"grcm38"} = "$NGSbartom/anno/rsemTx/mouse_GRCm38";
+$gatkRef{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Sequence/WholeGenomeFasta/genome.fa";
+$knownSNPsites{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annotation/Variation/Mus_musculus.reordered2.vcf";
+$knownIndelsites{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annotation/Variation/Mus_musculus.reordered2.vcf";
+
+$bowtieIndex{"rn6"} = "$NGSbartom/anno/bowtie_indexes/rn6";
+$bwaIndex{"rn6"} = "$NGSbartom/anno/bwa_indexes/rn6.fa";
+$txIndex{"rn6"} = "$NGSbartom/anno/tophat_tx/rn6.UCSC";
+$txdbfile{"rn6"} = "$NGSbartom/anno/Txdb/rnorvegicus_gene_ensembl_Ens84.txdb";
+$exonbed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.exons.bed";
+$genebed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.cuff.bed";
+#$gff{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.cuff.gtf";
+#$gff{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/Rattus_norvegicus.Rnor_6.0.84.gtf";
+$gff{"rn6"} = "/projects/p20742/anno/Rattus_norvegicus/UCSC/rn6/Annotation/Genes/genes.gtf";
+$rsemTx{"rn6"} = "$NGSbartom/anno/rsemTx/rn6.Ens_84";
 
 $bowtieIndex{"mm10"} = "$NGSbartom/anno/bowtie_indexes/mm10";
 $bwaIndex{"mm10"} = "$NGSbartom/anno/bwa_indexes/mm10.fa";
 $txIndex{"mm10"} = "$NGSbartom/anno/tophat_tx/mm10.Ens_78.cuff";
 $txdbfile{"mm10"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens78.txdb";
 $exonbed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.exons.bed";
+$genebed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.cuff.bed";
 $gff{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.cuff.gtf";
 $rsemTx{"mm10"} = "$NGSbartom/anno/rsemTx/mm10.Ens_78";
 
@@ -362,6 +413,7 @@ $bwaIndex{"mm9"} = "$NGSbartom/anno/bwa_indexes/mm9.fa";
 $txIndex{"mm9"} = "$NGSbartom/anno/tophat_tx/mm9.Ens_67.remap";
 $txdbfile{"mm9"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens67.txdb";
 $exonbed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.exons.bed";
+$genebed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.cuff.bed";
 $gff{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.cuff.gtf";
 $rsemTx{"mm9"} = "$NGSbartom/anno/rsemTx/mm9.Ens_67";
 
@@ -372,6 +424,7 @@ $txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_72.remap";
 #$txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_78.remap";
 $txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens78.txdb";
 $exonbed{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.exons.bed";
+$genebed{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.cuff.bed";
 $gff{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.cuff.gtf";
 $rsemTx{"sacCer3"} = "$NGSbartom/anno/rsemTx/sacCer3.Ens_72";
 
@@ -444,17 +497,25 @@ if ($buildBcl2fq == 1){
 	my $jobfinished = "no";
 	# Wait until the job is no longer in qstat.
 	&datePrint("Waiting for job $result to finish.");
-	# Check qstat every 30 seconds, adding a "." every time you check.
-	until ($jobfinished eq "Completed"){
-	    $jobfinished = `checkjob $result | grep ^State:`;
-	    sleep(30);
+       # Check qstat every 300 seconds, adding a "." every time you check.
+	# until ($jobfinished eq "Completed"){
+	#     sleep(300);
+	#     $jobfinished = `checkjob $result | grep ^State:`;
+	#     print STDERR ".";
+	#     if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	#     print STDERR "$jobfinished";
+	# }
+	until ($jobfinished eq "C"){
+	    sleep(300);
+	    $jobfinished = `qstat -f $result | grep job_state`;
 	    print STDERR ".";
-	    if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	    if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
 	    print STDERR "$jobfinished";
 	}
 	print STDERR "\n";
 	&datePrint("Job $result done.  Continuing.");
     }
+    close SH;
     $cmd = "cp $baseSpaceDirectory\/runBcl2fq.sh $outputDirectory\/";
     system($cmd);
 }
@@ -490,11 +551,7 @@ if (($sampleSheet ne "")){
 	    }
 	    # Store the assembly for the sample and project.
 	    $reference{$sample_name}=$assembly;
-	    $reference{$sample_project} = $assembly;	    
-#	    if ($assembly eq "hg38.mp") {
-#		$reference{$sample_name} = "hg38";
-#		$reference{$sample_project} = "hg38";
-#	    }
+	    $reference{$sample_project} = $assembly;
 	    $scientists{$sample_project} = $sample_plate;
 	    print "$sample_name\tREF1:$reference{$sample_name}\t$bowtieIndex{$assembly}\n";
 	    if ($type ne "4C"){
@@ -502,7 +559,7 @@ if (($sampleSheet ne "")){
 		foreach my $lane ("L001","L002","L003","L004"){
 		    # Build fastq file names.
 		    # NB:  Right now it assumes single end.
-		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.fastq.gz";
+		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f*q.gz";
 		    print STDERR "Looking for $fastq\n";
 		    print STDERR "Looking for $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq and $outputDirectory\/$sample_project\/fastq\/$fastq\n";
 		    # Check if fastq exists in new subdirectory or old.
@@ -510,7 +567,7 @@ if (($sampleSheet ne "")){
 			#		print STDERR "$fastq exists in $baseSpaceDirectory\n";
 		    } else { 
 			# If you still can't find it, try all underscores (like in SampleSheet), again in old subdirectory or new
-			$fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.fastq.gz";
+			$fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f*q.gz";
 			$fastq =~ s/-/_/g;
 			print STDERR "Looking for $fastq\n";
 			if ((-e "$baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq") || (-e "$outputDirectory\/$sample_project\/fastq\/$fastq")) {
@@ -575,7 +632,6 @@ if (($sampleSheet ne "")){
 	    $project_name =~ s/.seqfiles//g;
 	}
 	$reference{$project_name}=$assembly;
-#	if ($reference{$project_name} eq "hg38.mp") { $reference{$project_name} = "hg38";}
 	&datePrint("Project name is $project_name");
 #	print STDERR "$project_name @fastqlist\n";
 	foreach my $fastq (@fastqlist){
@@ -583,7 +639,9 @@ if (($sampleSheet ne "")){
 	    if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || 
 		#		($fastq =~ /\/?([\w\-\d\_\.]+)FastqRd/) ||
 		($fastq =~ /\/?([\w\-\d\_\.]+)\_R\d/) ||
-		($fastq =~ /\/?([\w\-\d\_\.]+).fastq.t?gz/) 
+		($fastq =~ /\/?([\w\-\d\_\.]+SRR\w+)\_\d.fastq.gz/) ||
+		($fastq =~ /\/?([\w\-\d\_\.]+).fastq.t?gz/) ||
+		($fastq =~ /\/?([\w\-\d\_\.]+).fq.t?gz/) 
 		){
 		$sample_name = $1;
 		&datePrint("Sample name is $sample_name");
@@ -668,15 +726,22 @@ if (($type eq "4C") && ($build4C == 1)){
 	    $result =~ s/\s+//g;
 	    my $jobfinished = "no";
 	    # Wait until the job is Complete.
-	    &datePrint("Waiting for job $result to finish. (each . = 30 seconds)");
-	    # Check qstat every 30 seconds, adding a "." every time you check.
-	    until ($jobfinished eq "Completed"){
-		$jobfinished = `checkjob $result | grep ^State:`;
-		sleep(30);
+	    &datePrint("Waiting for job $result to finish. (each . = 300 seconds)");
+	    # Check qstat every 300 seconds, adding a "." every time you check.
+	    until ($jobfinished eq "C"){
+		sleep(300);
+		$jobfinished = `qstat -f $result | grep job_state`;
 		print STDERR ".";
-		if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+		if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
 		print STDERR "$jobfinished";
 	    }
+	    # until ($jobfinished eq "Completed"){
+	    # 	sleep(300);
+	    # 	$jobfinished = `checkjob $result | grep ^State:`;
+	    # 	print STDERR ".";
+	    # 	if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	    # 	print STDERR "$jobfinished";
+	    # }
 	    print STDERR "\n";
 	    &datePrint("Job $result done.  Continuing.");
 	}
@@ -811,25 +876,32 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		if ($genomeBAM == 1){
 		   
 		    print SH "\n# Run Tophat to align data for single end data.\n";
-		    if ($buildGenotyping == 1){
-			# If genotyping, add read groups.  These could be made more accurate.
+#		    if ($buildGenotyping == 1){
+#			# If genotyping, add read groups.  These could be made more accurate.
 			if ($rgString eq ""){
 			    $rgString = "--rg-sample $sample --rg-id $sample --rg-library $sample --rg-description $sample --rg-platform-unit nextseq --rg-center ASH --rg-platform nextseq";
 			}
-		    } 
-		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    print SH "# Adding Readgroups from rgstring $rgString\n";
+		    my $libraryType = "";
+		    if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";}
+		    if ($reference{$sample} =~ /\.mp/){
+			print SH "\ntophat -G $gff{$reference{$sample}} --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors $rgString $libraryType -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    }else {
+			print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    }
 		}
 	    } elsif ($runPairedEnd == 1){
 		my @read1fastqs;
 		my @read2fastqs;
 		my @read3fastqs;
 		my @fastqs = split(/\,/,$fastqs{$sample});
+		print STDERR "All Fastqs for Sample $sample: \n@fastqs\n";
 		foreach my $fastq (@fastqs){
 #		    print STDERR "Looking for Read number in $fastq\n";
-		    if (($fastq =~ /\_R1\_?\.?/)  ){
+		    if (($fastq =~ /\_R1\_?\.?/) || ($fastq =~ /SRR.+\_1\./) ){
 #			|| ($fastq =~ /Rd1/)){
 			push (@read1fastqs,$fastq);
-		    } elsif (($fastq =~ /\_R2\_?\.?/)){
+		    } elsif (($fastq =~ /\_R2\_?\.?/) || ($fastq =~ /SRR.+\_2\./)){
 #			|| ($fastq =~ /Rd2/)){
 			push (@read2fastqs,$fastq);
 		    } elsif ($fastq =~ /\_R3\_?\.?/){
@@ -844,6 +916,9 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		my $read1fastqs = "@read1fastqs";
 		my $read2fastqs = "@read2fastqs";
 		my $read3fastqs = "@read3fastqs";
+		print STDERR "Read1fastqs: $read1fastqs\n";
+		print STDERR "Read2fastqs: $read2fastqs\n";
+		print STDERR "Read3fastqs: $read3fastqs\n";
 		if (length($read3fastqs)>length($read2fastqs)){
 		    $read2fastqs = $read3fastqs;
 		}
@@ -851,7 +926,13 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		$read2fastqs =~ s/\ /,/g;
 		if ($genomeBAM == 1){
 		    print SH "\n# Run Tophat to align data for paired end data.\n";
-		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap --transcriptome-index $txIndex{$reference{$sample}} -o \$TMPDIR\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    my $libraryType = "";
+		    if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";}
+		    if ($rgString eq ""){
+			$rgString = "--rg-sample $sample --rg-id $sample --rg-library $sample --rg-description $sample --rg-platform-unit nextseq --rg-center ASH --rg-platform nextseq";
+		    }
+		    print SH "# Adding Readgroups from rgstring $rgString\n";
+		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
 		} 
 		if ($rsem == 1){ # AND runpaired = 1
 		    print SH "\n# Align fastqs to transcriptome for RSEM\n";
@@ -885,12 +966,20 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		}
 	    }
 	    print SH "date\n";
-	    print SH "\nrsync -av \$TMPDIR\/$sample/* $outputDirectory\/$project\/Tophat_aln\/$sample/\n";
+#	    print SH "\nrsync -av \$TMPDIR\/$sample/* $outputDirectory\/$project\/Tophat_aln\/$sample/\n";
 #	    print SH "\nmv \$TMPDIR\/$project\_$sample\_tophatOut $outputDirectory\/$project\/Tophat_aln\/$sample\n";
 	    print SH "date\n";
 	    print SH "ln -s $outputDirectory\/$project\/Tophat_aln\/$sample\/accepted_hits.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "date\n";
-	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    # Modifications made so that htseq will work correctly on paired end data.
+	    if (($runPairedEnd == 1) && ($htseq == 1)) {
+		print SH "cd $outputDirectory\/$project\/bam\n";
+		print SH "samtools sort -n -T $sample -o $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+		print SH "mv $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    }
+	    else {
+		print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    }	    
 	    if (($rsem == 1)&& ($runPairedEnd == 0)){
 		print SH "\n# Align fastqs to transcriptome for RSEM\n";
 		print SH "module load bowtie/1.1.2 \n";
@@ -919,7 +1008,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 	    if ($htseq == 1) {
 	    	print SH "module unload mpi\n";
 	    	print SH "module load python/anaconda\n";
-		print SH "\n# Run htseq-count for $sample\n";
+		print SH "\n# Run htseq-count for $sample, stranded = $stranded\n";
 		if ($stranded == 1){
 		    print SH "htseq-count -f bam -q -m intersection-nonempty -s reverse -t exon -i gene_id $outputDirectory\/$project\/bam\/$sample.bam $gff{$reference{$sample}} > $outputDirectory\/$project\/bam\/$sample.htseq.counts\n";
 		} elsif ($stranded == 0){
@@ -948,10 +1037,15 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		print SH "# Create RNA seq Tracks\n";
 		print SH "module load R/3.2.2\n";
 		if ($stranded == 1){
-		    print SH "Rscript $NGSbartom/tools/createRNAseqTracks2.R --assembly=$reference{$sample} --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --multiMap=$multiMap\n";
+		    my $assembly = $reference{$sample};
+		    if ($assembly eq "hg38.mp"){$assembly="hg38";}
+		    print SH "Rscript $NGSbartom/tools/createRNAseqTracks3.R --assembly=$assembly --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --multiMap=$multiMap --stranded=$stranded\n";
 		} else {
+		    my $assembly = $reference{$sample};
+		    if ($assembly eq "hg38.mp"){$assembly="hg38";}
 		    # The multi mapping argument is used here, because these are mapped with tophat.
-		    print SH "Rscript $NGSbartom/tools/createChIPtracks2.R --assembly=$reference{$sample} --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --extLen=0 --multiMap=$multiMap\n";
+#		    print SH "Rscript $NGSbartom/tools/createChIPtracks2.R --assembly=$assembly --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --extLen=0 --multiMap=$multiMap\n";
+		    print SH "Rscript $NGSbartom/tools/createRNAseqTracks3.R --assembly=$assembly --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --multiMap=$multiMap --stranded=$stranded\n";
 		}
 		print SH "date\n\n";
 		print SH "mkdir $outputDirectory\/$project\/tracks\n";
@@ -961,7 +1055,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 			print SH "echo \"track type=bigWig name=$sample.plus.bw description=$sample.plus.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.txt\n";
 			print SH "echo \"track type=bigWig name=$sample.minus.bw description=$sample.minus.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.txt\n";
 		    } elsif ($multiMap == 1){
-			print SH "echo \"track type=bigWig name=$sample.plus.multi.bw description=$sample.plus.multi.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.multi.txt\n";
+			print SH "echo \"track type=bigWig name=$sample.plus.multi.bw description=$sample.plus.multi.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=255,0,0 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.plus.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.plus.bw.header.multi.txt\n";
 			print SH "echo \"track type=bigWig name=$sample.minus.multi.bw description=$sample.minus.multi.rpm maxHeightPixels=128:60:11 graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.multi.txt\n";
 		    }
 		} else {
@@ -973,6 +1067,8 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		}
 		print SH "date\n";
 		if ($uploadASHtracks == 1){
+		    print SH "\nmodule load python/anaconda\n";
+
 		    print SH "# Move tracks into Shilatifard directory structure.\n";
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
@@ -982,6 +1078,9 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "# To load, paste the following url into the custom tracks field:\n";
 			print SH "# http://s3-us-west-2.amazonaws.com/ash-tracks/TANGO/$scientist/$scientist.$project/$sample.bam\n";
+			if (($runPairedEnd == 1) && ($htseq == 1)){
+			    print SH "# If files are paired end and htseq is used for gene counting, then BAMs are sorted by name and indices are not created.  This will require an extra re-sorting and indexing step, to be added if this is a common concern.\n";
+			}
 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
 		    }
@@ -1000,9 +1099,11 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}elsif ($multiMap == 1){
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.multi.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
-			}			    
-		    }			    
+			}
+		    }
+		    print SH "\nmodule unload python/anaconda\n";		
 		} elsif ($uploadPulmtracks == 1) {
+		    print SH "\nmodule load python/anaconda\n";	
 		    if ($uploadBAM == 1){
 			print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
@@ -1034,6 +1135,7 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
 		}
+		print SH "\nmodule unload python/anaconda\n";
 	    }
 	    close(SH);
 	}
@@ -1124,7 +1226,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    print SH "# Make ChIPseq tracks.\n";
 		    # The multi mapping argument is not used right now.
 		    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
-		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
+		    my $assembly = $reference{$sample};
+		    if ($assembly eq "hg38.mp"){ $assembly = "hg38";}
+		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
 		    print SH "date\n\n";
 		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
 		    if ($uploadASHtracks == 1){
@@ -1180,7 +1284,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			    print SH "\n# Make 4C tracks.\n";
 			    # The multi mapping argument is not used right now.
 			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
-			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
+			    my $assembly = $reference{$sample};
+			    if ($assembly eq "hg38.mp"){$assembly = "hg38";}
+			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
 			    print SH "mv $bamDirectory\/$sample.noVP.bw $bamDirectory\/$sample.bw\n";
 			    print SH "date\n";
 			}
@@ -1188,7 +1294,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "\n# Make 4C tracks.\n";
 			# The multi mapping argument is not used right now.
 			# This is because Bowtie doesn't fill in the NH tag in the BAM file.
-			print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=0\n";
+			my $assembly = $reference{$sample};
+			if ($assembly eq "hg38.mp"){$assembly = "hg38";}
+			print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample --extLen=0\n";
 		    }
 		    print SH "date\n\n";
 		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
@@ -1356,7 +1464,9 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  		    print SH "# Make ChIPseq tracks.\n";
  		    # The multi mapping argument is not used right now.
  		    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
- 		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
+		    my $assembly = $reference{$sample};
+		    if ($assembly eq "hg38.mp"){$assembly = "hg38";}
+ 		    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample --extLen=150\n";
  		    print SH "date\n\n";
  		    print SH "mkdir $outputDirectory\/$project\/tracks\n";
  		    if ($uploadASHtracks == 1){
@@ -1411,7 +1521,9 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			    print SH "\n# Make 4C tracks.\n";
  			    # The multi mapping argument is not used right now.
  			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
- 			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
+			    my $assembly = $reference{$sample};
+			    if ($assembly eq "hg38.mp"){$assembly = "hg38";}
+ 			    print SH "Rscript $NGSbartom/tools/createChIPtracks.R --assembly=$assembly --bamDir=$bamDirectory --sample=$sample.noVP --extLen=0\n";
  			    print SH "mv $bamDirectory\/$sample.noVP.bw $bamDirectory\/$sample.bw\n";
  			    print SH "date\n";
  			}
@@ -1472,10 +1584,12 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	print SH "\necho \"Alignment jobs $result have finished.\"\n";
 	if ($aligner eq "tophat"){
 	    print SH "module load R/3.2.2\n";
+	    print SH "module load bowtie2\n";
+	    print SH "module load samtools/1.2\n";
 	    print SH "\n# Make Tophat report summarizing alignment.\n";
 	    print SH "Rscript $NGSbartom/tools/createTophatReport.R --topHatDir=$outputDirectory\/$project\/Tophat_aln --nClus=$numProcessors\n";
 	}elsif ($aligner eq "bowtie"){
-	    print SH "find $bamDirectory\/*bowtie.log -type f -print -exec cat {} \; >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "find $bamDirectory\/*bowtie.log -type f -print -exec cat {} \\\; >> $outputDirectory\/$project\/alignlog.txt\n";
 	}
 	close SH;
 	&datePrint("Creating dependent job that will only run after alignments finish.");
@@ -1483,17 +1597,70 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	$result2 =~ s/\s+//g;
 	my $jobfinished = "no";
 	# Wait until the job is Complete.
-	&datePrint("Waiting for job $result2 to finish. (each . = 30 seconds)");
-	# Check qstat every 30 seconds, adding a "." every time you check.
-	until ($jobfinished eq "Completed"){
-	    $jobfinished = `checkjob $result2 | grep ^State:`;
-	    sleep(30);
+	&datePrint("Waiting for job $result2 to finish. (each . = 300 seconds)");
+	# Check qstat every 300 seconds, adding a "." every time you acheck.
+	until ($jobfinished eq "C"){
+	    sleep(300);
+	    $jobfinished = `qstat -f $result2 | grep job_state`;
 	    print STDERR ".";
-	    if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	    if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
 	    print STDERR "$jobfinished";
 	}
+	# until ($jobfinished eq "Completed"){
+	#     sleep(300);
+	#     $jobfinished = `checkjob $result2 | grep ^State:`;
+	#     print STDERR ".";
+	#     if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	#     print STDERR "$jobfinished";
+	# }
 	print STDERR "\n";
 	&datePrint("Job $result2 done.  Continuing.");
+    }
+}
+
+if ($runRNAstats == 1){
+    if ($type eq "RNA"){
+	foreach my $project (keys(%samples)){
+	    open (SH, ">$outputDirectory/$project/scripts/runRNAstats.sh");
+	    print SH $header;
+	    print SH "#MSUB -N $project\_runRNAstats\n";
+	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    print SH "module load R/3.2.2\n";
+	    print SH "module load bowtie2\n";
+	    print SH "module load samtools/1.2\n";
+	    print SH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
+	    print SH "module load python/anaconda\n";
+	    print SH "module load parallel\n";
+	    my $strandrule = "";
+	    if ($stranded == 0){
+		$strandrule = "none";
+	    } else {
+		if ($runPairedEnd == 1){
+		    $strandrule = "1++,1–,2+-,2-+";
+		} else {
+		    $strandrule = "+-,-+";
+		}
+	    }
+	    my @samples = uniq(split(/\,/,$samples{$project}));
+	    foreach my $sample (@samples){
+		print SH "\n# Use RSeQC to infer experiment type for $sample.\n";
+		print SH "infer_experiment.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample\_inferredExperiment.txt\n";
+		print SH "\n# Use RSeQC to check saturation for $sample.\n";
+		print SH "RPKM_saturation.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SH "\n# Examine read duplication for $sample.\n";
+		print SH "read_duplication.py -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SH "\n## How many novel splice sites are found in the data?  Commented out until tophat allows novel splice junctions.\n";
+		print SH "\n# junction_annotation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SH "\n# Check splice site saturation for $sample.\n";
+		print SH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+	    }
+	    print SH "\n# Use RSeQC to estimate gene body coverage.\n";
+	    print SH "geneBody_coverage.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/bam\/$project\n";
+	    &datePrint("Launching RNA stats script for project $project");
+	    my $result2 = `msub $outputDirectory/$project/scripts/runRNAstats.sh`;
+	}
+    } else {
+	&datePrint("Skipping runRNAstats for nonRNA project");
     }
 }
 
@@ -1509,20 +1676,28 @@ if ($buildGenotyping ==1) {
 		open (SH, ">$outputDirectory/$project/scripts/$sample\_genotype.sh");
 		print SH $header;
 		print SH "#MSUB -N $sample\_genotype\n";
-		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		#print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		# Some of the steps below can be parallelized, but not all,
+		# and more experimentation is required for optimization.  In
+		# the meantime, I'm setting a flat number of processors of 6
+		# for genotyping purposes.
+		print SH "#MSUB -l nodes=1:ppn=6\n";
 		print SH "module load samtools/1.2\n";
+		print SH "module load picard/1.131\n";
+		my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 		print SH "\n\n";
 		print SH "# Sort BAM file.\n";
 		print SH "$NGSbartom/tools/samtools-0.1.19/samtools sort $outputDirectory\/$project\/bam\/$sample.bam $outputDirectory\/$project\/bam\/$sample.sorted\n";
 		print SH "date\n\n";
 		print SH "# Mark Duplicates with Picard.\n";
-		print SH "java -jar $NGSbartom/tools/picard.jar MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.sorted.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
+		#print SH "java -jar $NGSbartom/tools/picard.jar MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.sorted.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
+		print SH "java -jar $PICARD MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.sorted.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
 		print SH "date\n\n";
 #		print SH "# Sort mdup BAM file with Picard.\n";
-#		print SH "java -jar $NGSbartom/tools/picard.jar SortSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.sorted.bam SORT_ORDER=coordinate CREATE_INDEX=true\n";
+#		print SH "java -jar $PICARD SortSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.sorted.bam SORT_ORDER=coordinate CREATE_INDEX=true\n";
 		#		print SH "date\n\n";
 		print SH "# Reorder mdup BAM file with Picard.\n";
-		print SH "java -jar $NGSbartom/tools/picard.jar ReorderSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam R=$gatkRef{$reference{$sample}} CREATE_INDEX=true\n";
+		print SH "java -jar $PICARD ReorderSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam R=$gatkRef{$reference{$sample}} CREATE_INDEX=true\n";
 		print SH "date\n\n";
 		print SH "# Split Reads at splicing events (runs of Ns in CIGAR string)\n";
 		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T SplitNCigarReads -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam -o $outputDirectory\/$project\/bam\/$sample.split.bam -U ALLOW_N_CIGAR_READS -fixNDN\n";
@@ -1536,9 +1711,12 @@ if ($buildGenotyping ==1) {
 		print SH "# Generating Base Recalibration Table.\n";
 		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T BaseRecalibrator -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.split.real.recal.table -knownSites $knownSNPsites{$reference{$sample}}\n";
 		print SH "date\n\n";
-		print SH "# Calling SNPs and Indels with HaplotypeCaller.\n";
-		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
-		print SH "date\n\n";
+		print SH "##Commenting out HaplotypeCaller as Mutect2 is working better.\n";
+		print SH "## Calling SNPs and Indels with HaplotypeCaller.\n";
+		print SH "#java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
+		print SH "#date\n\n";
+		print SH "# Calling SNPs and Indels with Mutect2.\n";
+		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T MuTect2 -R $gatkRef{$reference{$sample}} -I:tumor $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
 		close SH;
 	    }
 	    if ($runGenotyping == 1){
@@ -1635,7 +1813,9 @@ if ($buildEdgeR ==1) {
 		    foreach my $sample (@samples){
 		    # if the user wants tracks, put that in the downstream analysis script.
 			print SH "# Create RNA seq Tracks\n";
-			print SH "Rscript $NGSbartom/tools/createRNAseqTracks.R --assembly=$reference{$sample} --bamDir=$bamDirectory\/ --sample=$sample\n";
+			my $assembly = $reference{$sample};
+			if ($assembly eq "hg38.mp"){$assembly="hg38";}
+			print SH "Rscript $NGSbartom/tools/createRNAseqTracks3.R --assembly=$assembly --bamDir=$bamDirectory\/ --sample=$sample --stranded=$stranded  --multiMap=$multiMap\n";
 			print SH "date\n\n";
 			print SH "mkdir $outputDirectory\/$project\/tracks\n";
 			print SH "\n# Make Headers for UCSC genome browser.\n";
@@ -1665,7 +1845,9 @@ if ($buildEdgeR ==1) {
 	    if ($granges == 1){
 		push (@methods,"granges");
 		print SH "\n# Make granges counts table for downstream analysis.\n";
-		print SH "Rscript $NGSbartom/tools/createRNAcounts2.R --assembly=$reference{$project} --bamDir=$bamDirectory --numCores=$numProcessors --txdbfile=$txdbfile{$reference{$project}}\n";
+		my $assembly = $reference{$project};
+		if ($assembly eq "hg38.mp"){$assembly="hg38";}
+		print SH "Rscript $NGSbartom/tools/createRNAcounts.R --assembly=$assembly --bamDir=$bamDirectory --numCores=$numProcessors --txdbfile=$txdbfile{$reference{$project}}\n";
 		print SH "\n# Rename counts.txt files to specify counting method\n";
 		print SH "mv $bamDirectory/counts.txt $bamDirectory/granges.all.counts.txt\n";
 		print SH "mv $bamDirectory/counts.rda $bamDirectory/granges.all.counts.rda\n";
@@ -1695,7 +1877,11 @@ if ($buildEdgeR ==1) {
 	    if ($comparisons ne ""){
 		foreach my $method (@methods){
 		    print SH "\n# Run EdgeR, using comparisons file, without MDS plot (which sometimes crashes), $method.\n";
-		    print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0\n";
+		    if ($reference{$project} =~ /\.mp/){
+			print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0 --filterOff=1\n";
+		    } else {
+			print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --comparisonFile=$comparisons --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=0\n";
+		    }
 		    print SH "\n# Run EdgeR, creating MDS plot, but not running comparisons, $method.\n";
 		    print SH "Rscript $NGSbartom/tools/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis --runMDS=1\n";
 		    print SH "date\n";
@@ -1712,6 +1898,8 @@ if ($buildEdgeR ==1) {
 		    my ($comp,@groups) = split(/\,/,$_);
 		    if ("@groups" =~ /^[1\-0\s]+/){
 			foreach my $method (@methods){
+			    print SH "\n# Create Gene Lists for comparison $comp, method $method\n";
+			    print SH "Rscript $NGSbartom/tools/fromEdgeRtoGeneList.R --edgeRfile=$outputDirectory\/$project\/analysis\/$comp.$method.edgeR.txt --adjp=0.01\n";
 			    print SH "\n# Create MA plot for comparison $comp, method $method\n";
 			    print SH "Rscript $NGSbartom/tools/makeMAplot.R --degFile=$outputDirectory\/$project\/analysis\/$comp.$method.edgeR.txt --adjp=0.01 --labelTop=1\n";
 			    print SH "date\n";
@@ -1751,6 +1939,10 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	if ($startFromBAM == 0){ $bamDirectory = "$outputDirectory\/$project\/bam\/";}
 	if ($chipDescription ne ""){
 	    $cmd = "mkdir $outputDirectory\/$project\/peaks";
+	    if ($buildNGSplot == 1){
+		$cmd .= "\nmkdir $outputDirectory\/$project\/analysis";
+		$cmd .= "\nmkdir $outputDirectory\/$project\/NGSplotPipeline";
+	    }
 	    system($cmd);
 	    my $broadPeakCheck = `grep -i \"broad\" $chipDescription`;
 	    if ($broadPeakCheck ne ""){
@@ -1799,20 +1991,25 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "$NGSbartom/tools/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.macsPeaks.capped.bed $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb\n";
 			    print SH "date\n";
 			    if ($uploadASHtracks == 1){
+				print SH "\nmodule load python/anaconda\n\n";
 				print SH "\n# Copy bigBed to Amazon S3, for UCSC genome browser to access.\n";
 				print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 				print SH "aws s3 cp $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb s3://$s3path/$scientist.$project/ --region us-west-2\n";
 				print SH "date\n";
+				print SH "\nmodule unload python/anaconda\n";
 			    }
 			    print SH "\n# Create track description for bigBed file.\n";
 			    print SH "echo \"track type=bigBed name=$ip.macsPeaks description=\\\"MACS peaks in $ip relative to $input\\\" graphtype=bar maxHeightPixels=128:60:11 visibility=dense color=0,0,0 itemRGB=on useScore=1 autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$ip.macsPeaks.bb\" | cat > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb.header.txt\n";
 			    print SH "date\n";
 			}
+			print SH "module load bedtools/2.17.0\n";
+			print SH "\n# Calculate coverage of reads at peaks.\n";
+			print SH "bedtools coverage -b $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed -abam $outputDirectory\/$project\/bam\/$ip.bam >  $outputDirectory\/$project\/peaks\/$ip.macsPeaks.cov.txt\n";
+			print SH "awk \'{printf \"\%s\\t\%d\\t%d\\t\%s\\t\%f\\n\", \$1,\$2,\$3\,\$4,\$5\/\$7\}\'  $outputDirectory\/$project\/peaks\/$ip.macsPeaks.cov.txt >  $outputDirectory\/$project\/peaks\/$ip.macsPeaks.cpm.bed\n";
 			print SH "\n# Annotate peaks with nearby genes.\n";
 			print SH "module load R/3.2.2\n";
 			print SH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print SH "\n# Extend peaks from the summit, adding $upstream bp upstream and $downstream bp downstream.\n";
-			print SH "module load bedtools/2.17.0\n";
 			print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
 			print SH "\n# Filter out peaks with an maximum input rpm over 1.\n";
 			print SH "Rscript $NGSbartom/tools/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
@@ -1825,6 +2022,21 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt\n";
 			print SH "Rscript $NGSbartom/tools/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
 			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			if ($buildNGSplot == 1){
+			    print SH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";	
+			    print SH "# For full description of options see https://github.com/ebartom/NGSbartom/blob/master/NGSplotPipeline/NGSplotPipeline.presentation.pdf\n";
+			    print SH "# Heatmaps will be calculated for each bed file in the $outputDirectory/$project/analysis/$ip.bedList.txt file ; default is to do each bed file separately.\n";
+			    print SH "echo \"$ip\t$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed\" | cat \>  $outputDirectory/$project/analysis/$ip.bedList.txt\n";
+			    print SH "perl $NGSbartom/tools/NGSplotPipeline/makeNGSplots.pl -hss $outputDirectory/$project/scripts/$ip.homer.logFC.metaPeakPlot.clustered.sh -hss2 $outputDirectory/$project/scripts/$ip.homer2.logFC.metaPeakPlot.clustered.sh \\\n";
+			    print SH "\t-os $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh \\\n";
+			    print SH "\t-o $outputDirectory/$project/NGSplotPipeline/$ip.logFC.metaPeakPlot.clustered \\\n";
+			    print SH "\t-vl 0 -lw 1 -g $reference{$project} -fl 150 -p $numProcessors \\\n";
+			    print SH "\t-c $ngsFCcomparison \\\n";
+			    print SH "\t-csb 0 -ccenb 0 -cepw 1 -cbl 5000 -chs -2,2 -chc blue:white:red -cbo km -cbc 4 -ccd 1 \\\n";
+			    print SH "\t-cb $outputDirectory/$project/analysis/$ip.bedList.txt \n";
+			    print SH "\n# Run created NGSplot analysis script.\n";
+			    print SH ". $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh\n";
+			}			    
 			close SH;
 		       
 		    } elsif ($peakType eq "broad"){
@@ -1858,9 +2070,11 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print BSH "$NGSbartom/tools/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb\n";
 			    print BSH "date\n";
 			    if ($uploadASHtracks == 1){
+				print BSH "\nmodule load python/anaconda\n";
 				print BSH "\n# Copy bigBed to Amazon S3, for UCSC genome browser to access.\n";
 				print BSH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 				print BSH "aws s3 cp $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb s3://$s3path/$scientist.$project/ --region us-west-2\n";
+				print BSH "\nmodule unload python/anaconda\n";
 				print BSH "date\n";
 			    }
 			    print BSH "\n# Create track description for bigBed file.\n";
@@ -1875,6 +2089,21 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "\nmodule unload python/anaconda\nmodule load mpi/openmpi-1.6.3-gcc-4.6.3\nmodule load R/3.2.2\n";
 			print BSH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print BSH "date\n";
+			if ($buildNGSplot == 1){
+			    print BSH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";	
+			    print BSH "# For full description of options see https://github.com/ebartom/NGSbartom/blob/master/NGSplotPipeline/NGSplotPipeline.presentation.pdf\n";
+			    print BSH "# Heatmaps will be calculated for each bed file in the $outputDirectory/$project/analysis/$ip.bedList.txt file ; default is to do each bed file separately.\n";
+			    print BSH "echo \"$ip\t$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed\n\" | cat \>  $outputDirectory/$project/analysis/$ip.bedList.txt\n";
+			    print BSH "perl $NGSbartom/tools/NGSplotPipeline/makeNGSplots.pl -hss $outputDirectory/$project/scripts/$ip.homer.logFC.metaPeakPlot.clustered.sh -hss2 $outputDirectory/$project/scripts/$ip.homer2.logFC.metaPeakPlot.clustered.sh \\\n";
+			    print BSH "\t-os $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh \\\n";
+			    print BSH "\t-o $outputDirectory/$project/NGSplotPipeline/$ip.logFC.metaPeakPlot.clustered \\\n";
+			    print BSH "\t-vl 0 -lw 1 -g $reference{$project} -fl 150 -p $numProcessors \\\n";
+			    print BSH "\t-c $ngsFCcomparison \\\n";
+			    print BSH "\t-csb 0 -ccenb 0 -cepw 1 -cbl 5000 -chs -2,2 -chc blue:white:red -cbo km -cbc 4 -ccd 1 \\\n";
+			    print BSH "\t-cb $outputDirectory/$project/analysis/$ip.bedList.txt \\\n";
+			    print BSH "\n# Run created NGSplot analysis script.\n";
+			    print BSH ". $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh\n";
+			}			    
 			print BSH "\n# Find summits of peaks.\n";
 			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWtoSummit.R --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
 			print BSH "module load bedtools/2.17.0\n";
@@ -1919,13 +2148,20 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	    $result2 =~ s/\s+//g;
 	    my $jobfinished = "no";
 	    # Wait until the job is Complete.
-	    &datePrint("Waiting for job $result2 to finish. (each . = 30 seconds)");
-	    # Check qstat every 30 seconds, adding a "." every time you check.
-	    until ($jobfinished eq "Completed"){
-		$jobfinished = `checkjob $result2 | grep ^State:`;
-		sleep(30);
+	    &datePrint("Waiting for job $result2 to finish. (each . = 300 seconds)");
+	    # Check qstat every 300 seconds, adding a "." every time you check.
+	    # until ($jobfinished eq "Completed"){
+	    # 	sleep(300);
+	    # 	$jobfinished = `checkjob $result2 | grep ^State:`;
+	    # 	print STDERR ".";
+	    # 	if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	    # 	print STDERR "$jobfinished";
+	    # }
+	    until ($jobfinished eq "C"){
+		sleep(300);
+		$jobfinished = `qstat -f $result2 | grep job_state`;
 		print STDERR ".";
-		if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+		if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
 		print STDERR "$jobfinished";
 	    }
 	    print STDERR "\n";
@@ -2112,11 +2348,11 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
     # 	    $result2 =~ s/\s+//g;
     # 	    my $jobfinished = "no";
     # 	    # Wait until the job is Complete.
-    # 	    &datePrint("Waiting for job $result2 to finish. (each . = 30 seconds)");
-    # 	    # Check qstat every 30 seconds, adding a "." every time you check.
+    # 	    &datePrint("Waiting for job $result2 to finish. (each . = 300 seconds)");
+    # 	    # Check qstat every 300 seconds, adding a "." every time you check.
     # 	    until ($jobfinished eq "Completed"){
+    # 		sleep(300);
     # 		$jobfinished = `checkjob $result2 | grep ^State:`;
-    # 		sleep(30);
     # 		print STDERR ".";
     # 		if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
     # 		print STDERR "$jobfinished";
