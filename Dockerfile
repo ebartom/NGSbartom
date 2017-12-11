@@ -61,11 +61,26 @@ RUN rm -rf *
 
 COPY resources/modulefiles/ /etc/modulefiles/
 
-RUN mkdir -p /software/ceto
+RUN mkdir -p /projects/p20742/tools
+
+WORKDIR /projects/p20742/tools
 
 # copy all R and perl scripts into image
-COPY *.R *.pl /software/ceto/
+COPY *.R *.pl ./
 
-WORKDIR /software/ceto
+# install the stuff that the pipeline runs directly inside /projects/p20742
+RUN curl -O http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bedToBigBed
+
+RUN curl -O https://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.5.zip && unzip fastqc_v0.11.5.zip && chmod 755 FastQC/fastqc
+
+RUN mkdir GATK_v3.6 && cd GATK_v3.6 && \
+	curl -o GenomeAnalysisTK-3.6-0-g89b7209.tar.bz2 "https://software.broadinstitute.org/gatk/download/auth?package=GATK-archive&version=3.6-0-g89b7209" && \
+	bunzip2 GenomeAnalysisTK-3.6-0-g89b7209.tar.bz2 && tar xvf GenomeAnalysisTK-3.6-0-g89b7209.tar && \
+	mv resources/* .
+
+RUN curl -O http://home.gwu.edu/~wpeng/SICER_V1.1.tgz && tar xvfz SICER_V1.1.tgz && \
+	cd SICER_V1.1/SICER && find . -name '*.sh' -print | xargs sed -i 's|/home/data/SICER1.1|/projects/p20742/tools/SICER_V1.1|g'
+
+RUN curl -O http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.33.zip && unzip Trimmomatic-0.33.zip
 
 ENTRYPOINT /bin/bash

@@ -22,3 +22,11 @@ Dependencies:
 - gcc/4.8.3			empty (system version = 4.8.5)
 
 ** = done
+
+# Executables (to put in tools directory)
+bedToBigBed			http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bedToBigBed
+FastQC/fastqc			https://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.5.zip 
+GATK_v3.6/GenomeAnalysisTK.jar	https://software.broadinstitute.org/gatk/download/auth?package=GATK-archive&version=3.6-0-g89b7209
+SICER_V1.1			http://home.gwu.edu/~wpeng/SICER_V1.1.tgz
+Trimmomatic-0.33		http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.33.zip
+
