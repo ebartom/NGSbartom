@@ -89,4 +89,7 @@ RUN curl -O http://home.gwu.edu/~wpeng/SICER_V1.1.tgz && tar xvfz SICER_V1.1.tgz
 
 RUN curl -O http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.33.zip && unzip Trimmomatic-0.33.zip
 
+# have to symlink perl executable in order for buildPipelineScripts.pl to run
+RUN mkdir -p /software/activeperl/5.16/bin && ln -s /usr/bin/perl /software/activeperl/5.16/bin/perl
+
 ENTRYPOINT /bin/bash
