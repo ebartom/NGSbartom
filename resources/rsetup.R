@@ -1,0 +1,9 @@
+#!/usr/bin/env Rscript
+source("http://bioconductor.org/biocLite.R")
+biocLite("BSgenome.Mmusculus.UCSC.mm10", suppressUpdates=TRUE)
+biocLite("BSgenome.Mmusculus.UCSC.mm9", suppressUpdates=TRUE)
+biocLite("BSgenome.Hsapiens.UCSC.hg19", suppressUpdates=TRUE)
+biocLite("BSgenome.Hsapiens.UCSC.hg38", suppressUpdates=TRUE)
+biocLite("BSgenome.Scerevisiae.UCSC.sacCer3", suppressUpdates=TRUE)
+biocLite("ChIPpeakAnno", suppressUpdates=TRUE)
+biocLite("topGO", suppressUpdates=TRUE)

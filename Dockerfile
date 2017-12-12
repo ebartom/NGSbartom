@@ -17,7 +17,9 @@ RUN yum update -y && yum install -y \
     unzip \
     bzip2 \
     gcc-gfortran \
-    perl-List-MoreUtils
+    perl-List-MoreUtils \
+    libcurl-devel \
+    libxml2-devel
 
 WORKDIR /tmp
 
@@ -57,9 +59,13 @@ RUN mkdir -p /software/openmpi/1.6.3 && \
     tar -xzf openmpi-1.6.3.tar.gz && cd openmpi-1.6.3 && ./configure --prefix=/software/openmpi/1.6.3 && \
     make && make install
 
-RUN rm -rf *
-
 COPY resources/modulefiles/ /etc/modulefiles/
+
+COPY resources/rsetup.R . 
+
+RUN source /etc/profile.d/modules.sh && module load R && Rscript rsetup.R
+
+RUN rm -rf *
 
 RUN mkdir -p /projects/p20742/tools
 
