@@ -1,9 +1,9 @@
 #%Module
 
 proc ModulesHelp { } {
-   puts stderr "This module adds $title to various paths"
+   puts stderr "This module adds [ module-info name ]"
 }
 
-module-whatis   "Sets up $title in your environment"
+module-whatis   "This module adds [ module-info name ] "
 
 prepend-path PATH /usr/local/bin

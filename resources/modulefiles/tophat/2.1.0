@@ -7,14 +7,14 @@ set title "tophat"
 set url "http://tophat.cbcb.umd.edu/"
 
 proc ModulesHelp { } {
-   puts stderr "This module adds $title to various paths"
+   puts stderr "This module adds [ module-info name ]"
    puts stderr "See $url for further details"
 }
 
-module-whatis   "Sets up $title in your environment"
+module-whatis   "This module adds [ module-info name ] "
 
 if { ! [ file exists $path ] } {
-   puts stderr "$title is not built for the environment"
+   puts stderr "[ module-info name ] is not built for the environment"
    exit
 }
 
