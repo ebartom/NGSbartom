@@ -43,12 +43,6 @@ RUN mkdir -p /software/picard/1.131 && \
     curl -L -O https://github.com/broadinstitute/picard/releases/download/1.131/picard-tools-1.131.zip && \
     unzip picard-tools-1.131.zip && mv picard-tools-1.131 /software/picard/1.131
 
-COPY resources/environment.yml .
-
-RUN mkdir -p /software/anaconda2 && curl -L -O https://repo.continuum.io/archive/Anaconda2-2.4.1-Linux-x86_64.sh && \
-    chmod 755 Anaconda2-2.4.1-Linux-x86_64.sh && bash Anaconda2-2.4.1-Linux-x86_64.sh -p /software/anaconda2 -f -b && \
-    /software/anaconda2/bin/conda env update -f environment.yml --name root
-
 RUN mkdir -p /software/R/3.2.2 && \
     curl -O https://cran.cnr.berkeley.edu/src/base/R-3/R-3.2.2.tar.gz && \
     tar -xzf R-3.2.2.tar.gz && cd R-3.2.2 && ./configure --prefix=/software/R/3.2.2 --without-readline --without-x && \
@@ -64,6 +58,15 @@ COPY resources/modulefiles/ /etc/modulefiles/
 COPY resources/rsetup.R . 
 
 RUN source /etc/profile.d/modules.sh && module load R && Rscript rsetup.R
+
+COPY resources/environment.yml .
+
+RUN mkdir -p /software/anaconda2 && curl -L -O https://repo.continuum.io/archive/Anaconda2-2.4.1-Linux-x86_64.sh && \
+    chmod 755 Anaconda2-2.4.1-Linux-x86_64.sh && bash Anaconda2-2.4.1-Linux-x86_64.sh -p /software/anaconda2 -f -b && \
+    /software/anaconda2/bin/conda env update -f environment.yml --name root
+
+# have to manually install bzip2 b/c the bioconda version of pysam depends on it
+RUN source /etc/profile.d/modules.sh && module load python/anaconda && conda install -c conda-forge -y bzip2
 
 RUN rm -rf *
 

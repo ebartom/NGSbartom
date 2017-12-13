@@ -8,4 +8,3 @@ dependencies:
 - bedtools=2.26.0
 - awscli
 - pysam
-- bzip2
