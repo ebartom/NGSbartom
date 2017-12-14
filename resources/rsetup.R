@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+install.packages('ggplot2', dep = TRUE, repos="http://cran.r-project.org")
 source("http://bioconductor.org/biocLite.R")
 biocLite("BSgenome.Mmusculus.UCSC.mm10", suppressUpdates=TRUE)
 biocLite("BSgenome.Mmusculus.UCSC.mm9", suppressUpdates=TRUE)
