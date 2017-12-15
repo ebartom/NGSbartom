@@ -19,7 +19,11 @@ RUN yum update -y && yum install -y \
     gcc-gfortran \
     perl-List-MoreUtils \
     libcurl-devel \
-    libxml2-devel
+    libxml2-devel \
+    openssl-devel \
+    gd-devel \
+    cairo-devel \
+    which
 
 WORKDIR /tmp
 
