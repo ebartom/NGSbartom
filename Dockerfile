@@ -101,4 +101,8 @@ RUN git clone https://github.com/taoliu/MACS.git MACS-1.4.2 && cd MACS-1.4.2 && 
 # have to symlink perl executable in order for buildPipelineScripts.pl to run
 RUN mkdir -p /software/activeperl/5.16/bin && ln -s /usr/bin/perl /software/activeperl/5.16/bin/perl
 
-ENTRYPOINT /bin/bash
+COPY resources/wrapper.sh .
+
+RUN chmod 755 wrapper.sh
+
+ENTRYPOINT ["/projects/p20742/tools/wrapper.sh"]
