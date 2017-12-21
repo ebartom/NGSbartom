@@ -82,7 +82,7 @@ WORKDIR /projects/p20742/tools
 COPY *.R *.pl ./
 
 # install the stuff that the pipeline runs directly inside /projects/p20742
-RUN curl -O http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bedToBigBed
+RUN curl -O http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bedToBigBed && chmod 755 bedToBigBed
 
 RUN curl -O https://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.5.zip && unzip fastqc_v0.11.5.zip && chmod 755 FastQC/fastqc
 
@@ -95,6 +95,8 @@ RUN curl -O http://home.gwu.edu/~wpeng/SICER_V1.1.tgz && tar xvfz SICER_V1.1.tgz
 	cd SICER_V1.1/SICER && find . -name '*.sh' -print | xargs sed -i 's|/home/data/SICER1.1|/projects/p20742/tools/SICER_V1.1|g'
 
 RUN curl -O http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.33.zip && unzip Trimmomatic-0.33.zip
+
+RUN git clone https://github.com/taoliu/MACS.git MACS-1.4.2 && cd MACS-1.4.2 && git checkout tags/v1.4.2 && python setup.py install --prefix /projects/p20742/tools/MACS-1.4.2 && ln -s /projects/p20742/tools/MACS-1.4.2/lib/python2.7 /projects/p20742/tools/MACS-1.4.2/lib/python2.6
 
 # have to symlink perl executable in order for buildPipelineScripts.pl to run
 RUN mkdir -p /software/activeperl/5.16/bin && ln -s /usr/bin/perl /software/activeperl/5.16/bin/perl
