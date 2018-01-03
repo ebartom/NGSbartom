@@ -1,24 +1,68 @@
 # Running the Ceto pipeline via Docker
 
-# Building the image
-	`docker build -t nuitrcs/ceto:0.1 .`
+The Ceto pipeline was originally developed to run on Northwestern University's
+Quest HPC cluster. However, it can be run anywhere with via a Docker container.
+This repository contains a `Dockerfile` that can be used to create a Docker
+image and run the pipeline.
 
-# Downloading the reference data
-	`aws s3 cp s3://ngsbartom-ceto-data/anno . --recursive`
+## Building the image
 
-# Running the pipeline in a container
-	- create output folder, data folder.
-		- put comparisons.csv in output folder
+You can build the image with this command:
 
-	- mounting the data
-		rna
-		`docker run -it --rm -v /mnt/anno:/projects/p20742/anno -v /mnt/fastq:/data -v /mnt/output:/output nuitrcs/ceto:0.1`
+	docker build -t ngsbartom/ceto:1.0 .
 
-		chipseq
-		`docker run -it --rm -v /mnt/anno:/projects/p20742/anno -v /mnt/testChIP:/data -v /mnt/testChIP-output:/output nuitrcs/ceto:0.1`
+Once built you can upload it to a Docker repository or simply use it on the same host where it was built.
 
-	- ONE STEP RUN:
-		docker run -it --rm -v /mnt/anno:/projects/p20742/anno -v /mnt/testChIP:/data -v /mnt/testChIP-output:/output nuitrcs/ceto:0.1 -t chipseq -o /output -g sacCer3 -f /data/GSE53241/ -chip /data/chipseqDesc.GSE53241.csv -buildAlign 1 -buildPeakCaller 1
+## Downloading the reference data
 
-		When this completes, output will be in the /mnt/testChIP-output directory.
+In order to align your sample data, you will need to download the reference data
+that Ceto needs to a directory where it can be mounted by the Docker container.
+The data is available in a public S3 bucket and in the example below we create a
+new directory `/anno` and download it there:
 
+	mkdir /anno
+	aws s3 cp s3://ngsbartom-ceto-data/anno /anno --recursive
+
+## Running the pipeline in a container
+
+The pipeline has significant computing resource requirements. Ideally, it should
+be run on a machine with at least as many cores as you have samples to align, so
+that each alignment can run on its own core. The minimum recommended AWS EC2
+instance size to run the pipeline on is a t2.2xlarge (8 cores, 32GB RAM).
+Additionally, the reference data requires about 150GB of hard drive space and
+another 50GB of scratch space is recommended.
+
+1. First upload your data to a folder on the host where you will run your
+   container, such as `/data`. In there, place the comparisons file (e.g.
+   `comparisons.csv`)
+
+2. Then create an output directory, e.g.
+
+		mkdir /output
+
+3. Finally, run the docker container. Arguments to the `docker run` command will
+   be passed through to the `buildPipelineScripts.pl` script that runs the
+   pipeline.
+   
+   **NB: Only the `build*` arguments to `buildPipelineScripts.pl` are supported,
+   e.g. `buildAlign 1` and `buildPeakCaller 1`. The `run*` arguments are NOT
+   supported, as they require the presence of an HPC scheduler. Instead, the
+   scripts created by the pipeline are executed automatically in the proper
+   order.**
+      
+   **NB: The volume mount path for the reference data inside the container
+    must be `/projects/p20742/anno` in order for the pipeline to run.**
+
+	### RNA Example:
+
+		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ngsbartom/ceto:1.0 \
+		-t RNA -o /output -g mm10 -f /data/<path to sample>/ \
+		-c /data/comparisons.csv -buildAlign 1 -buildPeakCaller 1
+
+	### ChIPseq example:
+
+		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ngsbartom/ceto:1.0 \
+		-t chipseq -o /output -g sacCer3 -f /data/<path to sample>/ \
+		-chip /data/<sample.csv> -buildAlign 1 -buildPeakCaller 1
+
+When the run completes, the output can be found in the `/output` directory.
