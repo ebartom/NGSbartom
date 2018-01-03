@@ -285,7 +285,10 @@ $header .= "#MSUB -A $account\n";
 # If you disagree, let me know at ebartom@northwestern.edu 
 if ($account eq "b1042"){
     $header .= "#MSUB -q $queue\n";
+} elsif ($account eq "e30258"){
+    $header .= "#MSUB -q $queue\n";
 }
+print STDERR "Account: $account\nQueue: $queue\n";
 $header .= "#MSUB -l walltime=$walltime\n";
 $header .= "#MSUB -m a\n"; # only email user if job aborts
 #$header .= "#MSUB -m abe\n"; # email user if job aborts (a), begins (b) or ends (e)
@@ -494,12 +497,19 @@ if ($buildBcl2fq == 1){
 	my $jobfinished = "no";
 	# Wait until the job is no longer in qstat.
 	&datePrint("Waiting for job $result to finish.");
-	# Check qstat every 30 seconds, adding a "." every time you check.
-	until ($jobfinished eq "Completed"){
-	    $jobfinished = `checkjob $result | grep ^State:`;
-	    sleep(30);
+       # Check qstat every 300 seconds, adding a "." every time you check.
+	# until ($jobfinished eq "Completed"){
+	#     sleep(300);
+	#     $jobfinished = `checkjob $result | grep ^State:`;
+	#     print STDERR ".";
+	#     if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	#     print STDERR "$jobfinished";
+	# }
+	until ($jobfinished eq "C"){
+	    sleep(300);
+	    $jobfinished = `qstat -f $result | grep job_state`;
 	    print STDERR ".";
-	    if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	    if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
 	    print STDERR "$jobfinished";
 	}
 	print STDERR "\n";
@@ -629,6 +639,7 @@ if (($sampleSheet ne "")){
 	    if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || 
 		#		($fastq =~ /\/?([\w\-\d\_\.]+)FastqRd/) ||
 		($fastq =~ /\/?([\w\-\d\_\.]+)\_R\d/) ||
+		($fastq =~ /\/?([\w\-\d\_\.]+SRR\w+)\_\d.fastq.gz/) ||
 		($fastq =~ /\/?([\w\-\d\_\.]+).fastq.t?gz/) ||
 		($fastq =~ /\/?([\w\-\d\_\.]+).fq.t?gz/) 
 		){
@@ -715,15 +726,22 @@ if (($type eq "4C") && ($build4C == 1)){
 	    $result =~ s/\s+//g;
 	    my $jobfinished = "no";
 	    # Wait until the job is Complete.
-	    &datePrint("Waiting for job $result to finish. (each . = 30 seconds)");
-	    # Check qstat every 30 seconds, adding a "." every time you check.
-	    until ($jobfinished eq "Completed"){
-		$jobfinished = `checkjob $result | grep ^State:`;
-		sleep(30);
+	    &datePrint("Waiting for job $result to finish. (each . = 300 seconds)");
+	    # Check qstat every 300 seconds, adding a "." every time you check.
+	    until ($jobfinished eq "C"){
+		sleep(300);
+		$jobfinished = `qstat -f $result | grep job_state`;
 		print STDERR ".";
-		if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+		if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
 		print STDERR "$jobfinished";
 	    }
+	    # until ($jobfinished eq "Completed"){
+	    # 	sleep(300);
+	    # 	$jobfinished = `checkjob $result | grep ^State:`;
+	    # 	print STDERR ".";
+	    # 	if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	    # 	print STDERR "$jobfinished";
+	    # }
 	    print STDERR "\n";
 	    &datePrint("Job $result done.  Continuing.");
 	}
@@ -880,10 +898,10 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		print STDERR "All Fastqs for Sample $sample: \n@fastqs\n";
 		foreach my $fastq (@fastqs){
 #		    print STDERR "Looking for Read number in $fastq\n";
-		    if (($fastq =~ /\_R1\_?\.?/)  ){
+		    if (($fastq =~ /\_R1\_?\.?/) || ($fastq =~ /SRR.+\_1\./) ){
 #			|| ($fastq =~ /Rd1/)){
 			push (@read1fastqs,$fastq);
-		    } elsif (($fastq =~ /\_R2\_?\.?/)){
+		    } elsif (($fastq =~ /\_R2\_?\.?/) || ($fastq =~ /SRR.+\_2\./)){
 #			|| ($fastq =~ /Rd2/)){
 			push (@read2fastqs,$fastq);
 		    } elsif ($fastq =~ /\_R3\_?\.?/){
@@ -1579,15 +1597,22 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	$result2 =~ s/\s+//g;
 	my $jobfinished = "no";
 	# Wait until the job is Complete.
-	&datePrint("Waiting for job $result2 to finish. (each . = 30 seconds)");
-	# Check qstat every 30 seconds, adding a "." every time you check.
-	until ($jobfinished eq "Completed"){
-	    $jobfinished = `checkjob $result2 | grep ^State:`;
-	    sleep(30);
+	&datePrint("Waiting for job $result2 to finish. (each . = 300 seconds)");
+	# Check qstat every 300 seconds, adding a "." every time you acheck.
+	until ($jobfinished eq "C"){
+	    sleep(300);
+	    $jobfinished = `qstat -f $result2 | grep job_state`;
 	    print STDERR ".";
-	    if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	    if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
 	    print STDERR "$jobfinished";
 	}
+	# until ($jobfinished eq "Completed"){
+	#     sleep(300);
+	#     $jobfinished = `checkjob $result2 | grep ^State:`;
+	#     print STDERR ".";
+	#     if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	#     print STDERR "$jobfinished";
+	# }
 	print STDERR "\n";
 	&datePrint("Job $result2 done.  Continuing.");
     }
@@ -1651,20 +1676,28 @@ if ($buildGenotyping ==1) {
 		open (SH, ">$outputDirectory/$project/scripts/$sample\_genotype.sh");
 		print SH $header;
 		print SH "#MSUB -N $sample\_genotype\n";
-		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		#print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		# Some of the steps below can be parallelized, but not all,
+		# and more experimentation is required for optimization.  In
+		# the meantime, I'm setting a flat number of processors of 6
+		# for genotyping purposes.
+		print SH "#MSUB -l nodes=1:ppn=6\n";
 		print SH "module load samtools/1.2\n";
+		print SH "module load picard/1.131\n";
+		my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 		print SH "\n\n";
 		print SH "# Sort BAM file.\n";
 		print SH "$NGSbartom/tools/samtools-0.1.19/samtools sort $outputDirectory\/$project\/bam\/$sample.bam $outputDirectory\/$project\/bam\/$sample.sorted\n";
 		print SH "date\n\n";
 		print SH "# Mark Duplicates with Picard.\n";
-		print SH "java -jar $NGSbartom/tools/picard.jar MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.sorted.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
+		#print SH "java -jar $NGSbartom/tools/picard.jar MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.sorted.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
+		print SH "java -jar $PICARD MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.sorted.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
 		print SH "date\n\n";
 #		print SH "# Sort mdup BAM file with Picard.\n";
-#		print SH "java -jar $NGSbartom/tools/picard.jar SortSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.sorted.bam SORT_ORDER=coordinate CREATE_INDEX=true\n";
+#		print SH "java -jar $PICARD SortSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.sorted.bam SORT_ORDER=coordinate CREATE_INDEX=true\n";
 		#		print SH "date\n\n";
 		print SH "# Reorder mdup BAM file with Picard.\n";
-		print SH "java -jar $NGSbartom/tools/picard.jar ReorderSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam R=$gatkRef{$reference{$sample}} CREATE_INDEX=true\n";
+		print SH "java -jar $PICARD ReorderSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam R=$gatkRef{$reference{$sample}} CREATE_INDEX=true\n";
 		print SH "date\n\n";
 		print SH "# Split Reads at splicing events (runs of Ns in CIGAR string)\n";
 		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T SplitNCigarReads -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam -o $outputDirectory\/$project\/bam\/$sample.split.bam -U ALLOW_N_CIGAR_READS -fixNDN\n";
@@ -1678,9 +1711,10 @@ if ($buildGenotyping ==1) {
 		print SH "# Generating Base Recalibration Table.\n";
 		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T BaseRecalibrator -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.split.real.recal.table -knownSites $knownSNPsites{$reference{$sample}}\n";
 		print SH "date\n\n";
-		print SH "# Calling SNPs and Indels with HaplotypeCaller.\n";
-		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
-		print SH "date\n\n";
+		print SH "##Commenting out HaplotypeCaller as Mutect2 is working better.\n";
+		print SH "## Calling SNPs and Indels with HaplotypeCaller.\n";
+		print SH "#java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
+		print SH "#date\n\n";
 		print SH "# Calling SNPs and Indels with Mutect2.\n";
 		print SH "java -jar $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar -T MuTect2 -R $gatkRef{$reference{$sample}} -I:tumor $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
 		close SH;
@@ -1999,7 +2033,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "\t-vl 0 -lw 1 -g $reference{$project} -fl 150 -p $numProcessors \\\n";
 			    print SH "\t-c $ngsFCcomparison \\\n";
 			    print SH "\t-csb 0 -ccenb 0 -cepw 1 -cbl 5000 -chs -2,2 -chc blue:white:red -cbo km -cbc 4 -ccd 1 \\\n";
-			    print SH "\t-cb $outputDirectory/$project/analysis/$ip.bedList.txt \\\n";
+			    print SH "\t-cb $outputDirectory/$project/analysis/$ip.bedList.txt \n";
 			    print SH "\n# Run created NGSplot analysis script.\n";
 			    print SH ". $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh\n";
 			}			    
@@ -2114,13 +2148,20 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	    $result2 =~ s/\s+//g;
 	    my $jobfinished = "no";
 	    # Wait until the job is Complete.
-	    &datePrint("Waiting for job $result2 to finish. (each . = 30 seconds)");
-	    # Check qstat every 30 seconds, adding a "." every time you check.
-	    until ($jobfinished eq "Completed"){
-		$jobfinished = `checkjob $result2 | grep ^State:`;
-		sleep(30);
+	    &datePrint("Waiting for job $result2 to finish. (each . = 300 seconds)");
+	    # Check qstat every 300 seconds, adding a "." every time you check.
+	    # until ($jobfinished eq "Completed"){
+	    # 	sleep(300);
+	    # 	$jobfinished = `checkjob $result2 | grep ^State:`;
+	    # 	print STDERR ".";
+	    # 	if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+	    # 	print STDERR "$jobfinished";
+	    # }
+	    until ($jobfinished eq "C"){
+		sleep(300);
+		$jobfinished = `qstat -f $result2 | grep job_state`;
 		print STDERR ".";
-		if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
+		if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
 		print STDERR "$jobfinished";
 	    }
 	    print STDERR "\n";
@@ -2307,11 +2348,11 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
     # 	    $result2 =~ s/\s+//g;
     # 	    my $jobfinished = "no";
     # 	    # Wait until the job is Complete.
-    # 	    &datePrint("Waiting for job $result2 to finish. (each . = 30 seconds)");
-    # 	    # Check qstat every 30 seconds, adding a "." every time you check.
+    # 	    &datePrint("Waiting for job $result2 to finish. (each . = 300 seconds)");
+    # 	    # Check qstat every 300 seconds, adding a "." every time you check.
     # 	    until ($jobfinished eq "Completed"){
+    # 		sleep(300);
     # 		$jobfinished = `checkjob $result2 | grep ^State:`;
-    # 		sleep(30);
     # 		print STDERR ".";
     # 		if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
     # 		print STDERR "$jobfinished";
