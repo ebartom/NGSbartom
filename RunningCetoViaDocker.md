@@ -32,7 +32,7 @@ instance size to run the pipeline on is a t2.2xlarge (8 cores, 32GB RAM).
 Additionally, the reference data requires about 150GB of hard drive space and
 another 50GB of scratch space is recommended.
 
-1. First upload your data to a folder on the host where you will run your
+1. First upload your sample data to a folder on the host where you will run your
    container, such as `/data`. In there, place the comparisons file (e.g.
    `comparisons.csv`)
 
@@ -53,16 +53,35 @@ another 50GB of scratch space is recommended.
    **NB: The volume mount path for the reference data inside the container
     must be `/projects/p20742/anno` in order for the pipeline to run.**
 
+    **NB: The volume mount paths for the data and output directories must be
+    the same both inside the container and on the host, as otherwise symlinks
+    created by the pipeline will not work.**
+
 	### RNA Example:
 
 		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ngsbartom/ceto:1.0 \
-		-t RNA -o /output -g mm10 -f /data/<path to sample>/ \
-		-c /data/comparisons.csv -buildAlign 1 -buildPeakCaller 1
+		-t RNA -o /output -g mm10 -f /data -c /data/comparisons.csv -buildAlign 1 -buildEdgeR 1
 
 	### ChIPseq example:
 
 		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ngsbartom/ceto:1.0 \
-		-t chipseq -o /output -g sacCer3 -f /data/<path to sample>/ \
+		-t chipseq -o /output -g sacCer3 -f /data \
 		-chip /data/<sample.csv> -buildAlign 1 -buildPeakCaller 1
 
 When the run completes, the output can be found in the `/output` directory.
+
+## Benchmarks
+
+In January 2018, using the RNA command line above and the sample referenced in
+[RNAseqAnalysisWithCETO.txt](RNAseqAnalysisWithCETO.txt), the pipeline completed
+in the following times:
+
+| Instance Type | Time (minutes) | Est. Cost* |
+| ------------- | -------------- | ---------- |
+| m4.2xlarge    | 465            | $3.10      |
+| c4.4xlarge    | 256            | $3.40      |
+| c4.8xlarge    | 158            | $4.19      |
+
+The pipeline did not finish on a c4.2xlarge instance.
+
+*EC2 on demand instance time only, us-east-2 region 1/4/2018.
