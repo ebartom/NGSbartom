@@ -216,7 +216,7 @@ if ($aligner eq ""){
     if ($type eq "RNA"){ $aligner = "tophat";}
     if ($type eq "chipseq"){ $aligner = "bowtie";}
     if ($type eq "4C"){ $aligner = "bowtie";}
-}
+} else { $aligner = lc $aligner;}
 
 # You can build scripts without running them, but not the reverse.
 if (($runBcl2fq == 1) && ($buildBcl2fq == 0)){
@@ -275,8 +275,6 @@ if (($type eq "RNA") && ($granges == 1) && ($bamDirectory eq "")) {
     $genomeBAM = 1;
 }
 
-
-
 # Define a header for the shell scripts.
 my $header = "#!/bin/bash\n";
 #$header .= "#MSUB -l nodes=1:ppn=$numProcessors\n"; This is now specified within specific scripts, so bcl2fq can have 8 ppn
@@ -286,6 +284,8 @@ $header .= "#MSUB -A $account\n";
 if ($account eq "b1042"){
     $header .= "#MSUB -q $queue\n";
 } elsif ($account eq "e30258"){
+    $header .= "#MSUB -q $queue\n";
+} elsif ($account eq "b1025"){
     $header .= "#MSUB -q $queue\n";
 }
 print STDERR "Account: $account\nQueue: $queue\n";
@@ -329,11 +329,12 @@ if ($runGenotyping){ print STDERR "Will run scripts for genotyping samples.\n";}
 print STDERR "=====================================\n";
 
 # Define references.
-my (%bowtieIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx,%genebed);
+my (%bowtieIndex,%starIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx,%genebed);
 my (%gatkRef,%knownSNPsites,%knownIndelsites);
 
 $bowtieIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38";
 $bwaIndex{"hg38"} = "$NGSbartom/anno/bwa_indexes/hg38.fa";
+$starIndex{"hg38"} = "$NGSbartom/anno/STAR_indexes/hg38/";
 $txIndex{"hg38"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
 $txdbfile{"hg38"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens78.txdb";
 $exonbed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.exons.bed";
@@ -346,6 +347,7 @@ $knownIndelsites{"hg38"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_stan
 
 $bowtieIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/Bowtie2Index/genome";
 $bwaIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/BWAIndex/genome.fa";
+$starIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/STARindex/";
 $txIndex{"hg38.mp"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
 $txdbfile{"hg38.mp"} = "$NGSbartom/anno/Txdb/UCSC.hg38.mp.txdb";
 $exonbed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf.bed";
@@ -358,6 +360,7 @@ $knownIndelsites{"hg38.mp"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_s
 
 $bowtieIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19";
 $bwaIndex{"hg19"} = "$NGSbartom/anno/bwa_indexes/hg19.fa";
+$starIndex{"hg19"} = "$NGSbartom/anno/STAR_indexes/hg19/";
 $txIndex{"hg19"} ="$NGSbartom/anno/tophat_tx/hg19.Ens_72.remap";
 $txdbfile{"hg19"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens72.txdb";
 $exonbed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.exons.bed";
@@ -370,6 +373,7 @@ $knownIndelsites{"hg19"} = "$NGSbartom/anno/picardDict/1000G_phase1.indels.hg19.
 
 $bowtieIndex{"dm3"} = "$NGSbartom/anno/bowtie_indexes/dm3";
 $bwaIndex{"dm3"} = "$NGSbartom/anno/bwa_indexes/dm3.fa";
+$starIndex{"dm3"} = "$NGSbartom/anno/STAR_indexes/dm3/";
 $txIndex{"dm3"} = "$NGSbartom/anno/tophat_tx/dm3.Ens_74.cuff";
 $txdbfile{"dm3"} = "$NGSbartom/anno/Txdb/dmelanogaster_gene_ensembl_Ens74.txdb";
 $exonbed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.exons.bed";
@@ -390,6 +394,7 @@ $knownIndelsites{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annota
 
 $bowtieIndex{"rn6"} = "$NGSbartom/anno/bowtie_indexes/rn6";
 $bwaIndex{"rn6"} = "$NGSbartom/anno/bwa_indexes/rn6.fa";
+$starIndex{"rn6"} = "$NGSbartom/anno/STAR_indexes/rn6/";
 $txIndex{"rn6"} = "$NGSbartom/anno/tophat_tx/rn6.UCSC";
 $txdbfile{"rn6"} = "$NGSbartom/anno/Txdb/rnorvegicus_gene_ensembl_Ens84.txdb";
 $exonbed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.exons.bed";
@@ -401,6 +406,7 @@ $rsemTx{"rn6"} = "$NGSbartom/anno/rsemTx/rn6.Ens_84";
 
 $bowtieIndex{"mm10"} = "$NGSbartom/anno/bowtie_indexes/mm10";
 $bwaIndex{"mm10"} = "$NGSbartom/anno/bwa_indexes/mm10.fa";
+$starIndex{"mm10"} = "$NGSbartom/anno/STAR_indexes/mm10/";
 $txIndex{"mm10"} = "$NGSbartom/anno/tophat_tx/mm10.Ens_78.cuff";
 $txdbfile{"mm10"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens78.txdb";
 $exonbed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.exons.bed";
@@ -410,6 +416,7 @@ $rsemTx{"mm10"} = "$NGSbartom/anno/rsemTx/mm10.Ens_78";
 
 $bowtieIndex{"mm9"} = "$NGSbartom/anno/bowtie_indexes/mm9";
 $bwaIndex{"mm9"} = "$NGSbartom/anno/bwa_indexes/mm9.fa";
+$starIndex{"mm9"} = "$NGSbartom/anno/STAR_indexes/mm9/";
 $txIndex{"mm9"} = "$NGSbartom/anno/tophat_tx/mm9.Ens_67.remap";
 $txdbfile{"mm9"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens67.txdb";
 $exonbed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.exons.bed";
@@ -419,6 +426,7 @@ $rsemTx{"mm9"} = "$NGSbartom/anno/rsemTx/mm9.Ens_67";
 
 $bowtieIndex{"sacCer3"} = "$NGSbartom/anno/bowtie_indexes/sacCer3";
 $bwaIndex{"sacCer3"} = "$NGSbartom/anno/bwa_indexes/sacCer3.fa";
+$starIndex{"sacCer3"} = "$NGSbartom/anno/STAR_indexes/sacCer3/";
 $txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_72.remap";
 #$txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens72.txdb";
 #$txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_78.remap";
@@ -477,16 +485,25 @@ if ($chipDescription ne ""){
     }
 }
 
+my @now = localtime();
+my $timestamp = sprintf("%04d%02d%02d%02d%02d%02d", $now[5]+1900, $now[4]+1, $now[3],$now[2],$now[1],$now[0]);
+#print STDERR "Timestamp $timestamp\n";
+
 # If buildBcl2fq == 1, then create a shell script for Bcl2fq (if runBcl2fq == 1, then submit the job and wait for it to finish).
 if ($buildBcl2fq == 1){
     &datePrint("Creating shell script for Bcl2fq");
     my $shScript = "$baseSpaceDirectory\/runBcl2fq.sh";
     my $bclFqProcessors = max($numProcessors,8);
+    if (!(-e "$outputDirectory\/metadata")){
+	`mkdir $outputDirectory\/metadata`;
+    }
+    open(VER,">$outputDirectory\/metadata\/Ceto.run.$timestamp");
     open(SH,">$shScript");
     print SH $header;
     print SH "#MSUB -l nodes=1:ppn=$bclFqProcessors\n";
     print SH "#MSUB -N bcl2fastq\n";
     print SH "module load bcl2fastq/2.17.1.14\n";
+    print VER "module load bcl2fastq/2.17.1.14\n";
     print SH "bcl2fastq -R $baseSpaceDirectory -r $numProcessors -d $numProcessors -p $numProcessors -w $numProcessors\n";
     # If runBcl2fq == 1, then run the shell script (only works if buildBcl2fq == 1)
     if ($runBcl2fq == 1){
@@ -517,6 +534,7 @@ if ($buildBcl2fq == 1){
     }
     close SH;
     $cmd = "cp $baseSpaceDirectory\/runBcl2fq.sh $outputDirectory\/";
+    $cmd .= "cp $baseSpaceDirectory\/sampleSheet.csv $outputDirectory\/metadata\/";
     system($cmd);
 }
 my %scientists;
@@ -530,6 +548,10 @@ if (($sampleSheet ne "")){
     my $flag="header";
     my($sample_ID,$sample_name,$assembly,$I7_Index_ID,$index,$description,$index2,$I5_Index_ID,$stuff);
     my $sampleNum = 0;
+    if (!(-e "$outputDirectory\/metadata\/sampleSheet.csv")){
+	my $cmd = "cp $baseSpaceDirectory\/sampleSheet.csv $outputDirectory\/metadata\/";
+	system($cmd);
+    }
 # Create output file for Sample_Report.
     open(OUT,">$outputDirectory/Sample_Report.csv");
 # Print labels to output file.
@@ -553,6 +575,7 @@ if (($sampleSheet ne "")){
 	    $reference{$sample_name}=$assembly;
 	    $reference{$sample_project} = $assembly;
 	    $scientists{$sample_project} = $sample_plate;
+	    print VER "PROJ $sample_project\n";
 	    print "$sample_name\tREF1:$reference{$sample_name}\t$bowtieIndex{$assembly}\n";
 	    if ($type ne "4C"){
 		my $fastq = "";
@@ -632,8 +655,28 @@ if (($sampleSheet ne "")){
 	    $project_name =~ s/.seqfiles//g;
 	}
 	$reference{$project_name}=$assembly;
+	my @now = localtime();
+	my $timestamp = sprintf("%04d%02d%02d%02d%02d%02d", $now[5]+1900, $now[4]+1, $now[3],$now[2],$now[1],$now[0]);
+	print STDERR "Timestamp $timestamp\n";
+	if (!(-e "$outputDirectory\/metadata")){
+	    `mkdir $outputDirectory\/metadata`;
+	}
+	open(VER,">$outputDirectory\/metadata\/Ceto.run.$timestamp");
 	&datePrint("Project name is $project_name");
-#	print STDERR "$project_name @fastqlist\n";
+	print VER "REF $reference{$project_name}\n";
+	print VER "REF Bowtie Index: $bowtieIndex{$reference{$project_name}}\n";
+	print VER "REF BWA Index: $bwaIndex{$reference{$project_name}}\n";
+	print VER "REF STAR Index: $starIndex{$reference{$project_name}}\n";
+	print VER "REF Transcriptome Index: $txIndex{$reference{$project_name}}\n";
+	print VER "REF TXDB file: $txdbfile{$reference{$project_name}}\n";
+	print VER "REF Exon bed file: $exonbed{$reference{$project_name}}\n";
+	print VER "REF GTF file: $gff{$reference{$project_name}}\n";
+	print VER "REF Gene bed file: $genebed{$reference{$project_name}}\n";
+	print VER "REF RSEM tx file: $rsemTx{$reference{$project_name}}\n";
+	print VER "REF GATK reference: $gatkRef{$reference{$project_name}}\n";
+	print VER "REF Known SNP sites: $knownSNPsites{$reference{$project_name}}\n";
+	print VER "REF Known Indel sites: $knownIndelsites{$reference{$project_name}}\n";
+	print VER "INPUT $project_name @fastqlist\n";
 	foreach my $fastq (@fastqlist){
 #	    print STDERR "Fastq: \"$fastq\"\n";
 	    if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || 
@@ -782,6 +825,7 @@ foreach my $project (keys(%samples)){
     my $cmd = "mkdir $outputDirectory\/$project\n";
     $cmd .= "mkdir $outputDirectory\/$project/scripts\n";    
     $cmd .= "mkdir $outputDirectory\/$project\/bam\n";
+    $cmd .= "mkdir $outputDirectory\/$project\/fastq\n";
     print STDERR "$cmd\n";
     system($cmd);
     my @sampleSet = uniq(split(/\,/,$samples{$project}));
@@ -803,9 +847,9 @@ foreach my $project (keys(%samples)){
     }
 }
 
-# If the aligner is tophat, create the shell scripts to run tophat on all fastqs, one sample at a time.
-if (($buildAlign == 1) && ($aligner eq "tophat")){
-    &datePrint("Creating Tophat Alignment shell scripts.");
+# If the aligner is tophat or star, create the shell scripts to run the aligner on all fastqs, one sample at a time.
+if (($buildAlign == 1) && ($type eq "RNA")){
+    &datePrint("Creating $aligner Alignment shell scripts for RNA-seq analysis.");
     my @samples;
     # Foreach project (TANGO/MOLNG):
     foreach my $project (keys(%samples)){
@@ -814,80 +858,132 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 	    #if ($s3path eq "ash-tracks/TANGO/XXX"){ }
 	    $s3path = "ash-tracks/TANGO/$scientist";
 	}
-	# Make a directory for the output.
-	$cmd = "mkdir $outputDirectory\/$project\/Tophat_aln";
-	system($cmd);
+	if ($aligner eq "tophat"){
+	    # Make a directory for the output.
+	    $cmd = "mkdir $outputDirectory\/$project\/Tophat_aln";
+	    system($cmd);
+	}
+	if ($aligner eq "star"){
+	    # Make a directory for the output.
+	    $cmd = "mkdir $outputDirectory\/$project\/STAR_aln";
+	    system($cmd);
+	}
 	@samples = uniq(split(/\,/,$samples{$project}));
 	
 	# Foreach sample within the project:
 	foreach my $sample (@samples){
 	    # Create a shell script to run tophat on all fastqs for the sample at the same time.
-	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_align.sh";
+	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_$aligner\_align.sh";
 	    &datePrint("Printing to $shScript");
 	    open (SH,">$shScript");
 	    print SH "$header";
-	    print SH "#MSUB -N $sample\_tophat\n";
+	    print SH "#MSUB -N $sample\_$aligner\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "export PATH=\$PATH:$NGSbartom/tools/\n";
-	    print SH "module load bowtie2/2.2.6\n";
-	    print SH "module load tophat/2.1.0\n";
-	    print SH "module load samtools/1.2\n";
-	    print SH "module load boost/1.56.0\n";
-	    print SH "module load gcc/4.8.3\n";
-#	    print SH "module load boost/1.57.0\n\n";
-	    my @fastqs = split(/\,/,$fastqs{$sample});
-	    if ($runTrim == 1){
-		print SH "module load java/jdk1.8.0_25\n";
-		print SH "\n# Make Directory for FastQC reports\n";
-		print SH "mkdir $outputDirectory\/$project\/fastqc\n";
-		print SH "mkdir $outputDirectory\/$project\/fastq\n";
-		my @newfastqs = ();
-		foreach my $fastq (@fastqs){
-		    my $fastqname = "";
-		    my $newfastq = "";
-		    if ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq\.t?gz$)/){
-			$fastqname = $1;
-		    } elsif ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/){
-			$fastqname = $1;
-		    }
-		    $newfastq = "$outputDirectory\/$project\/fastq\/$fastqname";
-#		    print STDERR "Fastq: $fastq\nNewFastq: $newfastq\nFastqname = $fastqname\n";
-		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
-		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed $trimString\n";
-		    print SH "gzip $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
-		    if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.t?gz$/){
-			if (-f "$1\_fastqc.html"){
-			    print SH "\# FastQC file already exists\n";
-			} else {
-			    print SH "# Running FastQC to assess read quality.\n";
-			    print SH "date\n$NGSbartom/tools/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $fastq $fastq.trimmed.gz\n";
-			}
-		    }
-		    print SH "mv $newfastq.trimmed.gz $newfastq\n";
-		    print SH "date\n\n";
-		    push(@newfastqs,$newfastq);
-
-		}
-		$fastqs{$sample} = "@newfastqs";
-		$fastqs{$sample} =~ s/\s/\,/g;
-#		&datePrint("New fastqs for sample $sample are @newfastqs, and $fastqs{$sample}");
+	    if ($aligner eq "tophat"){
+		print SH "module load bowtie2/2.2.6\n";
+		print VER "EXEC module load bowtie2\/2.2.6\n";
+		print SH "module load tophat/2.1.0\n";
+		print VER "EXEC module load tophat\/2.1.0\n";
+	    } elsif ($aligner eq "star"){
+		print SH "module load STAR/2.5.2\n";
+		print VER "EXEC module load STAR\/2.5.2\n";		
 	    }
-	    if ($runPairedEnd == 0){			   
+	    print SH "module load samtools/1.2\n";
+	    print VER "EXEC module load samtools/1.2\n";
+	    print SH "module load boost/1.56.0\n";
+	    print VER "EXEC module load boost/1.56.0\n";
+	    print SH "module load gcc/4.8.3\n";
+	    print VER "EXEC module load gcc/4.8.3\n";
+	    my @fastqs = split(/\,/,$fastqs{$sample});
+	    my $cmd = "";
+	    if (!(-e "$outputDirectory\/$project\/fastq")){
+		$cmd .= "mkdir $outputDirectory\/$project\/fastq\n";
+	    }
+	    if (!(-e "$outputDirectory\/$project\/fastqc")){
+		$cmd .= "mkdir $outputDirectory\/$project\/fastqc\n";
+	    }
+	    my $oldfastqs = "@fastqs";
+	    my $newfastqs = "@fastqs";
+	    $newfastqs =~ s/$fastqDirectory/$outputDirectory\/$project\/fastq/g;
+	    print STDERR "Old fastqs: $oldfastqs\nNew fastqs: $newfastqs\n";
+	    $cmd .= "cp $oldfastqs $outputDirectory\/$project\/fastq/\n";
+	    system($cmd);
+	    @fastqs = split(/\s+/,$newfastqs);
+	    $newfastqs =~ s/\s+/\,/g;
+	    $fastqs{$sample} = $newfastqs;
+	    if ($runPairedEnd == 0){
+		if ($runTrim == 1){
+		    &datePrint("Setting up trimming for single end reads.");
+		    print SH "# Setting up trimming for single end reads.\n";
+		    print SH "module load java/jdk1.8.0_25\n";
+		    print VER "EXEC module load java/jdk1.8.0_25\n";
+		    my @newfastqs = ();
+		    foreach my $fastq (@fastqs){
+			my $fastqname = "";
+			my $newfastq = "";
+			if (($fastq =~ /\/?([\w\d\-\_\.]+\.fastq\.t?gz$)/) || ($fastq =~ /\/?([\w\d\-\_\.]+\.fq\.t?gz$)/)){
+			    $fastqname = $1;
+			} elsif ( ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/) || ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/)){
+			    $fastqname = $1;
+			}
+			$newfastq = "$outputDirectory\/$project\/fastq\/$fastqname";
+			if (!(-e $newfastq) || (-z $newfastq)){
+			    &datePrint("Copying $fastq to $newfastq\n");
+			    `cp $fastq $newfastq`;
+			    $fastq = $newfastq;
+			}
+					    print STDERR "Fastq: $fastq\nNewFastq: $newfastq\nFastqname = $fastqname\n";
+			print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+			print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed $trimString\n";
+			print VER "EXEC $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
+			print SH "gzip $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
+			if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.t?gz$/){
+			    if ((-e "$1\_fastqc.html") && !(-z "$1\_fastqc.html")){
+				print SH "\# FastQC file already exists\n";
+			    } else {
+				print SH "# Running FastQC to assess read quality.\n";
+				print SH "date\n$NGSbartom/tools/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $fastq $fastq.trimmed.gz\n";
+				print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
+			    }
+			}
+			#		    print SH "mv $newfastq.trimmed.gz $newfastq\n";
+			print SH "date\n\n";
+			push(@newfastqs,"$newfastq.trimmed.gz");
+			
+		    }
+		    $fastqs{$sample} = "@newfastqs";
+		    $fastqs{$sample} =~ s/\s/\,/g;
+		    #		&datePrint("New fastqs for sample $sample are @newfastqs, and $fastqs{$sample}");
+		}
 		if ($genomeBAM == 1){
-		   
-		    print SH "\n# Run Tophat to align data for single end data.\n";
-#		    if ($buildGenotyping == 1){
-#			# If genotyping, add read groups.  These could be made more accurate.
+		    if ($aligner eq "tophat"){
+			print SH "\n# Run Tophat to align data for single end data.\n";
+			#		    if ($buildGenotyping == 1){
+			#			# If genotyping, add read groups.  These could be made more accurate.
 			if ($rgString eq ""){
 			    $rgString = "--rg-sample $sample --rg-id $sample --rg-library $sample --rg-description $sample --rg-platform-unit nextseq --rg-center ASH --rg-platform nextseq";
 			}
-		    print SH "# Adding Readgroups from rgstring $rgString\n";
-		    my $libraryType = "";
-		    if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";}
-		    if ($reference{$sample} =~ /\.mp/){
-			print SH "\ntophat -G $gff{$reference{$sample}} --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors $rgString $libraryType -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
-		    }else {
-			print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+			print SH "# Adding Readgroups from rgstring $rgString\n";
+			my $libraryType = "";
+			if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";}
+			if ($reference{$sample} =~ /\.mp/){
+			    print SH "\ntophat -G $gff{$reference{$sample}} --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors $rgString $libraryType -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+			}else {
+			    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+			}
+		    } elsif ($aligner eq "star"){
+			# ADD STAR Alignment commands
+			print SH "# Align reads with STAR\n";
+			print SH "module load STAR\n\n";
+			if ($rgString eq ""){
+			    $rgString = "ID:$sample PI:ASH LB:$sample PU:nextseq DT:$sample LB:$sample SM:$sample CN:ASH PL:illumina";
+			}
+			print SH "# Adding Readgroups from rgstring $rgString\n";
+			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $fastqs{$sample} --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
+			print SH "# Sort the output of STAR (outputting sorted BAMs from STAR took too much memory)\n";
+			print SH "module load samtools\n";
+			print SH "samtools sort $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam\n";
 		    }
 		}
 	    } elsif ($runPairedEnd == 1){
@@ -895,14 +991,18 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		my @read2fastqs;
 		my @read3fastqs;
 		my @fastqs = split(/\,/,$fastqs{$sample});
-		print STDERR "All Fastqs for Sample $sample: \n@fastqs\n";
+		&datePrint("All Fastqs for Sample $sample: \n@fastqs");
+		if ($fastqs{$sample} !~ /$outputDirectory\/$project\/fastq/){
+		    &datePrint("Copying Fastqs to $outputDirectory\/$project\/fastq");
+		    `cp @fastqs $outputDirectory\/$project\/fastq/`;
+		}
 		foreach my $fastq (@fastqs){
-#		    print STDERR "Looking for Read number in $fastq\n";
+		    #		    print STDERR "Looking for Read number in $fastq\n";
 		    if (($fastq =~ /\_R1\_?\.?/) || ($fastq =~ /SRR.+\_1\./) ){
-#			|| ($fastq =~ /Rd1/)){
+			#			|| ($fastq =~ /Rd1/)){
 			push (@read1fastqs,$fastq);
 		    } elsif (($fastq =~ /\_R2\_?\.?/) || ($fastq =~ /SRR.+\_2\./)){
-#			|| ($fastq =~ /Rd2/)){
+			#			|| ($fastq =~ /Rd2/)){
 			push (@read2fastqs,$fastq);
 		    } elsif ($fastq =~ /\_R3\_?\.?/){
 			push (@read3fastqs,$fastq);
@@ -924,118 +1024,192 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		}
 		$read1fastqs =~ s/\ /,/g;
 		$read2fastqs =~ s/\ /,/g;
+		if ($runTrim == 1){
+		    &datePrint("Setting up trimming for paired end reads.");
+		    print SH "# Setting up trimming for paired end reads.\n";
+		    print SH "module load java/jdk1.8.0_25\n";
+		    print VER "EXEC module load java/jdk1.8.0_25\n";
+		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar PE -threads $numProcessors -phred33 $read1fastqs $read2fastqs $outputDirectory/$project/fastq/$sample\_R1.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R1U.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R2.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R2U.fastq.trimmed.gz $trimString\n\n";
+		    print VER "EXEC $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
+		    print SH "# Running FastQC to assess read quality.\n";
+		    print SH "date\n$NGSbartom/tools/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $read1fastqs $read2fastqs\n";
+		    print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
+		    my $trimmedUnpaired1 = $read1fastqs;
+		    my $trimmedUnpaired2 = $read2fastqs;
+		    $trimmedUnpaired1 =~ s/R1.fastq/R1U.fastq.trimmed/g;
+		    $trimmedUnpaired2 =~ s/R2.fastq/R2U.fastq.trimmed/g;
+		    print SH "date\n$NGSbartom/tools/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $trimmedUnpaired1 $trimmedUnpaired2\n";
+		    my $trimmedPaired1 = $read1fastqs;
+		    my $trimmedPaired2 = $read2fastqs;
+		    $trimmedPaired1 =~ s/R1.fastq/R1.fastq.trimmed/g;
+		    $trimmedPaired2 =~ s/R2.fastq/R2.fastq.trimmed/g;
+		    print SH "date\n$NGSbartom/tools/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $trimmedPaired1 $trimmedPaired2\n";
+		    print SH "date\n\n";
+		    $read1fastqs = $trimmedPaired1;
+		    $read2fastqs = $trimmedPaired2;
+		}
 		if ($genomeBAM == 1){
-		    print SH "\n# Run Tophat to align data for paired end data.\n";
-		    my $libraryType = "";
-		    if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";}
-		    if ($rgString eq ""){
-			$rgString = "--rg-sample $sample --rg-id $sample --rg-library $sample --rg-description $sample --rg-platform-unit nextseq --rg-center ASH --rg-platform nextseq";
+		    if ($aligner eq "tophat"){
+			print SH "\n# Run Tophat to align data for paired end data.\n";
+			my $libraryType = "";
+			if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";}
+			if ($rgString eq ""){
+			    $rgString = "--rg-sample $sample --rg-id $sample --rg-library $sample --rg-description $sample --rg-platform-unit nextseq --rg-center ASH --rg-platform nextseq";
+			}
+			print SH "# Adding Readgroups from rgstring $rgString\n";
+			print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
+		    } elsif ($aligner eq "star"){
+			print SH "# Align reads with STAR\n";
+			print SH "module load STAR\n\n";
+			if ($rgString eq ""){
+			    $rgString = "ID:$sample PI:ASH LB:$sample PU:nextseq DT:$sample LB:$sample SM:$sample CN:ASH PL:illumina";
+			}
+			print SH "# Adding Readgroups from rgstring $rgString\n";
+			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $read1fastqs $read2fastqs --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
+			print SH "# Sort the output of STAR (outputting sorted BAMs from STAR took too much memory)\n";
+			print SH "module load samtools\n";
+			print SH "samtools sort $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam\n";
 		    }
-		    print SH "# Adding Readgroups from rgstring $rgString\n";
-		    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
-		} 
+		}
 		if ($rsem == 1){ # AND runpaired = 1
-		    print SH "\n# Align fastqs to transcriptome for RSEM\n";
-		    print SH "module load bowtie/1.1.2 \n";
-		    print SH "export PATH=\$PATH:$NGSbartom/tools/RSEM-1.2.30/\n";
+#		    print SH "module load bowtie/1.1.2 \n";
+		    print SH "module load STAR\n";
+		    print SH "module load perl/5.16\n";
+		    print VER "EXEC module load perl/5.16\n";
+		    print SH "module load gcc/6.4.0\n";
+		    print VER "EXEC module load gcc/6.4.0\n";
+#		    print SH "export PATH=\$PATH:$NGSbartom/tools/RSEM-1.2.30/\n";
+		    print SH "export PATH=$NGSbartom/tools/RSEM-1.3.0/:\$PATH\n";
+#		    print VER "EXEC module load bowtie/1.1.2\n";
+		    print VER "EXEC module load STAR\n";
+		    print VER "EXEC $NGSbartom/tools/RSEM-1.3.0\n";
 		    print SH "date\n";
-		    print SH "\n# First prepare fastqs\n";
-		    #		print SH "mkdir $outputDirectory/$project/fastq/\n";
-		    $read1fastqs =~ s/\,/\ /g;
-		    $read2fastqs =~ s/\,/\ /g;
 		    my $strandstring = "";
-		    #if ($stranded == 1) { $strandstring = "--strand-specific";}
 		    if ($stranded == 1) { $strandstring = "--forward-prob 0";}
-		    print SH "gunzip $read1fastqs\n";
-		    print SH "gunzip $read2fastqs\n";
-		    $read1fastqs =~ s/.gz//g;
-		    $read2fastqs =~ s/.gz//g;
-#		    print SH "echo $read1fastqs\n";
-#		    print SH "echo $read2fastqs\n";
-		    print SH "cat $read1fastqs > $outputDirectory/$project/fastq/$sample.read1.fastq\n";
-		    print SH "cat $read2fastqs > $outputDirectory/$project/fastq/$sample.read2.fastq\n";
-		    print SH "gzip $read1fastqs &\n";		    
-		    print SH "gzip $read2fastqs &\n";
-		    print SH "\n# Then calculate expression for $sample.\n";
-		    
-		    print SH "rsem-calculate-expression --paired-end $outputDirectory/$project/fastq/$sample.read1.fastq $outputDirectory/$project/fastq/$sample.read2.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring --estimate-rspd >& $outputDirectory/$project/bam/$sample.rsem.log\n";
-		    print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n";
-		    print SH "ls $outputDirectory/$project/fastq/$sample.read*.fastq\n";
-		    print SH "rm $outputDirectory/$project/fastq/$sample.read1.fastq\n";
-		    print SH "rm $outputDirectory/$project/fastq/$sample.read2.fastq\n";
+		    if ($aligner ne "star"){
+			print SH "\n# NOTE: This is buggy. I recommend using the STAR aligner with RSEM.\n";
+			print SH "\n# Align fastqs to transcriptome for RSEM\n";
+			print SH "\n# First prepare fastqs\n";
+			#		print SH "mkdir $outputDirectory/$project/fastq/\n";
+			$read1fastqs =~ s/\,/\ /g;
+			$read2fastqs =~ s/\,/\ /g;
+			&datePrint("Fastqs for RSEM are $read1fastqs and $read2fastqs.");
+			print SH "gunzip $read1fastqs\n";
+			print SH "gunzip $read2fastqs\n";
+			$read1fastqs =~ s/.gz//g;
+			$read2fastqs =~ s/.gz//g;
+			#		    print SH "echo $read1fastqs\n";
+			#		    print SH "echo $read2fastqs\n";
+			print SH "cat $read1fastqs > $outputDirectory/$project/fastq/$sample.read1.fastq\n";
+			print SH "cat $read2fastqs > $outputDirectory/$project/fastq/$sample.read2.fastq\n";
+			print SH "gzip $read1fastqs &\n";		    
+			print SH "gzip $read2fastqs &\n";
+			print SH "\n# Then calculate expression for $sample.\n";
+			print SH "which rsem-calculate-expression\n";
+			print SH "rsem-calculate-expression --star --paired-end $outputDirectory/$project/fastq/$sample.read1.fastq $outputDirectory/$project/fastq/$sample.read2.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring >& $outputDirectory/$project/bam/$sample.rsem.log\n";
+			print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n";
+			print SH "ls $outputDirectory/$project/fastq/$sample.read*.fastq\n";
+			print SH "rm $outputDirectory/$project/fastq/$sample.read1.fastq\n";
+			print SH "rm $outputDirectory/$project/fastq/$sample.read2.fastq\n";
+		    }elsif ($aligner eq "star"){
+			print SH "\n# Use STAR alignment to transcriptome and RSEM to estimate isoform expression levels.\n";
+			print SH "rsem-calculate-expression --alignments --paired-end $outputDirectory/$project/STAR_aln/$sample"."Aligned.toTranscriptome.out.bam $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample -p $numProcessors $strandstring --no-bam-output >& $outputDirectory/$project/bam/$sample.rsem.log\n";
+			print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n\n";
+		    }
 		}
 	    }
 	    print SH "date\n";
-#	    print SH "\nrsync -av \$TMPDIR\/$sample/* $outputDirectory\/$project\/Tophat_aln\/$sample/\n";
-#	    print SH "\nmv \$TMPDIR\/$project\_$sample\_tophatOut $outputDirectory\/$project\/Tophat_aln\/$sample\n";
+	#	    print SH "\nrsync -av \$TMPDIR\/$sample/* $outputDirectory\/$project\/Tophat_aln\/$sample/\n";
+	    #	    print SH "\nmv \$TMPDIR\/$project\_$sample\_tophatOut $outputDirectory\/$project\/Tophat_aln\/$sample\n";
 	    print SH "date\n";
-	    print SH "ln -s $outputDirectory\/$project\/Tophat_aln\/$sample\/accepted_hits.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    if ($aligner eq "tophat"){
+		print SH "ln -s $outputDirectory\/$project\/Tophat_aln\/$sample\/accepted_hits.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    }
+	    if ($aligner eq "star"){
+		print SH "ln -s $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    }
 	    print SH "date\n";
 	    # Modifications made so that htseq will work correctly on paired end data.
 	    if (($runPairedEnd == 1) && ($htseq == 1)) {
 		print SH "cd $outputDirectory\/$project\/bam\n";
 		print SH "samtools sort -n -T $sample -o $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 		print SH "mv $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
-	    }
-	    else {
+		print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    } else {
 		print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    }	    
-	    if (($rsem == 1)&& ($runPairedEnd == 0)){
-		print SH "\n# Align fastqs to transcriptome for RSEM\n";
-		print SH "module load bowtie/1.1.2 \n";
-		print SH "export PATH=\$PATH:$NGSbartom/tools/RSEM-1.2.30/\n";
+	    if (($rsem == 1)&& ($runPairedEnd == 0)){ # Single End RSEM analysis
+		print SH "\n# Use RSEM to analyze isoform abundance.\n";
+		print SH "export PATH=$NGSbartom/tools/RSEM-1.3.0/:\$PATH\n";
+		print SH "module load gcc/6.4.0\n";
+		print SH "module load perl/5.16\n";
+		print VER "EXEC module load perl/5.16\n";
+		print VER "EXEC module load gcc/6.4.0\n";
+		print SH "module load STAR\n";
+		print VER "EXEC module load STAR\n";
+		print VER "EXEC $NGSbartom/tools/RSEM-1.3.0\n";
 		print SH "date\n";
-		print SH "\n# First prepare fastqs\n";
-#		print SH "mkdir $outputDirectory/$project/fastq/\n";
-		my $fastqstring = $fastqs{$sample};
-		$fastqstring =~ s/\,/ /g;
 		my $strandstring = "";
-#		if ($stranded == 1) { $strandstring = "--strand-specific";}
 		if ($stranded == 1) { $strandstring = "--forward-prob 0";}
-		#		print SH "gzip -dc $fastqstring | cat > $outputDirectory/$project/fastq/$sample.fastq\n";
-		print SH "gunzip $fastqstring\n";
-		$fastqstring =~ s/.gz//g;
-		print SH "echo $fastqstring\n";
-		print SH "cat $fastqstring > $outputDirectory/$project/fastq/$sample.fastq\n";
-		print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
-		print SH "gzip $fastqstring &\n";
-		print SH "\n# Then calculate expression for $sample.\n";        
-		print SH "rsem-calculate-expression $outputDirectory/$project/fastq/$sample.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring >& $outputDirectory/$project/bam/$sample.rsem.log\n";
-		print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n";
-		print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
-		print SH "# rm $outputDirectory/$project/fastq/$sample.fastq\n";		
+		if ($aligner ne "star"){
+		    print SH "\n# NOTE: This is buggy. I recommend using the STAR aligner with RSEM.\n";
+		    print SH "\n# First align fastqs to transcriptome with STAR\n";
+		    my $fastqstring = $fastqs{$sample};
+		    $fastqstring =~ s/\,/ /g;
+		    print SH "gunzip $fastqstring\n";
+		    $fastqstring =~ s/.gz//g;
+		    print SH "echo $fastqstring\n";
+		    print SH "cat $fastqstring > $outputDirectory/$project/fastq/$sample.fastq\n";
+		    print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
+		    print SH "gzip $fastqstring &\n";
+		    print SH "\n# Then calculate expression for $sample.\n";
+		    print SH "module load STAR\n";
+		    print SH "rsem-calculate-expression --star $outputDirectory/$project/fastq/$sample.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring >& $outputDirectory/$project/bam/$sample.rsem.log\n";
+		    print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n";
+		    print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
+		    print SH "# rm $outputDirectory/$project/fastq/$sample.fastq\n";
+		}elsif ($aligner eq "star"){
+		    print SH "\n# Use STAR alignment to transcriptome and RSEM to estimate isoform expression levels.\n";
+			print SH "rsem-calculate-expression --alignments $outputDirectory/$project/STAR_aln/$sample"."Aligned.toTranscriptome.out.bam $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring  >& $outputDirectory/$project/bam/$sample.rsem.log\n";
+		    print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n\n";
+		}		
 	    }
 	    if ($htseq == 1) {
-	    	print SH "module unload mpi\n";
-	    	print SH "module load python/anaconda\n";
+		print SH "module unload mpi\n";
+		print SH "module load python/anaconda\n";
+		print VER "EXEC module load python/anaconda\n";
+		print VER "EXEC htseq 0.6.1\n";
 		print SH "\n# Run htseq-count for $sample, stranded = $stranded\n";
 		if ($stranded == 1){
 		    print SH "htseq-count -f bam -q -m intersection-nonempty -s reverse -t exon -i gene_id $outputDirectory\/$project\/bam\/$sample.bam $gff{$reference{$sample}} > $outputDirectory\/$project\/bam\/$sample.htseq.counts\n";
 		} elsif ($stranded == 0){
 		    print SH "htseq-count -f bam -q -m intersection-nonempty -s no -t exon -i gene_id $outputDirectory\/$project\/bam\/$sample.bam $gff{$reference{$sample}} > $outputDirectory\/$project\/bam\/$sample.htseq.counts\n";
 		}
-	    	print SH "\nmodule unload python/anaconda\n";
-	    	print SH "module load gcc/4.8.3\n";
+		print SH "\nmodule unload python/anaconda\n";
+		print SH "module load gcc/4.8.3\n";
 	    }
 	    if ($bedtools == 1) {
 		print SH "module load bedtools/2.17.0\n";
+		print VER "EXEC module load bedtools/2.17.0\n";
 		print SH "\n# Run bedtools for $sample\n";
-	    	print SH "bedtools bamtobed -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bed\n";
+		print SH "bedtools bamtobed -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bed\n";
 		if ($stranded == 1){
 		    print SH "bedtools intersect -a $exonbed{$reference{$sample}} -b $outputDirectory\/$project\/bam\/$sample.bed -c -S > $outputDirectory\/$project\/bam\/$sample.bedtools.counts\n";
 		} elsif ($stranded == 0) {
 		    print SH "bedtools intersect -a $exonbed{$reference{$sample}} -b $outputDirectory\/$project\/bam\/$sample.bed -c > $outputDirectory\/$project\/bam\/$sample.bedtools.counts\n";
 		}
 		print SH "\n# Clean up bed files.\n";
-	    	print SH "rm $outputDirectory\/$project\/bam\/$sample.bed\n";
-	    	print SH "\nmodule unload bedtools/2.17.0\n";
+		print SH "rm $outputDirectory\/$project\/bam\/$sample.bed\n";
+		print SH "\nmodule unload bedtools/2.17.0\n";
 	    }
 	    print SH "date\n\n";
-#	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.flagstats.txt\n";
+	    #	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.flagstats.txt\n";
 	    #	    print SH "date\n";
 	    if ($makeTracks == 1){
 		print SH "# Create RNA seq Tracks\n";
 		print SH "module load R/3.2.2\n";
+		print VER "EXEC module load R/3.2.2\n";
 		if ($stranded == 1){
 		    my $assembly = $reference{$sample};
 		    if ($assembly eq "hg38.mp"){$assembly="hg38";}
@@ -1044,10 +1218,10 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 		    my $assembly = $reference{$sample};
 		    if ($assembly eq "hg38.mp"){$assembly="hg38";}
 		    # The multi mapping argument is used here, because these are mapped with tophat.
-#		    print SH "Rscript $NGSbartom/tools/createChIPtracks2.R --assembly=$assembly --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --extLen=0 --multiMap=$multiMap\n";
+		    #		    print SH "Rscript $NGSbartom/tools/createChIPtracks2.R --assembly=$assembly --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --extLen=0 --multiMap=$multiMap\n";
 		    print SH "Rscript $NGSbartom/tools/createRNAseqTracks3.R --assembly=$assembly --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --multiMap=$multiMap --stranded=$stranded\n";
 		}
-		print SH "date\n\n";
+	    print SH "date\n\n";
 		print SH "mkdir $outputDirectory\/$project\/tracks\n";
 		print SH "\n# Make Headers for UCSC genome browser.\n";
 		if ($stranded == 1){
@@ -1059,20 +1233,20 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 			print SH "echo \"track type=bigWig name=$sample.minus.multi.bw description=$sample.minus.multi.rpm maxHeightPixels=128:60:11 graphtype=bar visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.minus.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.minus.bw.header.multi.txt\n";
 		    }
 		} else {
-		    if ($multiMap == 0){
-			print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
-		    }elsif ($multiMap == 1) {
-			print SH "echo \"track type=bigWig name=$sample.multi.bw description=$sample.multi.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.multi.txt\n";
-		    }
+		if ($multiMap == 0){
+		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
+		}elsif ($multiMap == 1) {
+		    print SH "echo \"track type=bigWig name=$sample.multi.bw description=$sample.multi.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.multi.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.multi.txt\n";
 		}
-		print SH "date\n";
-		if ($uploadASHtracks == 1){
-		    print SH "\nmodule load python/anaconda\n";
-
-		    print SH "# Move tracks into Shilatifard directory structure.\n";
-		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
+		}
+	    print SH "date\n";
+	    if ($uploadASHtracks == 1){
+#		print SH "\nmodule load python/anaconda\n";
+		
+		print SH "# Move tracks into Shilatifard directory structure.\n";
+		print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
-		    print SH "cp $outputDirectory\/$project\/bam\/$sample*.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+		print SH "cp $outputDirectory\/$project\/bam\/$sample*.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
 		    if ($uploadBAM == 1){
 			print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
@@ -1139,11 +1313,12 @@ if (($buildAlign == 1) && ($aligner eq "tophat")){
 	    }
 	    close(SH);
 	}
-    }
-    if ($runAlign == 0){
-	# Print tips on running the tophat shell scripts.
-	print STDERR "To execute all scripts, use the following command:\n";
-	print STDERR "find $outputDirectory/*/scripts/ -iname \"*.sh\" -exec msub {} ./ \\\;\n";
+	if ($runAlign == 0){
+	    # Print tips on running the tophat shell scripts.
+	    print STDERR "To execute all scripts, use the following command:\n";
+	    #	"$outputDirectory\/$project\/scripts\/run\_$sample\_$aligner\_align.sh";
+	    print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
+	}
     }
 }
 
@@ -1183,11 +1358,15 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -N $sample\_bowtie\n";
 	    print SH "module load bowtie/1.1.2\n";
+	    print VER "EXEC module load bowtie/1.1.2\n";
 	    print SH "module load samtools/1.2\n";
+	    print VER "EXEC module load samtools/1.2\n";
 	    print SH "module load R/3.2.2\n";
+	    print VER "EXEC module load R/3.2.2\n";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    if ($runTrim == 1){
 		print SH "module load java/jdk1.8.0_25\n";
+		print VER "EXEC module load java/jdk1.8.0_25\n";
 		foreach my $fastq (@fastqs){
 		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
@@ -1196,6 +1375,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			if (-f "$1\_fastqc.html"){
 			    print SH "\# FastQC file already exists\n";
 			} else {
+			    print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
 			    print SH "date\n$NGSbartom/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
 			}
 		    }
@@ -1350,10 +1530,15 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -N $sample\_bwa\n";
 	    print SH "module load bwa/0.7.12\n";
+	    print VER "EXEC module load bwa/0.7.12\n";
 	    print SH "module load samtools/1.2\n";
+	    print VER "EXEC module load samtools/1.2\n";
 	    print SH "module load R/3.2.2\n";
+	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load picard/1.131\n";
+	    print VER "EXEC module load picard/1.131\n";
 	    print SH "module load java/jdk1.8.0_25\n";
+	    print VER "EXEC module load java/jdk1.8.0_25\n";
 	    print SH "\nmkdir $outputDirectory\/$project\/fastq\n";
 	    print SH "\nmkdir $outputDirectory\/$project\/fastqc\n";
 	    my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
@@ -1370,6 +1555,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    }
 		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
+		    print VER "EXEC  $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
 		    print SH "gzip $fastq.trimmed\n";
 		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
 			if (-f "$1\_fastqc.html"){
@@ -1584,12 +1770,33 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	print SH "\necho \"Alignment jobs $result have finished.\"\n";
 	if ($aligner eq "tophat"){
 	    print SH "module load R/3.2.2\n";
+	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load bowtie2\n";
+	    print VER "EXEC module load bowtie2\n";
 	    print SH "module load samtools/1.2\n";
+	    print VER "EXEC module load samtools/1.2\n";
 	    print SH "\n# Make Tophat report summarizing alignment.\n";
 	    print SH "Rscript $NGSbartom/tools/createTophatReport.R --topHatDir=$outputDirectory\/$project\/Tophat_aln --nClus=$numProcessors\n";
 	}elsif ($aligner eq "bowtie"){
 	    print SH "find $bamDirectory\/*bowtie.log -type f -print -exec cat {} \\\; >> $outputDirectory\/$project\/alignlog.txt\n";
+	}
+	if ($aligner eq "star"){
+	    print SH "touch $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "for r in $outputDirectory\/$project\/STAR_aln\/*.final.out\n";
+	    print SH "do\n";
+	    print SH "echo \$r | cat >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"Number of input reads\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"Uniquely mapped reads number\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"Uniquely mapped reads \%\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"Number of reads mapped to multiple loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"\% of reads mapped to multiple loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"Number of reads mapped to too many loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"\% of reads mapped to too many loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"\% of reads unmapped:\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"Number of chimeric reads\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "grep \"% of chimeric reads\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "echo \"=========================================================================\" | cat >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "done\n";
 	}
 	close SH;
 	&datePrint("Creating dependent job that will only run after alignments finish.");
@@ -1626,11 +1833,17 @@ if ($runRNAstats == 1){
 	    print SH "#MSUB -N $project\_runRNAstats\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "module load R/3.2.2\n";
+	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load bowtie2\n";
+	    print VER "EXEC module load bowtie2\n";
 	    print SH "module load samtools/1.2\n";
+	    print VER "EXEC module load samtools/1.2\n";
 	    print SH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
+	    print VER "EXEC module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
 	    print SH "module load python/anaconda\n";
+	    print VER "EXEC module load python/anaconda\n";
 	    print SH "module load parallel\n";
+	    print VER "EXEC RSeQC\n";
 	    my $strandrule = "";
 	    if ($stranded == 0){
 		$strandrule = "none";
@@ -1684,10 +1897,13 @@ if ($buildGenotyping ==1) {
 		print SH "#MSUB -l nodes=1:ppn=6\n";
 		print SH "module load samtools/1.2\n";
 		print SH "module load picard/1.131\n";
+		print VER "EXEC module load samtools/1.2\n";
+		print VER "EXEC module load picard/1.131\n";
+		print VER "EXEC $NGSbartom/tools/GATK_v3.6/GenomeAnalysisTK.jar\n";
 		my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 		print SH "\n\n";
 		print SH "# Sort BAM file.\n";
-		print SH "$NGSbartom/tools/samtools-0.1.19/samtools sort $outputDirectory\/$project\/bam\/$sample.bam $outputDirectory\/$project\/bam\/$sample.sorted\n";
+		print SH "samtools sort $outputDirectory\/$project\/bam\/$sample.bam $outputDirectory\/$project\/bam\/$sample.sorted\n";
 		print SH "date\n\n";
 		print SH "# Mark Duplicates with Picard.\n";
 		#print SH "java -jar $NGSbartom/tools/picard.jar MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.sorted.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
@@ -1747,6 +1963,8 @@ if ($buildEdgeR ==1) {
 		    if ($htseq == 1) {
 		    	print SH "module unload mpi\n";
 	    		print SH "module load python/anaconda\n";
+			print VER "EXEC module load python/anaconda\n";
+			print VER "EXEC htseq 0.6.1\n";
 	    		my $htseq_sample_count = 0;
 			print SH "\n# Launch up to $numProcessors htseq jobs\n";
 	    		foreach my $sample (@samples){
@@ -1769,6 +1987,7 @@ if ($buildEdgeR ==1) {
 		    }
 		    if ($bedtools == 1) {
 	    		print SH "module load bedtools/2.17.0\n";
+	    		print VER "EXEC module load bedtools/2.17.0\n";
 	    		my $bedtools_sample_count = 0;
 			print SH "\n# Launch up to $numProcessors bamtobed jobs\n";
 	    		foreach my $sample (@samples){
@@ -1806,7 +2025,8 @@ if ($buildEdgeR ==1) {
 	    		print SH "\nmodule unload bedtools/2.17.0\n";
 		    }
 		}
-		print SH "module load R/3.2.2\n";	       				
+		print SH "module load R/3.2.2\n";
+		print VER "EXEC module load R/3.2.2\n";	       				
 		if ($makeTracks == 1){
 		    my @samples = uniq(split(/\,/,$samples{$project}));
 		    # Foreach sample within the project:
@@ -1957,6 +2177,10 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH "module load bedtools/2.17.0\n";
 		print BSH "module load samtools/1.2\n";
 		print BSH "export PATH=$NGSbartom/tools/SICER_V1.1/SICER/:\$PATH\n";
+		print VER "EXEC module load python/anaconda\n";
+		print VER "EXEC module load bedtools/2.17.0\n";
+		print VER "EXEC module load samtools/1.2\n";
+		print VER "EXEC $NGSbartom/tools/SICER_V1.1/SICER/\n";
 	    }
 	    open(CHIP,$chipDescription);
 	    while(<CHIP>){
@@ -1972,6 +2196,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 			#print SH "module load R/3.2.2\n";
 			print SH "export PATH=\$PATH:$NGSbartom/tools/MACS-1.4.2/bin\n";
+			print VER "EXEC $NGSbartom/tools/MACS-1.4.2\n";
 			print SH "export PYTHONPATH=$NGSbartom/tools/MACS-1.4.2/lib/python2.6/site-packages:\$PYTHONPATH\n";
 			print SH "\n# Call $peakType peaks for ip file $ip, input $input\n";
 			print SH "macs14 -t $bamDirectory\/$ip.bam -c $bamDirectory\/$input.bam -f BAM -g $ref -n $outputDirectory\/$project\/peaks\/$ip.macsPeaks >& $outputDirectory\/$project\/peaks\/$ip.macs14.log\n";
@@ -2023,6 +2248,8 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "Rscript $NGSbartom/tools/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
 			print SH "Rscript $NGSbartom/tools/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 			if ($buildNGSplot == 1){
+			    print SH "module load ngsplot/2.47\n";
+			    print VER "EXEC module load ngsplot/2.47\n";
 			    print SH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";	
 			    print SH "# For full description of options see https://github.com/ebartom/NGSbartom/blob/master/NGSplotPipeline/NGSplotPipeline.presentation.pdf\n";
 			    print SH "# Heatmaps will be calculated for each bed file in the $outputDirectory/$project/analysis/$ip.bedList.txt file ; default is to do each bed file separately.\n";
@@ -2230,6 +2457,9 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		print SH "module load bedtools/2.17.0\n";
 		print SH "module load samtools/1.2\n";
 		print SH "module load R/3.2.2\n";
+		print VER "EXEC module load bedtools/2.17.0\n";
+		print VER "EXEC module load samtools/1.2\n";
+		print VER "EXEC module load R/3.2.2\n";
 		my @samples = uniq(split(/\,/,$peaksets{$peakset}));
 		print SH "\n# Samples for this peakset $peakset are @samples\n";
 		foreach my $sample (@samples){
@@ -2363,7 +2593,10 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
     #}
 }
 
-
+close(VER);
+if (-e "$outputDirectory\/metadata\/Ceto.run.$timestamp"){
+    `sort $outputDirectory\/metadata\/Ceto.run.$timestamp | uniq > $outputDirectory\/metadata\/Ceto.run.$timestamp.uniq.txt`;
+}
 &datePrint("Finished.");
 
 sub datePrint{
