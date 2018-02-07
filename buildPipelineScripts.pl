@@ -977,7 +977,11 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			print SH "# Align reads with STAR\n";
 			print SH "module load STAR\n\n";
 			if ($rgString eq ""){
-			    $rgString = "ID:$sample PI:ASH LB:$sample PU:nextseq DT:$sample LB:$sample SM:$sample CN:ASH PL:illumina";
+			    my $date = $timestamp;
+			    if ($sample =~ /\_(\d+)/){
+				$date = $1;
+			    }
+			    $rgString = "ID:$sample LB:$sample PU:nextseq DT:$date SM:$sample CN:ASH PL:illumina";
 			}
 			print SH "# Adding Readgroups from rgstring $rgString\n";
 			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $fastqs{$sample} --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
@@ -1063,7 +1067,11 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			print SH "# Align reads with STAR\n";
 			print SH "module load STAR\n\n";
 			if ($rgString eq ""){
-			    $rgString = "ID:$sample PI:ASH LB:$sample PU:nextseq DT:$sample LB:$sample SM:$sample CN:ASH PL:illumina";
+			    my $date = $timestamp;
+			    if ($sample =~ /\_(\d+)/){
+				$date = $1;
+			    }
+			    $rgString = "ID:$sample LB:$sample PU:nextseq DT:$date SM:$sample CN:ASH PL:illumina";
 			}
 			print SH "# Adding Readgroups from rgstring $rgString\n";
 			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $read1fastqs $read2fastqs --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
@@ -1862,8 +1870,8 @@ if ($runRNAstats == 1){
 		print SH "RPKM_saturation.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
 		print SH "\n# Examine read duplication for $sample.\n";
 		print SH "read_duplication.py -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
-		print SH "\n## How many novel splice sites are found in the data?  Commented out until tophat allows novel splice junctions.\n";
-		print SH "\n# junction_annotation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SH "\n# How many novel splice sites are found in the data? (Only relevant for STAR aligned data)\n";
+		print SH "\njunction_annotation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
 		print SH "\n# Check splice site saturation for $sample.\n";
 		print SH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
 	    }
