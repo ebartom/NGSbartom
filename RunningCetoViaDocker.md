@@ -23,6 +23,10 @@ new directory `/anno` and download it there:
 	mkdir /anno
 	aws s3 cp s3://ngsbartom-ceto-data/anno /anno --recursive
 
+**NB:** If you are running this pipeline on an AWS EC2 instance, make sure that
+the IAM Instance Profile of your instance has at least the
+AmazonS3ReadOnlyAccess managed policy attached to it.
+
 ## Running the pipeline in a container
 
 The pipeline has significant computing resource requirements. Ideally, it should
@@ -66,3 +70,13 @@ another 50GB of scratch space is recommended.
 		-chip /data/<sample.csv> -buildAlign 1 -buildPeakCaller 1
 
 When the run completes, the output can be found in the `/output` directory.
+
+## FAQs
+
+**I get an Access Denied error when trying to download the reference data from
+S3!**
+
+This is probably because you either don't have your AWS CLI credentials set up
+properly, or if you're running the pipeline on an EC2 instance, the instance's
+IAM profile may not have the AmazonS3ReadOnlyAccess policy attached.
+
