@@ -91,8 +91,10 @@ RUN mkdir GATK_v3.6 && cd GATK_v3.6 && \
 	bunzip2 GenomeAnalysisTK-3.6-0-g89b7209.tar.bz2 && tar xvf GenomeAnalysisTK-3.6-0-g89b7209.tar && \
 	mv resources/* .
 
-RUN curl -O http://home.gwu.edu/~wpeng/SICER_V1.1.tgz && tar xvfz SICER_V1.1.tgz && \
-	cd SICER_V1.1/SICER && find . -name '*.sh' -print | xargs sed -i 's|/home/data/SICER1.1|/projects/p20742/tools/SICER_V1.1|g'
+COPY resources/SICER_V1.1.tgz .
+
+RUN tar xvfz SICER_V1.1.tgz && cd SICER_V1.1/SICER && \
+	find . -name '*.sh' -print | xargs sed -i 's|/home/data/SICER1.1|/projects/p20742/tools/SICER_V1.1|g'
 
 RUN curl -O http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.33.zip && unzip Trimmomatic-0.33.zip
 
