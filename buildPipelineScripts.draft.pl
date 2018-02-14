@@ -486,7 +486,7 @@ if ($chipDescription ne ""){
 }
 
 my @now = localtime();
-my $timestamp = sprintf("%04d%02d%02d%02d%02d%02d", $now[5]+1900, $now[4]+1, $now[3],$now[2],$now[1],$now[0]);
+my $timestamp = sprintf("%04d.%02d.%02d.%02d%02d.%02d", $now[5]+1900, $now[4]+1, $now[3],$now[2],$now[1],$now[0]);
 #print STDERR "Timestamp $timestamp\n";
 
 # If buildBcl2fq == 1, then create a shell script for Bcl2fq (if runBcl2fq == 1, then submit the job and wait for it to finish).
@@ -497,7 +497,7 @@ if ($buildBcl2fq == 1){
     if (!(-e "$outputDirectory\/metadata")){
 	`mkdir $outputDirectory\/metadata`;
     }
-    open(VER,">$outputDirectory\/metadata\/Ceto.run.$timestamp");
+    open(VER,">$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt");
     open(SH,">$shScript");
     print SH $header;
     print SH "#MSUB -l nodes=1:ppn=$bclFqProcessors\n";
@@ -533,8 +533,8 @@ if ($buildBcl2fq == 1){
 	&datePrint("Job $result done.  Continuing.");
     }
     close SH;
-    $cmd = "cp $baseSpaceDirectory\/runBcl2fq.sh $outputDirectory\/";
-    $cmd .= "cp $baseSpaceDirectory\/sampleSheet.csv $outputDirectory\/metadata\/";
+    $cmd = "cp $baseSpaceDirectory\/runBcl2fq.sh $outputDirectory\/\n";
+    $cmd .= "cp $baseSpaceDirectory\/SampleSheet.csv $outputDirectory\/metadata\/\n";
     system($cmd);
 }
 my %scientists;
@@ -548,24 +548,26 @@ if (($sampleSheet ne "")){
     my $flag="header";
     my($sample_ID,$sample_name,$assembly,$I7_Index_ID,$index,$description,$index2,$I5_Index_ID,$stuff);
     my $sampleNum = 0;
-    if (!(-e "$outputDirectory\/metadata\/sampleSheet.csv")){
-	my $cmd = "cp $baseSpaceDirectory\/sampleSheet.csv $outputDirectory\/metadata\/";
+    if (!(-e "$outputDirectory\/metadata\/SampleSheet.csv")){
+	my $cmd = "cp $baseSpaceDirectory\/SampleSheet.csv $outputDirectory\/metadata\/";
 	system($cmd);
     }
 # Create output file for Sample_Report.
-    open(OUT,">$outputDirectory/Sample_Report.csv");
+    open(OUT,">$outputDirectory/metadata/Sample_Report.csv");
 # Print labels to output file.
     print OUT "Fastq,Sample_Name,Assembly\n";
+    # Create run file to print metadata to.
+    open(VER,">$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt");
     while(<IN>){
 	chomp $_;
 	if (($flag eq "data") && ($_ !~ /^Sample_ID/) && ($_ !~ /SampleID/)){
 	    # Read in the metadata from the sample sheet.
 	    ($sample_ID,$sample_name,$sample_plate,$assembly,$I7_Index_ID,$index,$sample_project,$description,$stuff) = split(/\,/,$_);
 	    $sampleNum++;
-	    if ($type ne "4C"){
-		$sample_name =~ s/\_/\-/g;
-		$sample_name =~ s/\./\-/g;
-	    }
+#	    if ($type ne "4C"){
+#		$sample_name =~ s/\_/\-/g;
+#		$sample_name =~ s/\./\-/g;
+#	    }
 	    $sampleIDs{$sample_name} = $sample_ID;
 	    if ($description =~ /^[ACTG]+$/) { # If description is a nucleotide sequence, this sample has two indices.  The project name will be in the stuff variable.
 		$sample_project = $stuff;
@@ -576,25 +578,34 @@ if (($sampleSheet ne "")){
 	    $reference{$sample_project} = $assembly;
 	    $scientists{$sample_project} = $sample_plate;
 	    print VER "PROJ $sample_project\n";
-	    print "$sample_name\tREF1:$reference{$sample_name}\t$bowtieIndex{$assembly}\n";
+	    &datePrint("Found the following sample:");
+	    print STDERR "$sample_name\tREF:$reference{$sample_name}\t$bowtieIndex{$assembly}\n";
 	    if ($type ne "4C"){
 		my $fastq = "";
 		foreach my $lane ("L001","L002","L003","L004"){
 		    # Build fastq file names.
 		    # NB:  Right now it assumes single end.
 		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f*q.gz";
-		    print STDERR "Looking for $fastq\n";
-		    print STDERR "Looking for $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq and $outputDirectory\/$sample_project\/fastq\/$fastq\n";
+#		    print STDERR "Looking for $fastq\n";
+		    print STDERR "Looking for $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq or $outputDirectory\/$sample_project\/fastq\/$fastq\n";
 		    # Check if fastq exists in new subdirectory or old.
 		    if ((-e "$baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq") || (-e "$outputDirectory\/$sample_project\/fastq\/$fastq")){
-			#		print STDERR "$fastq exists in $baseSpaceDirectory\n";
-		    } else { 
-			# If you still can't find it, try all underscores (like in SampleSheet), again in old subdirectory or new
-			$fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f*q.gz";
-			$fastq =~ s/-/_/g;
-			print STDERR "Looking for $fastq\n";
-			if ((-e "$baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq") || (-e "$outputDirectory\/$sample_project\/fastq\/$fastq")) {
-			    print STDERR "$fastq exists\n";
+		    # 	#		print STDERR "$fastq exists in $baseSpaceDirectory\n";
+		    # } else { 
+		    # 	# If you still can't find it, try all underscores (like in SampleSheet), again in old subdirectory or new
+		    # 	$fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f*q.gz";
+		    # 	$fastq =~ s/-/_/g;
+#			print STDERR "Looking for $fastq\n";
+			if ((-e "$baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq") ){
+			    if (-e "$outputDirectory\/$sample_project\/fastq\/$fastq") {
+#				print STDERR "$fastq exists in both BaseSpace directory and output directory\n";
+			    } else {
+				print STDERR "$fastq exists in BaseSpace directory but not output directory; moving it over.\n";
+				print STDERR "Deleting sample directory in basespace directory.\n";
+				my $cmd = "mv $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq $outputDirectory\/$sample_project\/fastq\/\n";
+				$cmd .= "rmdir $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\n";
+				sys($cmd);
+			    }
 			} else { 
 			    # If you can't find Fastq file anywhere, then die.
 			    # This would indicate an error in the path or filename, or that the bcl2fq job failed.  It could also indicate that the index was wrong in the sample sheet, and that no reads were assigned to a specific sample.
@@ -607,10 +618,10 @@ if (($sampleSheet ne "")){
 		    if (!exists($fastqs{$sample_name})){
 			$fastqs{$sample_name} = "$outputDirectory\/$sample_project\/fastq\/$fastq";
 		    }else {$fastqs{$sample_name} .= ",$outputDirectory\/$sample_project\/fastq\/$fastq";}
-		    print STDERR "$sample_name\t$fastqs{$sample_name}\n";
+#		    print STDERR "$sample_name\t$fastqs{$sample_name}\n";
 		}
 	    }
-	    # Create a hash of all samples in a give sample project (TANGO/MOLNG)
+	    # Create a hash of all samples in a given sample project (TANGO/MOLNG)
 	    if (!exists($samples{$sample_project})){
 		$samples{$sample_project} = $sample_name;
 	    }else {$samples{$sample_project} .= ",$sample_name";}
@@ -656,12 +667,12 @@ if (($sampleSheet ne "")){
 	}
 	$reference{$project_name}=$assembly;
 	my @now = localtime();
-	my $timestamp = sprintf("%04d%02d%02d%02d%02d%02d", $now[5]+1900, $now[4]+1, $now[3],$now[2],$now[1],$now[0]);
+	my $timestamp = sprintf("%04d.%02d.%02d.%02d%02d.%02d", $now[5]+1900, $now[4]+1, $now[3],$now[2],$now[1],$now[0]);
 	print STDERR "Timestamp $timestamp\n";
 	if (!(-e "$outputDirectory\/metadata")){
 	    `mkdir $outputDirectory\/metadata`;
 	}
-	open(VER,">$outputDirectory\/metadata\/Ceto.run.$timestamp");
+	open(VER,">$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt");
 	&datePrint("Project name is $project_name");
 	print VER "REF $reference{$project_name}\n";
 	print VER "REF Bowtie Index: $bowtieIndex{$reference{$project_name}}\n";
@@ -904,11 +915,19 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		$cmd .= "mkdir $outputDirectory\/$project\/fastqc\n";
 	    }
 	    my $oldfastqs = "@fastqs";
-	    my $newfastqs = "@fastqs";
-	    $newfastqs =~ s/$fastqDirectory/$outputDirectory\/$project\/fastq/g;
-	    print STDERR "Old fastqs: $oldfastqs\nNew fastqs: $newfastqs\n";
-	    $cmd .= "cp $oldfastqs $outputDirectory\/$project\/fastq/\n";
-	    system($cmd);
+	    my @newfastqs = "";
+	    for my $fastq (@fastqs){
+		my $basefilename = basename($fastq);
+		$fastq = "$outputDirectory\/$project\/fastq\/$basefilename";
+		push (@newfastqs, $fastq);
+	    }
+	    my $newfastqs = "@newfastqs";
+	    #	    $newfastqs =~ s/ /,/g;
+	    if ($oldfastqs ne $newfastqs){
+		print STDERR "Old fastqs: $oldfastqs\nNew fastqs: $newfastqs\n";
+		$cmd .= "cp $oldfastqs $outputDirectory\/$project\/fastq/\n";
+		system($cmd);
+	    }
 	    @fastqs = split(/\s+/,$newfastqs);
 	    $newfastqs =~ s/\s+/\,/g;
 	    $fastqs{$sample} = $newfastqs;
@@ -2120,6 +2139,7 @@ if ($buildEdgeR ==1) {
 		    }
 		}
 		print SH "date\n";
+		print SH "# Processing $comparisons file\n";
 		open(CMP,$comparisons);
 		while(<CMP>){
 		    chomp $_;
@@ -2601,9 +2621,10 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
     #}
 }
 
+
 close(VER);
-if (-e "$outputDirectory\/metadata\/Ceto.run.$timestamp"){
-    `sort $outputDirectory\/metadata\/Ceto.run.$timestamp | uniq > $outputDirectory\/metadata\/Ceto.run.$timestamp.uniq.txt`;
+if (-e "$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt"){
+    `sort $outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt | uniq > $outputDirectory\/metadata\/Ceto.run.$type.$timestamp.uniq.txt`;
 }
 &datePrint("Finished.");
 
