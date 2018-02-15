@@ -1282,6 +1282,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			if (($runPairedEnd == 1) && ($htseq == 1)){
 			    print SH "# If files are paired end and htseq is used for gene counting, then BAMs are sorted by name and indices are not created.  This will require an extra re-sorting and indexing step, to be added if this is a common concern.\n";
 			}
+			print SH "module load python/anaconda\n";
 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
 		    }
@@ -1289,16 +1290,20 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 		    if ($stranded == 1){
 			if ($multiMap == 0){
+			    print SH "module load python/anaconda\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}elsif ($multiMap == 1){
+			    print SH "module load python/anaconda\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.multi.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.multi.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}
 		    } else {
 			if ($multiMap == 0){
+			    print SH "module load python/anaconda\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}elsif ($multiMap == 1){
+			    print SH "module load python/anaconda\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.multi.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}
 		    }
@@ -1313,10 +1318,12 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 		    }
+		    print SH "\nmodule load python/anaconda\n";
 		    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 		    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 		    if ($stranded == 1){
 			if ($multiMap == 0){
+						    
 			    print SH "aws s3 cp $outputDirectory/bam/$sample.minus.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp $outputDirectory/bam/$sample.plus.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			}elsif ($multiMap == 1){
@@ -1444,6 +1451,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
 			print SH "cp $outputDirectory\/$project\/bam\/$sample*.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
 			if ($uploadBAM == 1){
+			    print SH "module load python/anaconda\n";
 			    print SH "cp $bamDirectory\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
 			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
@@ -1454,10 +1462,12 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			}
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+			print SH "module load python/anaconda\n";
 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 		    }
 		    if ($uploadPulmtracks == 1){
 			if ($uploadBAM == 1){
+			    print SH "module load python/anaconda\n";
 			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			    print SH "# To load, paste the following url into the custom tracks field:\n";
@@ -1512,6 +1522,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
 			print SH "cp $bamDirectory\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
+			print SH "module load python/anaconda\n";
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
@@ -1689,18 +1700,21 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			print SH "cp $outputDirectory\/$project\/bam\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
 			if ($uploadBAM == 1){
 			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
+			    print SH "module load python/anaconda\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			    print SH "# To load, paste the following url into the custom tracks field:\n";
 			    print SH "# http://s3-us-west-2.amazonaws.com/ash-tracks/TANGO/$scientist/$scientist.$project/$sample.bam\n";
 			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}
+			print SH "module load python/anaconda\n";
  			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
  			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
  			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
  		    }
 		    if ($uploadPulmtracks == 1){
 			if ($uploadBAM == 1){
+			    print SH "module load python/anaconda\n";
 			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			    print SH "# To load, paste the following url into the custom tracks field:\n";
@@ -1708,6 +1722,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			}
+			print SH "module load python/anaconda\n";
  			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
  			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
  			print SH "aws s3 cp $outputDirectory\/$project\/bam\/$sample.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
@@ -1753,6 +1768,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
  			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
  			print SH "cp $outputDirectory\/$project\/bam\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
+			print SH "module load python/anaconda\n";
  			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
  			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
  			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
@@ -2075,6 +2091,8 @@ if ($buildEdgeR ==1) {
 			    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
 			    print SH "cp $bamDirectory\/$sample.minus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
 			    print SH "cp $bamDirectory\/$sample.plus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+			    print SH "module load python/anaconda\n";
+
 			    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
