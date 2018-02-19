@@ -10,10 +10,15 @@ If you need to install Docker, documentation can be found at
 
 ## Building the image
 
+If you haven't already, clone this repository and `cd` into it:
+
+	$ git clone https://github.com/ebartom/NGSbartom.git
+	$ cd NGSbartom
+
 Assuming you are working on a host with Docker already installed and running,
 you can build the image with this command:
 
-	docker build -t ceto:1.0 .
+	$ docker build -t ceto:1.0 .
 
 
 ## Downloading the reference data
@@ -23,8 +28,8 @@ that Ceto needs to a directory where it can be mounted by the Docker container.
 The data is available in a public S3 bucket and in the example below we create a
 new directory `/anno` and download it there:
 
-	mkdir /anno
-	aws s3 cp s3://ngsbartom-ceto-data/anno /anno --recursive
+	$ mkdir /anno
+	$ aws s3 cp s3://ngsbartom-ceto-data/anno /anno --recursive
 
 **NB:** If you are running this pipeline on an AWS EC2 instance, make sure that
 the IAM Instance Profile of your instance has at least the
@@ -45,7 +50,7 @@ another 50GB of scratch space is recommended.
 
 2. Then create an output directory, e.g.
 
-		mkdir /output
+		$ mkdir /output
 
 3. Finally, run the docker container. Arguments to the `docker run` command will
    be passed through to the `buildPipelineScripts.pl` script that runs the
@@ -66,14 +71,14 @@ another 50GB of scratch space is recommended.
 
 	### RNA Example:
 
-		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.0 \
-		-t RNA -o /output -g mm10 -f /data -c /data/comparisons.csv -buildAlign 1 -buildEdgeR 1
+		$ docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.0 \
+		  -t RNA -o /output -g mm10 -f /data -c /data/comparisons.csv -buildAlign 1 -buildEdgeR 1
 
 	### ChIPseq example:
 
-		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.0 \
-		-t chipseq -o /output -g sacCer3 -f /data \
-		-chip /data/<sample.csv> -buildAlign 1 -buildPeakCaller 1
+		$ docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.0 \
+		  -t chipseq -o /output -g sacCer3 -f /data \
+		  -chip /data/<sample.csv> -buildAlign 1 -buildPeakCaller 1
 
 When the run completes, the output can be found in the `/output` directory.
 
