@@ -5,13 +5,16 @@ Quest HPC cluster. However, it can be run anywhere with via a Docker container.
 This repository contains a `Dockerfile` that can be used to create a Docker
 image and run the pipeline.
 
+If you need to install Docker, documentation can be found at
+[https://docs.docker.com/](https://docs.docker.com/).
+
 ## Building the image
 
-You can build the image with this command:
+Assuming you are working on a host with Docker already installed and running,
+you can build the image with this command:
 
 	docker build -t ceto:1.0 .
 
-Once built you can upload it to a Docker repository or simply use it on the same host where it was built.
 
 ## Downloading the reference data
 
