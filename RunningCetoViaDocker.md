@@ -9,7 +9,7 @@ image and run the pipeline.
 
 You can build the image with this command:
 
-	docker build -t ngsbartom/ceto:1.0 .
+	docker build -t ceto:1.0 .
 
 Once built you can upload it to a Docker repository or simply use it on the same host where it was built.
 
@@ -63,12 +63,12 @@ another 50GB of scratch space is recommended.
 
 	### RNA Example:
 
-		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ngsbartom/ceto:1.0 \
+		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.0 \
 		-t RNA -o /output -g mm10 -f /data -c /data/comparisons.csv -buildAlign 1 -buildEdgeR 1
 
 	### ChIPseq example:
 
-		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ngsbartom/ceto:1.0 \
+		docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.0 \
 		-t chipseq -o /output -g sacCer3 -f /data \
 		-chip /data/<sample.csv> -buildAlign 1 -buildPeakCaller 1
 
