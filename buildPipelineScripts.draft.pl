@@ -2,6 +2,7 @@
 use Getopt::Long qw(GetOptions);
 use List::Util qw(max);
 use List::MoreUtils qw(uniq);
+use File::Basename;
 use strict;
 use utf8;
 use warnings;
@@ -585,28 +586,25 @@ if (($sampleSheet ne "")){
 		foreach my $lane ("L001","L002","L003","L004"){
 		    # Build fastq file names.
 		    # NB:  Right now it assumes single end.
-		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f*q.gz";
+		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.fastq.gz";
 #		    print STDERR "Looking for $fastq\n";
 		    print STDERR "Looking for $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq or $outputDirectory\/$sample_project\/fastq\/$fastq\n";
 		    # Check if fastq exists in new subdirectory or old.
 		    if ((-e "$baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq") || (-e "$outputDirectory\/$sample_project\/fastq\/$fastq")){
-		    # 	#		print STDERR "$fastq exists in $baseSpaceDirectory\n";
-		    # } else { 
-		    # 	# If you still can't find it, try all underscores (like in SampleSheet), again in old subdirectory or new
-		    # 	$fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.f*q.gz";
-		    # 	$fastq =~ s/-/_/g;
-#			print STDERR "Looking for $fastq\n";
 			if ((-e "$baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq") ){
 			    if (-e "$outputDirectory\/$sample_project\/fastq\/$fastq") {
-#				print STDERR "$fastq exists in both BaseSpace directory and output directory\n";
+				#				print STDERR "$fastq exists in both BaseSpace directory and output directory\n";
 			    } else {
 				print STDERR "$fastq exists in BaseSpace directory but not output directory; moving it over.\n";
 				print STDERR "Deleting sample directory in basespace directory.\n";
 				my $cmd = "mv $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq $outputDirectory\/$sample_project\/fastq\/\n";
 				$cmd .= "rmdir $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\n";
-				sys($cmd);
+				system($cmd);
 			    }
-			} else { 
+			} 
+			if (-e "$outputDirectory\/$sample_project\/fastq\/$fastq") {
+			    # Fastq file is in output directory.  All is good.
+			} else {
 			    # If you can't find Fastq file anywhere, then die.
 			    # This would indicate an error in the path or filename, or that the bcl2fq job failed.  It could also indicate that the index was wrong in the sample sheet, and that no reads were assigned to a specific sample.
 			    die "ERR:  Cannot find fastq file!\n";
@@ -618,7 +616,7 @@ if (($sampleSheet ne "")){
 		    if (!exists($fastqs{$sample_name})){
 			$fastqs{$sample_name} = "$outputDirectory\/$sample_project\/fastq\/$fastq";
 		    }else {$fastqs{$sample_name} .= ",$outputDirectory\/$sample_project\/fastq\/$fastq";}
-#		    print STDERR "$sample_name\t$fastqs{$sample_name}\n";
+		    #		    print STDERR "$sample_name\t$fastqs{$sample_name}\n";
 		}
 	    }
 	    # Create a hash of all samples in a given sample project (TANGO/MOLNG)
@@ -689,26 +687,28 @@ if (($sampleSheet ne "")){
 	print VER "REF Known Indel sites: $knownIndelsites{$reference{$project_name}}\n";
 	print VER "INPUT $project_name @fastqlist\n";
 	foreach my $fastq (@fastqlist){
-#	    print STDERR "Fastq: \"$fastq\"\n";
-	    if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || 
-		#		($fastq =~ /\/?([\w\-\d\_\.]+)FastqRd/) ||
-		($fastq =~ /\/?([\w\-\d\_\.]+)\_R\d/) ||
-		($fastq =~ /\/?([\w\-\d\_\.]+SRR\w+)\_\d.fastq.gz/) ||
-		($fastq =~ /\/?([\w\-\d\_\.]+).fastq.t?gz/) ||
-		($fastq =~ /\/?([\w\-\d\_\.]+).fq.t?gz/) 
-		){
-		$sample_name = $1;
-		&datePrint("Sample name is $sample_name");
-		if (!exists($fastqs{$sample_name})){
-		    $fastqs{$sample_name} = "$fastq";
-#		    &datePrint($fastqs{$sample_name});
-		    $reference{$sample_name}=$assembly;
-		}else {$fastqs{$sample_name} .= ",$fastq";}
-		# Create a hash of all samples in a give sample project (TANGO/MOLNG)
-		if (!exists($samples{$project_name})){
-		    $samples{$project_name} = $sample_name;
-		}else {$samples{$project_name} .= ",$sample_name";}
-	    } 
+	    #	    print STDERR "Fastq: \"$fastq\"\n";
+	    if ($fastq ne ""){
+		if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || 
+		    #		($fastq =~ /\/?([\w\-\d\_\.]+)FastqRd/) ||
+		    ($fastq =~ /\/?([\w\-\d\_\.]+)\_R\d/) ||
+		    ($fastq =~ /\/?([\w\-\d\_\.]+SRR\w+)\_\d.fastq.gz/) ||
+		    ($fastq =~ /\/?([\w\-\d\_\.]+).fastq.t?gz/) ||
+		    ($fastq =~ /\/?([\w\-\d\_\.]+).fq.t?gz/) 
+		    ){
+		    $sample_name = $1;
+		    &datePrint("Sample name is $sample_name");
+		    if (!exists($fastqs{$sample_name})){
+			$fastqs{$sample_name} = "$fastq";
+			#		    &datePrint($fastqs{$sample_name});
+			$reference{$sample_name}=$assembly;
+		    }else {$fastqs{$sample_name} .= ",$fastq";}
+		    # Create a hash of all samples in a give sample project (TANGO/MOLNG)
+		    if (!exists($samples{$project_name})){
+			$samples{$project_name} = $sample_name;
+		    }else {$samples{$project_name} .= ",$sample_name";}
+		} 
+	    }
 	}
     } elsif ($startFromBAM == 1){
 	&datePrint("Looking for bam files in $bamDirectory.");
@@ -939,37 +939,38 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		    print VER "EXEC module load java/jdk1.8.0_25\n";
 		    my @newfastqs = ();
 		    foreach my $fastq (@fastqs){
-			my $fastqname = "";
-			my $newfastq = "";
-			if (($fastq =~ /\/?([\w\d\-\_\.]+\.fastq\.t?gz$)/) || ($fastq =~ /\/?([\w\d\-\_\.]+\.fq\.t?gz$)/)){
-			    $fastqname = $1;
-			} elsif ( ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/) || ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/)){
-			    $fastqname = $1;
-			}
-			$newfastq = "$outputDirectory\/$project\/fastq\/$fastqname";
-			if (!(-e $newfastq) || (-z $newfastq)){
-			    &datePrint("Copying $fastq to $newfastq\n");
-			    `cp $fastq $newfastq`;
-			    $fastq = $newfastq;
-			}
-					    print STDERR "Fastq: $fastq\nNewFastq: $newfastq\nFastqname = $fastqname\n";
-			print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
-			print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed $trimString\n";
-			print VER "EXEC $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
-			print SH "gzip $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
-			if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.t?gz$/){
-			    if ((-e "$1\_fastqc.html") && !(-z "$1\_fastqc.html")){
-				print SH "\# FastQC file already exists\n";
+			if ($fastq ne ""){
+			    my $fastqname = "";
+			    my $newfastq = "";
+			    if (($fastq =~ /\/?([\w\d\-\_\.]+\.fastq\.t?gz$)/) || ($fastq =~ /\/?([\w\d\-\_\.]+\.fq\.t?gz$)/)){
+				$fastqname = $1;
+			    } elsif ( ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/) || ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/)){
+				$fastqname = $1;
+			    }
+			    $newfastq = "$outputDirectory\/$project\/fastq\/$fastqname";
+			    if (!(-e $newfastq) || (-z $newfastq)){
+				&datePrint("Copying $fastq to $newfastq\n");
+				`cp $fastq $newfastq`;
+				$fastq = $newfastq;
+			    }			    
+			    print STDERR "Fastq: $fastq\nNewFastq: $newfastq\nFastqname = $fastqname\n";
+			    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+			    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed $trimString\n";
+			    print VER "EXEC $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
+			    print SH "gzip $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
+			    if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.t?gz$/){
+				if ((-e "$1\_fastqc.html") && !(-z "$1\_fastqc.html")){
+				    print SH "\# FastQC file already exists\n";
 			    } else {
 				print SH "# Running FastQC to assess read quality.\n";
 				print SH "date\n$NGSbartom/tools/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $fastq $fastq.trimmed.gz\n";
 				print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
 			    }
+			    }
+			    #		    print SH "mv $newfastq.trimmed.gz $newfastq\n";
+			    print SH "date\n\n";
+			    push(@newfastqs,"$newfastq.trimmed.gz");
 			}
-			#		    print SH "mv $newfastq.trimmed.gz $newfastq\n";
-			print SH "date\n\n";
-			push(@newfastqs,"$newfastq.trimmed.gz");
-			
 		    }
 		    $fastqs{$sample} = "@newfastqs";
 		    $fastqs{$sample} =~ s/\s/\,/g;
@@ -1402,19 +1403,21 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		print SH "module load java/jdk1.8.0_25\n";
 		print VER "EXEC module load java/jdk1.8.0_25\n";
 		foreach my $fastq (@fastqs){
-		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
-		    print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
-		    print SH "gzip $fastq.trimmed\n";
-		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
-			if (-f "$1\_fastqc.html"){
-			    print SH "\# FastQC file already exists\n";
-			} else {
-			    print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
-			    print SH "date\n$NGSbartom/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
+		    if ($fastq ne ""){
+			print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+			print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
+			print SH "gzip $fastq.trimmed\n";
+			if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
+			    if (-f "$1\_fastqc.html"){
+				print SH "\# FastQC file already exists\n";
+			    } else {
+				print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
+				print SH "date\n$NGSbartom/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
+			    }
 			}
+			print SH "mv $fastq.trimmed.gz $fastq\n";
+			print SH "date\n";
 		    }
-		    print SH "mv $fastq.trimmed.gz $fastq\n";
-		    print SH "date\n";
 		}
 	    }
 	    my $fastqs = $fastqs{$sample};
