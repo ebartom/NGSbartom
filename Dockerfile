@@ -57,6 +57,10 @@ RUN mkdir -p /software/openmpi/1.6.3 && \
     tar -xzf openmpi-1.6.3.tar.gz && cd openmpi-1.6.3 && ./configure --prefix=/software/openmpi/1.6.3 && \
     make && make install
 
+RUN git clone https://github.com/shenlab-sinai/ngsplot.git && cd ngsplot && git checkout tags/2.47 && cp -r bin/* /usr/local/bin
+
+RUN git clone https://github.com/alexdobin/STAR.git && cd STAR && git checkout tags/2.5.2b && cp bin/Linux_x86_64_static/* /usr/local/bin
+
 COPY resources/modulefiles/ /etc/modulefiles/
 
 COPY resources/rsetup.R . 
@@ -102,9 +106,6 @@ RUN git clone https://github.com/taoliu/MACS.git MACS-1.4.2 && cd MACS-1.4.2 && 
 
 # have to symlink perl executable in order for buildPipelineScripts.pl to run
 RUN mkdir -p /software/activeperl/5.16/bin && ln -s /usr/bin/perl /software/activeperl/5.16/bin/perl
-
-
-RUN git clone https://github.com/shenlab-sinai/ngsplot.git && cd ngsplot && git checkout tags/2.47 && cp -r bin/* /usr/local/bin
 
 COPY resources/wrapper.sh .
 
