@@ -28,7 +28,8 @@ RUN yum update -y && yum install -y \
 WORKDIR /tmp
 
 RUN curl -O https://support.illumina.com/content/dam/illumina-support/documents/downloads/software/bcl2fastq/bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm && \
-    yum -y --nogpgcheck localinstall bcl2fastq2-v2.17.1.14-Linux-x86_64.rpm
+    curl -O http://linuxsoft.cern.ch/cern/centos/7/cern/x86_64/Packages/parallel-20150522-1.el7.cern.noarch.rpm && \
+    yum -y --nogpgcheck localinstall *.rpm
 
 RUN git clone https://github.com/BenLangmead/bowtie.git && cd bowtie && git checkout tags/v1.1.2 && make && make install
 
