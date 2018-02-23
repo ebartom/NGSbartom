@@ -105,6 +105,9 @@ RUN curl -O http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimm
 
 RUN git clone https://github.com/taoliu/MACS.git MACS-1.4.2 && cd MACS-1.4.2 && git checkout tags/v1.4.2 && python setup.py install --prefix /projects/p20742/tools/MACS-1.4.2 && ln -s /projects/p20742/tools/MACS-1.4.2/lib/python2.7 /projects/p20742/tools/MACS-1.4.2/lib/python2.6
 
+RUN git clone https://github.com/deweylab/RSEM.git RSEM-1.3.0 && cd RSEM-1.3.0 && git checkout tags/v1.3.0 && make && \
+    source /etc/profile.d/modules.sh && module load R && make ebseq
+
 # have to symlink perl executable in order for buildPipelineScripts.pl to run
 RUN mkdir -p /software/activeperl/5.16/bin && ln -s /usr/bin/perl /software/activeperl/5.16/bin/perl
 
