@@ -1,0 +1,22 @@
+#%Module
+
+set name tophat
+set ver 2.1.0
+set path /software/$name/$ver
+set title "tophat"
+set url "http://tophat.cbcb.umd.edu/"
+
+proc ModulesHelp { } {
+   puts stderr "This module adds [ module-info name ]"
+   puts stderr "See $url for further details"
+}
+
+module-whatis   "This module adds [ module-info name ] "
+
+if { ! [ file exists $path ] } {
+   puts stderr "[ module-info name ] is not built for the environment"
+   exit
+}
+
+module load gcc/4.8.3
+prepend-path PATH ${path}

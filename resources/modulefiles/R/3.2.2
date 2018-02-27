@@ -1,0 +1,11 @@
+#%Module
+
+proc ModulesHelp { } {
+   puts stderr "This module adds [ module-info name ]"
+}
+
+module-whatis   "This module adds [ module-info name ] "
+
+module load mpi/openmpi-1.6.3-gcc-4.6.3
+
+prepend-path PATH "/software/[ module-info name ]/bin"
