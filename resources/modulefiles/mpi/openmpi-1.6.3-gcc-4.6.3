@@ -1,0 +1,28 @@
+#%Module
+
+proc ModulesHelp { } {
+   puts stderr "This module adds gcc/4.8.3 and [ module-info name ] to various paths"
+}
+
+module-whatis   "Sets up gcc/4.8.3 and [ module-info name ] in your environment"
+
+if [ module-info mode load ] {
+module unload mpi
+module unload gcc
+}
+
+module load gcc/4.8.3
+conflict mpi
+
+prepend-path PATH "/software/openmpi/1.6.3/bin"
+prepend-path LD_LIBRARY_PATH "/software/openmpi/1.6.3/lib64"
+prepend-path MANPATH "/software/openmpi/1.6.3/share/man"
+prepend-path PKG_CONFIG_PATH "/software/openmpi/1.6.3/lib64/pkgconfig"
+
+if [ module-info mode remove ] {
+        remove-path MANPATH "/software/openmpi/1.6.3/share/man"
+        remove-path PATH "/software/openmpi/1.6.3/bin"
+        remove-path LD_LIBRARY_PATH "/software/openmpi/1.6.3/lib64"
+        remove-path PKG_CONFIG_PATH "/software/openmpi/1.6.3/lib64/pkgconfig"
+	module unload gcc/4.6.3
+}

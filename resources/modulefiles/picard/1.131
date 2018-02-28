@@ -1,0 +1,14 @@
+#%Module
+
+proc ModulesHelp { } {
+   puts stderr "This module adds [ module-info name ] to various paths"
+   puts stderr "Documentation: http://picard.sourceforge.net/index.shtml"
+}
+
+module-whatis "This module adds [ module-info name ]"
+
+module load java/jdk1.8.0_25
+
+setenv PICARD_DIR /software/picard/1.131/picard-tools-1.131
+setenv PICARD_HOME /software/picard/1.131
+prepend-path PATH /software/picard/1.131/picard-tools-1.131
