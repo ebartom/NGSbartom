@@ -961,11 +961,19 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			    if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.t?gz$/){
 				if ((-e "$1\_fastqc.html") && !(-z "$1\_fastqc.html")){
 				    print SH "\# FastQC file already exists\n";
-			    } else {
-				print SH "# Running FastQC to assess read quality.\n";
-				print SH "date\n$NGSbartom/tools/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $fastq $fastq.trimmed.gz\n";
-				print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
-			    }
+				} else {
+				    print SH "# Running FastQC to assess read quality.\n";
+				    print SH "date\n$NGSbartom/tools/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $fastq $fastq.trimmed.gz\n";
+				    print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
+				}
+				print SH "\n# Running FastQ_screen to look for contamination.\n";
+				print SH "module load bowtie2/2.2.6\n";
+				print SH "module load perl/5.16\n";
+				print VER "EXEC module load perl/5.16\n";
+				print SH "# Check all reference genomes currently installed\n";
+				print SH "perl $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $fastq\n";
+				print VER "EXEC $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen\n";
+				print VER "EXEC module load bowtie2/2.2.6\n";
 			    }
 			    #		    print SH "mv $newfastq.trimmed.gz $newfastq\n";
 			    print SH "date\n\n";
@@ -1048,6 +1056,15 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		}
 		$read1fastqs =~ s/\ /,/g;
 		$read2fastqs =~ s/\ /,/g;
+		print SH "\n# Running FastQ_screen to look for contamination.\n";
+		print SH "module load bowtie2/2.2.6\n";
+		print SH "module load perl/5.16\n";
+		print VER "EXEC module load perl/5.16\n";
+		print SH "# Check all reference genomes currently installed\n";
+		print SH "perl $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $read1fastqs\n";
+		print VER "EXEC $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen\n";
+		print VER "EXEC module load bowtie2/2.2.6\n";
+
 		if ($runTrim == 1){
 		    &datePrint("Setting up trimming for paired end reads.");
 		    print SH "# Setting up trimming for paired end reads.\n";
@@ -1381,6 +1398,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 #	    if ($s3path eq "ash-tracks/TANGO/XXX"){ }
 	    $s3path = "ash-tracks/TANGO/$scientist";
 	}
+	my $cmd = "mkdir $outputDirectory\/$project\/bam\n";
+	$cmd .= "mkdir $outputDirectory\/$project\/fastqc\n";
+	system($cmd);
 	@samples = uniq(split(/\,/,$samples{$project}));
 	print STDERR "Samples: @samples\n";
 	# Foreach sample within the project:
@@ -1399,6 +1419,20 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
+	    for my $fastq (@fastqs){
+		print SH "\n# Running FastQ_screen to look for contamination.\n";
+		print SH "module load bowtie2/2.2.6\n";
+		print SH "module load perl/5.16\n";
+		print VER "EXEC module load perl/5.16\n";
+		print SH "# Check all reference genomes currently installed\n";
+		print SH "perl $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $fastq\n";
+		print VER "EXEC $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen\n";
+		print VER "EXEC module load bowtie2/2.2.6\n";
+		print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
+		print SH "date\n";
+		print SH "\n# Run FastQC on untrimmed sequence.\n";
+		print SH "$NGSbartom/tools/FastQC/fastqc $fastq\ndate\n";
+	    }
 	    if ($runTrim == 1){
 		print SH "module load java/jdk1.8.0_25\n";
 		print VER "EXEC module load java/jdk1.8.0_25\n";
@@ -1407,21 +1441,18 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 			print SH "java -jar $NGSbartom/tools/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
 			print SH "gzip $fastq.trimmed\n";
-			if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
-			    if (-f "$1\_fastqc.html"){
-				print SH "\# FastQC file already exists\n";
-			    } else {
-				print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
-				print SH "date\n$NGSbartom/tools/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
-			    }
-			}
-			print SH "mv $fastq.trimmed.gz $fastq\n";
+			print VER "EXEC $NGSbartom/tools/FastQC/fastqc (FastQC v0.11.2)\n";
+			print SH "date\n$NGSbartom/tools/FastQC/fastqc $fastq.trimmed.gz\n";
+			#print SH "mv $fastq.trimmed.gz $fastq\n";
 			print SH "date\n";
 		    }
 		}
 	    }
 	    my $fastqs = $fastqs{$sample};
 	    $fastqs =~ s/,/ /g;
+	    if ($runTrim == 1){
+		$fastqs =~ "s/q.gz/q.trimmed.gz/g";
+	    }
 	    print SH "date\n\n";
 #	    print STDERR "$sample\tREF:$reference{$sample}\tINDEX:$bowtieIndex{$reference{$sample}}\n";
 	    print SH "# Align fastqs with Bowtie\n";
@@ -1585,6 +1616,18 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    my @newFastqs;
+
+	    foreach my $fastq (@fastqs){
+		print SH "\n# Running FastQ_screen to look for contamination.\n";
+		print SH "module load bowtie2/2.2.6\n";
+		print SH "module load perl/5.16\n";
+		print VER "EXEC module load perl/5.16\n";
+		print SH "# Check all reference genomes currently installed\n";
+		print SH "perl $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $fastq\n";
+		print VER "EXEC $NGSbartom/tools/fastq_screen_v0.11.4/fastq_screen\n";
+		print VER "EXEC module load bowtie2/2.2.6\n";
+	    }
+	    
 	    if ($runTrim == 1){
 		print SH "module load java/jdk1.8.0_25\n";
 		foreach my $fastq (@fastqs){

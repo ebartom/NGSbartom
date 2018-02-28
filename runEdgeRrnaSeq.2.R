@@ -230,7 +230,7 @@ runEdgeR <- function(data,comparison){
         head(anno)				
         iv <- match(rownames(df),anno$external_gene_id)
             df$gene <- anno[iv,'ensembl_gene_id']
-    } 
+    }
     up <- df$adj.p < 0.01 & df$logFC > 0
     cat("adding flags\n")
     flag <- rep(0, nrow(df))
