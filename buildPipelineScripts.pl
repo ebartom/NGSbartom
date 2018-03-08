@@ -216,6 +216,8 @@ if ($aligner eq ""){
     if ($type eq "DNA"){ $aligner = "bowtie";}
     if ($type eq "RNA"){ $aligner = "tophat";}
     if ($type eq "chipseq"){ $aligner = "bowtie";}
+    if ($type eq "proseq"){ $aligner = "bowtie";}
+    if ($type eq "4su"){ $aligner = "bowtie";}
     if ($type eq "4C"){ $aligner = "bowtie";}
 } else { $aligner = lc $aligner;}
 
@@ -342,7 +344,7 @@ $exonbed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.exons.bed";
 $gff{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.gtf";
 $genebed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.bed"; # Created with gtf2bed tool
 $rsemTx{"hg38"} = "$NGSbartom/anno/rsemTx/hg38.Ens_78";
-$gatkRef{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38/hg38.fa";
+$gatkRef{"hg38"} = "$NGSbartom/anno/picardDict/hg38.fa";
 $knownSNPsites{"hg38"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
 $knownIndelsites{"hg38"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_standard.indels.hg38.vcf";
 
@@ -368,7 +370,7 @@ $exonbed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.exons.bed";
 $genebed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.cuff.bed";
 $gff{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.cuff.gtf";
 $rsemTx{"hg19"} = "$NGSbartom/anno/rsemTx/hg19.Ens_72";
-$gatkRef{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19/hg19.fa";
+$gatkRef{"hg19"} = "$NGSbartom/anno/picardDict/hg19.fa";
 $knownSNPsites{"hg19"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg19.sites.noContigs.vcf";
 $knownIndelsites{"hg19"} = "$NGSbartom/anno/picardDict/1000G_phase1.indels.hg19.sites.noContigs.vcf";
 
@@ -1515,7 +1517,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    }		
 		    print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
-		    print SH "if [ ! -f $outputDirectory\/$project\/tracks\/bwlist.txt ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
+		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
 		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
 		    print SH "\n# Make header files for tracks.\n";
 		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
@@ -1775,7 +1777,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  		    }		
  		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
  		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
- 		    print SH "if [ ! -f $outputDirectory\/$project\/tracks\/bwlist.txt ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
+ 		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
  		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
  		    print SH "\n# Make header files for tracks.\n";
  		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
@@ -1917,7 +1919,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 if ($runRNAstats == 1){
     if ($type eq "RNA"){
 	foreach my $project (keys(%samples)){
-	    open (SH, ">$outputDirectory/$project/scripts/runRNAstats.sh");
+	    open (SH, ">$outputDirectory/$project/scripts/runRNAstats_summary.sh");
 	    print SH $header;
 	    print SH "#MSUB -N $project\_runRNAstats\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
@@ -1945,21 +1947,38 @@ if ($runRNAstats == 1){
 	    }
 	    my @samples = uniq(split(/\,/,$samples{$project}));
 	    foreach my $sample (@samples){
-		print SH "\n# Use RSeQC to infer experiment type for $sample.\n";
-		print SH "infer_experiment.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample\_inferredExperiment.txt\n";
-		print SH "\n# Use RSeQC to check saturation for $sample.\n";
-		print SH "RPKM_saturation.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
-		print SH "\n# Examine read duplication for $sample.\n";
-		print SH "read_duplication.py -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
-		print SH "\n# How many novel splice sites are found in the data? (Only relevant for STAR aligned data)\n";
-		print SH "\njunction_annotation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
-		print SH "\n# Check splice site saturation for $sample.\n";
-		print SH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		open (SSH, ">$outputDirectory/$project/scripts/runRNAstats.$sample.sh");
+		print SSH $header;
+		print SSH "#MSUB -N $project\_runRNAstats.$sample\n";
+		print SSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		print SSH "module load R/3.2.2\n";
+		print SSH "module load bowtie2\n";
+		print SSH "module load samtools/1.2\n";
+		print SSH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
+		print SSH "module load python/anaconda\n";
+		print SSH "module load parallel\n";
+		if (!(-e "$outputDirectory\/$project\/bam\/$sample.bam")){
+		    print SSH "\n# When this script was generated, $sample.bam did not exist in the bam directory.  If that is still the case when this script is run, it will fail.  In that case, please align and re-run.\n";
+		}
+		print SSH "\n# Use RSeQC to infer experiment type for $sample.\n";
+		print SSH "infer_experiment.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample\_inferredExperiment.txt\n";
+		print SSH "\n# Use RSeQC to check saturation for $sample.\n";
+		print SSH "RPKM_saturation.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\n# Examine read duplication for $sample.\n";
+		print SSH "read_duplication.py -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\n# How many novel splice sites are found in the data? (Only relevant for STAR aligned data)\n";
+		print SSH "\njunction_annotation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\n# Check splice site saturation for $sample.\n";
+		print SSH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\n# Estimate TIN (transcript integrity number) for each transcript.\n";
+		print SSH "tin.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} > $outputDirectory\/$project\/bam\/$sample.tin.txt\n";
+		close(SSH);
+		my $result2 = `msub $outputDirectory/$project/scripts/runRNAstats.$sample.sh`;
 	    }
-	    print SH "\n# Use RSeQC to estimate gene body coverage.\n";
+	    print SH "\n# Use RSeQC to estimate gene body coverage across all samples.\n";
 	    print SH "geneBody_coverage.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/bam\/$project\n";
 	    &datePrint("Launching RNA stats script for project $project");
-	    my $result2 = `msub $outputDirectory/$project/scripts/runRNAstats.sh`;
+	    my $result3 = `msub $outputDirectory/$project/scripts/runRNAstats_summary.sh`;
 	}
     } else {
 	&datePrint("Skipping runRNAstats for nonRNA project");
@@ -2111,7 +2130,7 @@ if ($buildEdgeR ==1) {
 	    		foreach my $sample (@samples){
 			    print SH "rm $bamDirectory\/$sample.bed\n";
 	    		}
-	    		print SH "\nmodule unload python/anaconda\n";
+	    		print SH "\nmodule unload bedtools/2.17.0\n";
 		    }
 		}
 		print SH "module load R/3.2.2\n";
@@ -2135,17 +2154,29 @@ if ($buildEdgeR ==1) {
 			    print SH "# Move tracks into Shilatifard directory structure.\n";
 			    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 			    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
-			    print SH "cp $bamDirectory\/$sample.minus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
-			    print SH "cp $bamDirectory\/$sample.plus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+			    if ($stranded == 1){
+				print SH "cp $bamDirectory\/$sample.minus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+				print SH "cp $bamDirectory\/$sample.plus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+			    } else {
+				print SH "cp $bamDirectory\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+			    }			
 			    print SH "module load python/anaconda\n";
 
 			    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
-			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
-			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";			
+			    if ($stranded == 1){				
+				print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
+				print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
+			    } else {
+				print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
+			    }
 			} else {
-			    print SH "mv $bamDirectory\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
-			    print SH "mv $bamDirectory\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
+			    if ($stranded == 1){
+				print SH "mv $bamDirectory\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
+				print SH "mv $bamDirectory\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
+			    } else {
+				print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
+			    }
 			}
 		    }
 		}
@@ -2266,6 +2297,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH "\nmodule unload R\n";
 		print BSH "module unload mpi\n";
 		print BSH "module load python/anaconda\n";
+		print BSH "module load bedtools/2.17.0\n";
 		print BSH "module load samtools/1.2\n";
 		print BSH "export PATH=$NGSbartom/tools/SICER_V1.1/SICER/:\$PATH\n";
 		print VER "EXEC module load python/anaconda\n";
@@ -2326,7 +2358,6 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "module load R/3.2.2\n";
 			print SH "Rscript $NGSbartom/tools/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print SH "\n# Extend peaks from the summit, adding $upstream bp upstream and $downstream bp downstream.\n";
-			print SH "module load python/anaconda\n";
 			print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
 			print SH "\n# Filter out peaks with an maximum input rpm over 1.\n";
 			print SH "Rscript $NGSbartom/tools/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
@@ -2359,7 +2390,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			close SH;
 		       
 		    } elsif ($peakType eq "broad"){
-			print BSH "module load python/anaconda\n";
+			print BSH "module load bedtools/2.17.0\n";
 			print BSH "\n# Convert bam files to bed files, as needed.\n";
 			print BSH "if \[ ! -s \"$bamDirectory\/$ip.bed\" ]; then\n";
 			print BSH "\tbedtools bamtobed -i $bamDirectory\/$ip.bam > $bamDirectory\/$ip.bed\n";
@@ -2425,7 +2456,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			}			    
 			print BSH "\n# Find summits of peaks.\n";
 			print BSH "Rscript $NGSbartom/tools/fromBedPlusBWtoSummit.R --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
-			print BSH "module load python/anaconda\n";
+			print BSH "module load bedtools/2.17.0\n";
 			print BSH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed\n";
 			print BSH "\n# Filter out peaks with an maximum input rpm over 1.\n";
 			print BSH "Rscript $NGSbartom/tools/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
@@ -2546,7 +2577,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		print SH $header;
 		print SH "#MSUB -N $peakset\_diffPeak\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-		print SH "module load python/anaconda\n";
+		print SH "module load bedtools/2.17.0\n";
 		print SH "module load samtools/1.2\n";
 		print SH "module load R/3.2.2\n";
 		print VER "EXEC module load bedtools/2.17.0\n";

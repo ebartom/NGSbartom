@@ -216,6 +216,8 @@ if ($aligner eq ""){
     if ($type eq "DNA"){ $aligner = "bowtie";}
     if ($type eq "RNA"){ $aligner = "tophat";}
     if ($type eq "chipseq"){ $aligner = "bowtie";}
+    if ($type eq "proseq"){ $aligner = "bowtie";}
+    if ($type eq "4su"){ $aligner = "bowtie";}
     if ($type eq "4C"){ $aligner = "bowtie";}
 } else { $aligner = lc $aligner;}
 
@@ -1917,7 +1919,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 if ($runRNAstats == 1){
     if ($type eq "RNA"){
 	foreach my $project (keys(%samples)){
-	    open (SH, ">$outputDirectory/$project/scripts/runRNAstats.sh");
+	    open (SH, ">$outputDirectory/$project/scripts/runRNAstats_summary.sh");
 	    print SH $header;
 	    print SH "#MSUB -N $project\_runRNAstats\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
@@ -1945,21 +1947,38 @@ if ($runRNAstats == 1){
 	    }
 	    my @samples = uniq(split(/\,/,$samples{$project}));
 	    foreach my $sample (@samples){
-		print SH "\n# Use RSeQC to infer experiment type for $sample.\n";
-		print SH "infer_experiment.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample\_inferredExperiment.txt\n";
-		print SH "\n# Use RSeQC to check saturation for $sample.\n";
-		print SH "RPKM_saturation.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
-		print SH "\n# Examine read duplication for $sample.\n";
-		print SH "read_duplication.py -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
-		print SH "\n# How many novel splice sites are found in the data? (Only relevant for STAR aligned data)\n";
-		print SH "\njunction_annotation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
-		print SH "\n# Check splice site saturation for $sample.\n";
-		print SH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		open (SSH, ">$outputDirectory/$project/scripts/runRNAstats.$sample.sh");
+		print SSH $header;
+		print SSH "#MSUB -N $project\_runRNAstats.$sample\n";
+		print SSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		print SSH "module load R/3.2.2\n";
+		print SSH "module load bowtie2\n";
+		print SSH "module load samtools/1.2\n";
+		print SSH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
+		print SSH "module load python/anaconda\n";
+		print SSH "module load parallel\n";
+		if (!(-e "$outputDirectory\/$project\/bam\/$sample.bam")){
+		    print SSH "\n# When this script was generated, $sample.bam did not exist in the bam directory.  If that is still the case when this script is run, it will fail.  In that case, please align and re-run.\n";
+		}
+		print SSH "\n# Use RSeQC to infer experiment type for $sample.\n";
+		print SSH "infer_experiment.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample\_inferredExperiment.txt\n";
+		print SSH "\n# Use RSeQC to check saturation for $sample.\n";
+		print SSH "RPKM_saturation.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\n# Examine read duplication for $sample.\n";
+		print SSH "read_duplication.py -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\n# How many novel splice sites are found in the data? (Only relevant for STAR aligned data)\n";
+		print SSH "\njunction_annotation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\n# Check splice site saturation for $sample.\n";
+		print SSH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\n# Estimate TIN (transcript integrity number) for each transcript.\n";
+		print SSH "tin.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} > $outputDirectory\/$project\/bam\/$sample.tin.txt\n";
+		close(SSH);
+		my $result2 = `msub $outputDirectory/$project/scripts/runRNAstats.$sample.sh`;
 	    }
-	    print SH "\n# Use RSeQC to estimate gene body coverage.\n";
+	    print SH "\n# Use RSeQC to estimate gene body coverage across all samples.\n";
 	    print SH "geneBody_coverage.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/bam\/$project\n";
 	    &datePrint("Launching RNA stats script for project $project");
-	    my $result2 = `msub $outputDirectory/$project/scripts/runRNAstats.sh`;
+	    my $result3 = `msub $outputDirectory/$project/scripts/runRNAstats_summary.sh`;
 	}
     } else {
 	&datePrint("Skipping runRNAstats for nonRNA project");
@@ -2135,17 +2154,29 @@ if ($buildEdgeR ==1) {
 			    print SH "# Move tracks into Shilatifard directory structure.\n";
 			    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 			    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
-			    print SH "cp $bamDirectory\/$sample.minus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
-			    print SH "cp $bamDirectory\/$sample.plus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+			    if ($stranded == 1){
+				print SH "cp $bamDirectory\/$sample.minus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+				print SH "cp $bamDirectory\/$sample.plus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+			    } else {
+				print SH "cp $bamDirectory\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
+			    }			
 			    print SH "module load python/anaconda\n";
 
 			    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
-			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
-			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";			
+			    if ($stranded == 1){				
+				print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
+				print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
+			    } else {
+				print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
+			    }
 			} else {
-			    print SH "mv $bamDirectory\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
-			    print SH "mv $bamDirectory\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
+			    if ($stranded == 1){
+				print SH "mv $bamDirectory\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
+				print SH "mv $bamDirectory\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
+			    } else {
+				print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
+			    }
 			}
 		    }
 		}
