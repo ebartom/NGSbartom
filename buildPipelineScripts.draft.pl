@@ -332,7 +332,7 @@ if ($runGenotyping){ print STDERR "Will run scripts for genotyping samples.\n";}
 print STDERR "=====================================\n";
 
 # Define references.
-my (%bowtieIndex,%starIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx,%genebed);
+my (%bowtieIndex,%starIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx,%genebed,%samplegenebed);
 my (%gatkRef,%knownSNPsites,%knownIndelsites);
 
 $bowtieIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38";
@@ -343,6 +343,7 @@ $txdbfile{"hg38"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens78.txdb";
 $exonbed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.exons.bed";
 $gff{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.gtf";
 $genebed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.bed"; # Created with gtf2bed tool
+$samplegenebed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.r1k.cuff.bed"; # 1000 genes picked at random from gene bed.
 $rsemTx{"hg38"} = "$NGSbartom/anno/rsemTx/hg38.Ens_78";
 $gatkRef{"hg38"} = "$NGSbartom/anno/picardDict/hg38.fa";
 $knownSNPsites{"hg38"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
@@ -354,7 +355,8 @@ $starIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/STARind
 $txIndex{"hg38.mp"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
 $txdbfile{"hg38.mp"} = "$NGSbartom/anno/Txdb/UCSC.hg38.mp.txdb";
 $exonbed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf.bed";
-$genebed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf.bed";
+$genebed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf.bed"; 
+$samplegenebed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.r1k.gtf.bed"; # 1000 genes picked at random from gene bed.
 $gff{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf";
 $rsemTx{"hg38.mp"} = "NEEDS TO BE UPDATED $NGSbartom/anno/rsemTx/hg38.Ens_78";
 $gatkRef{"hg38.mp"} = "$NGSbartom/anno/picardDict/hg38.fa";
@@ -368,6 +370,7 @@ $txIndex{"hg19"} ="$NGSbartom/anno/tophat_tx/hg19.Ens_72.remap";
 $txdbfile{"hg19"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens72.txdb";
 $exonbed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.exons.bed";
 $genebed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.cuff.bed";
+$samplegenebed{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.r1k.cuff.bed"; # 1000 genes picked at random from gene bed.
 $gff{"hg19"} = "$NGSbartom/anno/Ens/hg19.Ens_72/hg19.Ens_72.cuff.gtf";
 $rsemTx{"hg19"} = "$NGSbartom/anno/rsemTx/hg19.Ens_72";
 $gatkRef{"hg19"} = "$NGSbartom/anno/picardDict/hg19.fa";
@@ -381,6 +384,7 @@ $txIndex{"dm3"} = "$NGSbartom/anno/tophat_tx/dm3.Ens_74.cuff";
 $txdbfile{"dm3"} = "$NGSbartom/anno/Txdb/dmelanogaster_gene_ensembl_Ens74.txdb";
 $exonbed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.exons.bed";
 $genebed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.cuff.bed";
+$samplegenebed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.r1k.cuff.bed";
 $gff{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.cuff.gtf";
 $rsemTx{"dm3"} = "$NGSbartom/anno/rsemTx/dm3.Ens_74";
 
@@ -402,6 +406,7 @@ $txIndex{"rn6"} = "$NGSbartom/anno/tophat_tx/rn6.UCSC";
 $txdbfile{"rn6"} = "$NGSbartom/anno/Txdb/rnorvegicus_gene_ensembl_Ens84.txdb";
 $exonbed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.exons.bed";
 $genebed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.cuff.bed";
+$samplegenebed{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.r1k.cuff.bed";
 #$gff{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/rn6.Ens_84.cuff.gtf";
 #$gff{"rn6"} = "$NGSbartom/anno/Ens/rn6.Ens_84/Rattus_norvegicus.Rnor_6.0.84.gtf";
 $gff{"rn6"} = "/projects/p20742/anno/Rattus_norvegicus/UCSC/rn6/Annotation/Genes/genes.gtf";
@@ -414,6 +419,7 @@ $txIndex{"mm10"} = "$NGSbartom/anno/tophat_tx/mm10.Ens_78.cuff";
 $txdbfile{"mm10"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens78.txdb";
 $exonbed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.exons.bed";
 $genebed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.cuff.bed";
+$samplegenebed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.r1k.cuff.bed";
 $gff{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.cuff.gtf";
 $rsemTx{"mm10"} = "$NGSbartom/anno/rsemTx/mm10.Ens_78";
 
@@ -424,6 +430,7 @@ $txIndex{"mm9"} = "$NGSbartom/anno/tophat_tx/mm9.Ens_67.remap";
 $txdbfile{"mm9"} = "$NGSbartom/anno/Txdb/mmusculus_gene_ensembl_Ens67.txdb";
 $exonbed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.exons.bed";
 $genebed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.cuff.bed";
+$samplegenebed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.r1k.cuff.bed";
 $gff{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.cuff.gtf";
 $rsemTx{"mm9"} = "$NGSbartom/anno/rsemTx/mm9.Ens_67";
 
@@ -436,6 +443,7 @@ $txIndex{"sacCer3"} = "$NGSbartom/anno/tophat_tx/sacCer3.Ens_72.remap";
 $txdbfile{"sacCer3"} = "$NGSbartom/anno/Txdb/scerevisiae_gene_ensembl_Ens78.txdb";
 $exonbed{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.exons.bed";
 $genebed{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.cuff.bed";
+$samplegenebed{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.r1k.cuff.bed";
 $gff{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.cuff.gtf";
 $rsemTx{"sacCer3"} = "$NGSbartom/anno/rsemTx/sacCer3.Ens_72";
 
@@ -1923,6 +1931,7 @@ if ($runRNAstats == 1){
 	    print SH $header;
 	    print SH "#MSUB -N $project\_runRNAstats\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    print SH "#MSUB -l walltime=48:00:00\n";
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load bowtie2\n";
@@ -1961,22 +1970,27 @@ if ($runRNAstats == 1){
 		    print SSH "\n# When this script was generated, $sample.bam did not exist in the bam directory.  If that is still the case when this script is run, it will fail.  In that case, please align and re-run.\n";
 		}
 		print SSH "\n# Use RSeQC to infer experiment type for $sample.\n";
-		print SSH "infer_experiment.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample\_inferredExperiment.txt\n";
+		print SSH "infer_experiment.py -r $samplegenebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample\_inferredExperiment.txt\n";
 		print SSH "\n# Use RSeQC to check saturation for $sample.\n";
-		print SSH "RPKM_saturation.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "RPKM_saturation.py -r $samplegenebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
 		print SSH "\n# Examine read duplication for $sample.\n";
 		print SSH "read_duplication.py -i $outputDirectory\/$project\/bam\/$sample.bam -o $outputDirectory\/$project\/bam\/$sample\n";
 		print SSH "\n# How many novel splice sites are found in the data? (Only relevant for STAR aligned data)\n";
-		print SSH "\njunction_annotation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\njunction_annotation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $samplegenebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
 		print SSH "\n# Check splice site saturation for $sample.\n";
-		print SSH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $samplegenebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
+		print SSH "\n# If sorted bam doesn't exist, create it.\n";
+		print SSH "if \[ $outputDirectory\/$project\/bam\/$sample.sorted.bam does not exist ]; then\n";
+		print SSH "\tsamtools sort $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
+		print SSH "\tsamtools index $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
+		print SSH "fi\n";
 		print SSH "\n# Estimate TIN (transcript integrity number) for each transcript.\n";
-		print SSH "tin.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $genebed{$reference{$project}} > $outputDirectory\/$project\/bam\/$sample.tin.txt\n";
+		print SSH "tin.py -i $outputDirectory\/$project\/bam\/$sample.sorted.bam -r $samplegenebed{$reference{$project}} \n";
 		close(SSH);
 		my $result2 = `msub $outputDirectory/$project/scripts/runRNAstats.$sample.sh`;
 	    }
 	    print SH "\n# Use RSeQC to estimate gene body coverage across all samples.\n";
-	    print SH "geneBody_coverage.py -r $genebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/bam\/$project\n";
+	    print SH "geneBody_coverage.py -r $samplegenebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/bam\/$project\n";
 	    &datePrint("Launching RNA stats script for project $project");
 	    my $result3 = `msub $outputDirectory/$project/scripts/runRNAstats_summary.sh`;
 	}
