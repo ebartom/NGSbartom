@@ -1,0 +1,98 @@
+Welcome!
+
+If you would like to analyze Next Generation Sequencing (NGS) data with CETO, you need to first do the following:
+
+ - Get an account on Quest
+   You will need storage space of your own to store your data.
+   http://www.it.northwestern.edu/secure/forms/research/allocation-request.html
+ 
+ - Request access to allocation p20742 (owned by Elizabeth Bartom ebartom@northwestern.edu )
+   This allocation contains the Ceto code as well as a variety of reference genomes and transcriptomes and some test data.
+   https://app.smartsheet.com/b/form?EQBCT=71afee7a6a014e94b1299fa947ef43c5
+
+ - Request access to the genomics nodes on Quest
+   http://www.it.northwestern.edu/research/user-services/quest/genomics.html 
+
+ - Try logging on to Quest
+   http://www.it.northwestern.edu/research/user-services/quest/logon.html
+
+Once you have access to Quest, you need install the R packages used by Ceto.  You can choose to install only those genomes relevant to your research.
+
+Copy and paste the following in to the command line:
+
+#load R
+module load R/3.2.2
+
+# open R
+R
+
+# Set up R packages
+source("http://bioconductor.org/biocLite.R")
+biocLite("BSgenome.Mmusculus.UCSC.mm10")
+biocLite("BSgenome.Mmusculus.UCSC.mm9")
+biocLite("BSgenome.Hsapiens.UCSC.hg19")
+biocLite("BSgenome.Hsapiens.UCSC.hg38")
+biocLite("BSgenome.Scerevisiae.UCSC.sacCer3")
+biocLite("ChIPpeakAnno")
+biocLite("topGO")
+
+# exit R
+q()
+
+You will get an error pointing out that you cannot install R libraries for everyone.  That’s fine.  Accept the program’s proposal that R libraries be installed in your personal directory.
+
+
+Next, transfer your sequence data on to Quest:
+http://www.it.northwestern.edu/research/user-services/quest/filetransfer.html
+
+You are now ready to start analyzing your data!
+
+RNAseq data
+
+Log on to Quest.
+
+cd /projects/p20742/testRNA/
+
+# Make a directory for your analysis results (Substitute b1025 with your allocation throughout)
+outputDirectory=/projects/b1025/testOutput/
+mkdir $outputDirectory
+
+# Change to the directory you just made.
+cd $outputDirectory
+
+# Build the pipeline scripts in that directory.
+/projects/p20742/tools/buildPipelineScripts.pl \
+    -t RNA \
+    -o $outputDirectory \
+    -g mm10 \
+    -f /projects/p20742/testRNA/fastq \
+    -c /projects/p20742/testRNA/comparisons.csv \
+    -uploadASHtracks 0 \
+    -runAlign 1 \
+    -runEdgeR 1 \
+    >& buildPipelineScripts.testRNA.log & 
+
+
+# Check on the status of your jobs running on the cluster 
+showq -u ${USER}
+
+# Look at the arguments we used above:
+
+# The fastq directory
+ls /projects/p20742/testRNA/fastq
+
+# The comparisons file
+more /projects/p20742/testRNA/comparisons.csv
+
+# Look for files created by Ceto:
+ls $outputDirectory/testRNA/
+
+# Poke around in the resulting files
+more $outputDirectory/testRNA/scripts/run_mESc-2i-RNA-DMSO-REP1_align.sh
+# These are the commands that are being run by Ceto
+
+# Wait about 8 hours for Ceto to finish running, and then explore the contents of the output directory
+
+
+# Try a different fastq directory and comparisons file.  Can you run your own analysis?
+
