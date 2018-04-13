@@ -1,8 +1,0 @@
-@first_sequence
-SEQUENCE1
-+
-:6;;8<=:<
-@second_sequence
-SEQUENCE2
-+
-83<??:(61

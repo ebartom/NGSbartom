@@ -1,4 +1,11 @@
-
+#!/software/activeperl/5.16/bin/perl -w
+use Getopt::Long qw(GetOptions);
+use List::Util qw(max);
+use List::MoreUtils qw(uniq);
+use File::Basename;
+use strict;
+use utf8;
+use warnings;
 #use Config::Abstract::Ini;
 
 unless (@ARGV) {

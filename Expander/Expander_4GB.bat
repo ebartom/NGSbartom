@@ -1,1 +1,0 @@
-java -client -jar -Xms2500m -Xmx3200m executable.jar 20000 > expanderLog.txt 2<&1
