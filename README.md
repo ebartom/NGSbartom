@@ -4,7 +4,8 @@ Ceto is a modular system for analyzing next generation sequence (NGS) data.  Wit
 
 buildPipelineScripts.pl is essentially a decision tree that walks through the tools in the toolbox along with open source tools, and creates a series of shell scripts for different types of NGS analysis.  Currently, ChIP-seq and RNA-seq pipelines are implemented and well tested.  These are based on collaborations between the Bartom Lab, the Shilatifard lab, the Ntziachristos Lab, the Pulmonology Division, and other scientists at Northwestern University.
 
-Integration of an NGSplot based pipeline developed by Clayton Collings in the Shilatifard Lab, is currently underway.  See NGSbartom/bin/NGSplotPipeline/NGSplotPipeline.presentation.pdf for more detail on functionality.
+An introduction to RNA-seq analysis with Ceto is available here:
+https://raw.githubusercontent.com/ebartom/NGSbartom/master/documentation/RNAseqAnalysisWithCETO.txt
 
 To read more about the philosophy behind Ceto, please see https://github.com/ebartom/NGSbartom/blob/master/documentation/000_Introduction.txt .
 
