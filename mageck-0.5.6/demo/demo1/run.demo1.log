@@ -1,0 +1,53 @@
+INFO  @ Sun, 09 Jul 2017 11:04:06: Parameters: /home/etb589/.local/bin/mageck test -k sample.txt -t HL60.final,KBM7.final -c HL60.initial,KBM7.initial -n demo 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Welcome to MAGeCK v0.5.6. Command: test 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Loading count table from sample.txt  
+INFO  @ Sun, 09 Jul 2017 11:04:06: Processing 1 lines.. 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Loaded 999 records. 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Loading R template file: /home/etb589/.local/lib/python2.7/site-packages/mageck/plot_template.RTemplate. 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Loading R template file: /home/etb589/.local/lib/python2.7/site-packages/mageck/plot_template_indvgene.RTemplate. 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Loading Rnw template file: /home/etb589/.local/lib/python2.7/site-packages/mageck/plot_template.Rnw. 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Treatment samples:HL60.final,KBM7.final 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Treatment sample index:2,3 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Control samples:HL60.initial,KBM7.initial 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Control sample index:0,1 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Final size factor: 1.46987098582 1.77594748882 0.630889769381 0.572181316103 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Running command: RRA -i demo.plow.txt -o demo.gene.low.txt -p 0.361361361361 --skip-gene NA --skip-gene na  
+INFO  @ Sun, 09 Jul 2017 11:04:06: Command message: 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Welcome to RRA v 0.5.6. 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Skipping gene NA for permutation ... 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Skipping gene na for permutation ... 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Reading input file... 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Summary: 999 sgRNAs, 100 genes, 1 lists; skipped sgRNAs:0 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Computing lo-values for each group... 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Computing false discovery rate... 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Increase the number of permutations to 1001 to get precise p values. To avoid this, use the --permutation option. 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Permuting genes with 9 sgRNAs... 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Permuting genes with 10 sgRNAs... 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Number of genes under FDR adjustment: 100 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   Saving to output file... 
+INFO  @ Sun, 09 Jul 2017 11:04:06:   RRA completed. 
+INFO  @ Sun, 09 Jul 2017 11:04:06:    
+INFO  @ Sun, 09 Jul 2017 11:04:06: End command message. 
+INFO  @ Sun, 09 Jul 2017 11:04:06: Running command: RRA -i demo.phigh.txt -o demo.gene.high.txt -p 0.36036036036 --skip-gene NA --skip-gene na  
+INFO  @ Sun, 09 Jul 2017 11:04:07: Command message: 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Welcome to RRA v 0.5.6. 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Skipping gene NA for permutation ... 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Skipping gene na for permutation ... 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Reading input file... 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Summary: 999 sgRNAs, 100 genes, 1 lists; skipped sgRNAs:0 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Computing lo-values for each group... 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Computing false discovery rate... 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Increase the number of permutations to 1001 to get precise p values. To avoid this, use the --permutation option. 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Permuting genes with 9 sgRNAs... 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Permuting genes with 10 sgRNAs... 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Number of genes under FDR adjustment: 100 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   Saving to output file... 
+INFO  @ Sun, 09 Jul 2017 11:04:07:   RRA completed. 
+INFO  @ Sun, 09 Jul 2017 11:04:07:    
+INFO  @ Sun, 09 Jul 2017 11:04:07: End command message. 
+INFO  @ Sun, 09 Jul 2017 11:04:07: Loading top 10 genes from demo.gene.low.txt: ACTR8,ACIN1,AHCY,ACLY,AATF,ABT1,AHCTF1,AGBL5,ACTR3,ADIRF 
+INFO  @ Sun, 09 Jul 2017 11:04:07: Loading top 10 genes from demo.gene.high.txt: ACRC,AGAP3,AGTPBP1,ADCK3,ABCB8,ADNP,ADCK1,ADRBK1,ADCK4,ADRA1A 
+INFO  @ Sun, 09 Jul 2017 11:04:07: Running command: rm demo.plow.txt 
+INFO  @ Sun, 09 Jul 2017 11:04:07: Running command: rm demo.phigh.txt 
+INFO  @ Sun, 09 Jul 2017 11:04:07: Running command: rm demo.gene.low.txt 
+INFO  @ Sun, 09 Jul 2017 11:04:07: Running command: rm demo.gene.high.txt 

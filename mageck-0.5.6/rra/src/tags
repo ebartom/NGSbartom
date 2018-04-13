@@ -1,0 +1,100 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+A256	rngs.cpp	43;"	d	file:
+AllocWords	words.cpp	/^char **AllocWords(int wordNum, int wordLen)$/;"	f
+Bernoulli	rvgs.cpp	/^   long Bernoulli(double p)$/;"	f
+BetaNoncentralCdf	math_api.cpp	/^double BetaNoncentralCdf ( double a, double b, double lambda, double x, double error_max )$/;"	f
+Binomial	rvgs.cpp	/^   long Binomial(long n, double p)$/;"	f
+CDF_MAX_ERROR	classdef.h	14;"	d
+CHECK	rngs.cpp	41;"	d	file:
+CLASSDEF_H	classdef.h	2;"	d
+Chisquare	rvgs.cpp	/^   double Chisquare(long n)$/;"	f
+ComputeDistanceCorrelation	math_api.cpp	/^double ComputeDistanceCorrelation(double *input, double *output, int inputNum, int dim)$/;"	f
+ComputeFDR	RRA.cpp	/^int ComputeFDR(GROUP_STRUCT *groups, int groupNum, double maxPercentile, int numOfRandPass)$/;"	f
+ComputeLoValue	RRA.cpp	/^int ComputeLoValue(double *percentiles,     \/\/array of percentiles$/;"	f
+ComputeLoValue_Prob	RRA.cpp	/^int ComputeLoValue_Prob(double *percentiles,     \/\/array of percentiles$/;"	f
+ControlSeqMap	RRA.cpp	/^map<string,int> ControlSeqMap; \/\/save the control sequence name and their index in ControlSeqPercentile;$/;"	v
+ControlSeqPercentile	RRA.cpp	/^double* ControlSeqPercentile;$/;"	v
+DEFAULT	rngs.cpp	44;"	d	file:
+DirToWords	words.cpp	/^int DirToWords(char **words, char *dirName, int maxWordLen, int maxWordNum, const char *ext)$/;"	f
+Equilikely	rvgs.cpp	/^   long Equilikely(long a, long b)$/;"	f
+Erlang	rvgs.cpp	/^   double Erlang(long n, double b)$/;"	f
+EucliDist	math_api.cpp	/^double EucliDist(double *a, double *b, int dim)$/;"	f
+Exponential	rvgs.cpp	/^   double Exponential(double m)$/;"	f
+FILEIO_H	fileio.h	2;"	d
+FreeWords	words.cpp	/^void FreeWords(char **ptr, int wordNum)$/;"	f
+GROUP_STRUCT	classdef.h	/^} GROUP_STRUCT;$/;"	t	typeref:struct:__anon2
+Geometric	rvgs.cpp	/^   long Geometric(double p)$/;"	f
+GetSeed	rngs.cpp	/^   void GetSeed(long *x)$/;"	f
+ITEM_STRUCT	classdef.h	/^} ITEM_STRUCT;$/;"	t	typeref:struct:__anon1
+LIST_STRUCT	classdef.h	/^} LIST_STRUCT;$/;"	t	typeref:struct:__anon3
+LogGamma	math_api.cpp	/^double LogGamma(double x, int *flag)$/;"	f
+Lognormal	rvgs.cpp	/^   double Lognormal(double a, double b)$/;"	f
+MAX_GROUP_NUM	classdef.h	15;"	d
+MAX_LIST_NUM	classdef.h	16;"	d
+MAX_NAME_LEN	classdef.h	13;"	d
+MAX_WORD_NUM	classdef.h	19;"	d
+MODULUS	rngs.cpp	39;"	d	file:
+MULTIPLIER	rngs.cpp	40;"	d	file:
+NDEBUG	classdef.h	10;"	d
+Normal	rvgs.cpp	/^   double Normal(double m, double s)$/;"	f
+NormalTransform	math_api.cpp	/^int NormalTransform(double *destA, int *rank, int sampleNum)$/;"	f
+PRINT_DEBUG	RRA.cpp	/^int PRINT_DEBUG=0;$/;"	v
+PartialCorrel	math_api.cpp	/^double PartialCorrel(double *a, double *b, double *control, int dim)$/;"	f
+Pascal	rvgs.cpp	/^   long Pascal(long n, double p)$/;"	f
+PearsonCorrel	math_api.cpp	/^double PearsonCorrel(double *a, double *b, int dim)$/;"	f
+PermuteFloatArrays	math_api.cpp	/^void PermuteFloatArrays(double *a, int size)$/;"	f
+PlantSeeds	rngs.cpp	/^   void PlantSeeds(long x)$/;"	f
+Poisson	rvgs.cpp	/^   long Poisson(double m)$/;"	f
+PrintCommandUsage	RRA.cpp	/^void PrintCommandUsage(const char *command)$/;"	f
+ProcessGroups	RRA.cpp	/^int ProcessGroups(GROUP_STRUCT *groups, int groupNum, LIST_STRUCT *lists, int listNum, double maxPercentile)$/;"	f
+PutSeed	rngs.cpp	/^   void PutSeed(long x)$/;"	f
+QuickSortGroupByLoValue	RRA.cpp	/^void QuickSortGroupByLoValue(GROUP_STRUCT *groups, int lo, int hi)$/;"	f
+QuicksortF	math_api.cpp	/^void QuicksortF(double *a, int lo, int hi)$/;"	f
+QuicksortIndexedArray	math_api.cpp	/^void QuicksortIndexedArray(INDEXED_FLOAT *a, int lo, int hi)$/;"	f
+RAND_PASS_NUM	classdef.h	17;"	d
+Random	rngs.cpp	/^   double Random(void)$/;"	f
+Ranking	math_api.cpp	/^void Ranking(int *rank, double *values, int sampleNum)$/;"	f
+ReadFile	fileio.cpp	/^int ReadFile(char *fileName, GROUP_STRUCT *groups, int maxGroupNum, int *groupNum, $/;"	f
+STREAMS	rngs.cpp	42;"	d	file:
+SaveGroupInfo	fileio.cpp	/^int SaveGroupInfo(char *fileName, GROUP_STRUCT *groups, int groupNum)$/;"	f
+SelectStream	rngs.cpp	/^   void SelectStream(int index)$/;"	f
+StringToWords	words.cpp	/^int StringToWords(char **words, char *str, int maxWordLen, int maxWordNum, const char *delim)$/;"	f
+Student	rvgs.cpp	/^   double Student(long n)$/;"	f
+TestRandom	rngs.cpp	/^   void TestRandom(void)$/;"	f
+Uniform	rvgs.cpp	/^   double Uniform(double a, double b)$/;"	f
+UseControlSeq	RRA.cpp	/^bool UseControlSeq=false;$/;"	v
+bTreeSearchingF	math_api.cpp	/^int  bTreeSearchingF(double value, double *a, int lo, int hi)$/;"	f
+betain	math_api.cpp	/^double betain ( double x, double p, double q, double beta, int *ifault )$/;"	f
+fdr	classdef.h	/^	double fdr;                    \/\/false discovery rate$/;"	m	struct:__anon2
+getGroupListNum	fileio.cpp	/^int getGroupListNum(char* fileName, GROUP_STRUCT* groups, LIST_STRUCT* lists, int maxGroupNum, int maxListNum, int &groupNum, int& listNum){$/;"	f
+goodsgrnas	classdef.h	/^  int goodsgrnas;               \/\/sgRNAs with significant changes$/;"	m	struct:__anon2
+initialized	rngs.cpp	/^static int  initialized   = 0;          \/* test for stream initialization *\/$/;"	v	file:
+isbad	classdef.h	/^  int isbad;                    \/\/if the lovalue is too low (i.e., higher than the given percentile)$/;"	m	struct:__anon2
+itemNum	classdef.h	/^	int itemNum;                   \/\/number of items in the group$/;"	m	struct:__anon2
+itemNum	classdef.h	/^	int itemNum;                   \/\/number of items in the list$/;"	m	struct:__anon3
+items	classdef.h	/^	ITEM_STRUCT *items;            \/\/items in the group$/;"	m	struct:__anon2
+listIndex	classdef.h	/^	int listIndex;                 \/\/index of list storing the item$/;"	m	struct:__anon1
+loValue	classdef.h	/^	double loValue;                \/\/lo-value in RRA$/;"	m	struct:__anon2
+loadControlSeq	RRA.cpp	/^int loadControlSeq(const char* fname){$/;"	f
+main	RRA.cpp	/^int main (int argc, const char * argv[]) $/;"	f
+maxItemNum	classdef.h	/^  int maxItemNum;                \/\/ max number of items$/;"	m	struct:__anon2
+maxItemNum	classdef.h	/^  int maxItemNum;               \/\/max item number$/;"	m	struct:__anon3
+nLovarray	RRA.cpp	/^int nLovarray=-1;$/;"	v
+name	classdef.h	/^	char name[MAX_NAME_LEN];       \/\/name of the group$/;"	m	struct:__anon2
+name	classdef.h	/^	char name[MAX_NAME_LEN];       \/\/name of the item$/;"	m	struct:__anon1
+name	classdef.h	/^	char name[MAX_NAME_LEN];       \/\/name of the list$/;"	m	struct:__anon3
+normalInv	math_api.cpp	/^double normalInv(double p)$/;"	f
+percentile	classdef.h	/^	double percentile;             \/\/percentile in the list$/;"	m	struct:__anon1
+prob	classdef.h	/^	double prob;			\/\/The probability of each sgRNA; added by Wei$/;"	m	struct:__anon1
+pvalue	classdef.h	/^  double pvalue;                \/\/p value for permutation$/;"	m	struct:__anon2
+seed	rngs.cpp	/^static long seed[STREAMS] = {DEFAULT};  \/* current state of each stream   *\/$/;"	v	file:
+stream	rngs.cpp	/^static int  stream        = 0;          \/* stream index, 0 is the default *\/$/;"	v	file:
+stringSplit	fileio.cpp	/^int stringSplit(string str, string delim, vector<string> & v){$/;"	f
+tmpLovarray	RRA.cpp	/^double* tmpLovarray=NULL;$/;"	v
+value	classdef.h	/^	double value;                  \/\/value of measurement$/;"	m	struct:__anon1
+values	classdef.h	/^	double *values;                \/\/values of items in the list, used for sorting$/;"	m	struct:__anon3

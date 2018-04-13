@@ -1,0 +1,54 @@
+DenNHist                Density plot to compare the empirical q's and
+                        the simulated q's from the fitted beta
+                        distribution.
+EBMultiTest             Using EM algorithm to calculate the posterior
+                        probabilities of interested patterns in a
+                        multiple condition study
+EBSeq_NingLeng-package
+                        EBSeq: RNA-Seq Differential Expression Analysis
+                        on both gene and isoform level
+EBTest                  Using EM algorithm to calculate the posterior
+                        probabilities of being DE
+GeneMat                 The simulated data for two condition gene DE
+                        analysis
+GetDEResults            Obtain Differential Expression Analysis Results
+                        in a Two-condition Test
+GetMultiFC              Calculate the Fold Changes for Multiple
+                        Conditions
+GetMultiPP              Posterior Probability of Each Transcript
+GetNg                   Ng Vector
+GetNormalizedMat        Calculate normalized expression matrix
+GetPP                   Generate the Posterior Probability of each
+                        transcript.
+GetPPMat                Posterior Probability of Transcripts
+GetPatterns             Generate all possible patterns in a multiple
+                        condition study
+IsoList                 The simulated data for two condition isoform DE
+                        analysis
+IsoMultiList            The simulated data for multiple condition
+                        isoform DE analysis
+Likefun                 Likelihood Function of the NB-Beta Model
+LikefunMulti            Likelihood Function of the NB-Beta Model In
+                        Multiple Condition Test
+LogN                    The function to run EM (one round) algorithm
+                        for the NB-beta model.
+LogNMulti               EM algorithm for the NB-beta model in the
+                        multiple condition test
+MedianNorm              Median Normalization
+MultiGeneMat            The simulated data for multiple condition gene
+                        DE analysis
+PlotPattern             Visualize the patterns
+PlotPostVsRawFC         Plot Posterior FC vs FC
+PolyFitPlot             Fit the mean-var relationship using polynomial
+                        regression
+PostFC                  Calculate the posterior fold change for each
+                        transcript across conditions
+QQP                     The Quantile-Quantile Plot to compare the
+                        empirical q's and simulated q's from fitted
+                        beta distribution
+QuantileNorm            Quantile Normalization
+RankNorm                Rank Normalization
+beta.mom                Fit the beta distribution by method of moments
+crit_fun                Calculate the soft threshold for a target FDR
+f0                      The Prior Predictive Distribution of being EE
+f1                      The Prior Predictive Distribution of being DE

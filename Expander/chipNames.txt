@@ -1,0 +1,4 @@
+organism	Whole Transcript	Alternative Splicing
+human	HuGene-1_0-st-v1	HuEx-1_0-st-v2
+mouse	MoGene-1_0-st-v1 	MoEx-1_0-st-v1
+rat	RaGene-1_0-st-v1	RaEx-1_0-st-v1

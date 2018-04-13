@@ -1,0 +1,1149 @@
+%\VignetteIndexEntry{EBSeq Vignette}
+
+\documentclass{article}
+\usepackage{fullpage}
+\usepackage{graphicx, graphics, epsfig,setspace,amsmath, amsthm}
+\usepackage{hyperref}
+\usepackage{natbib}
+%\usepackage{listings}
+\usepackage{moreverb}
+\begin{document}
+\title{EBSeq: An R package for differential expression analysis using RNA-seq data}
+\author{Ning Leng, John Dawson, and Christina Kendziorski}
+\maketitle
+\tableofcontents
+\setcounter{tocdepth}{2}
+
+\section{Introduction}
+EBSeq may be used to identify differentially expressed (DE)
+genes and isoforms in an RNA-Seq experiment. As detailed in
+Leng {\it et al.}, 2013 \cite{Leng13}, 
+EBSeq is an empirical Bayesian approach that models a number of features
+observed in RNA-seq data. Importantly, for isoform level inference,
+EBSeq directly accommodates isoform expression estimation uncertainty by
+modeling the differential variability observed in distinct groups of isoforms.
+Consider Figure 1, where we have plotted variance against mean
+for all isoforms using RNA-Seq expression data from Leng {\it et al.}, 2013 \cite{Leng13}.
+Also shown is the fit within three sub-groups of isoforms defined
+by the number of constituent isoforms of the parent gene.
+An isoform of gene $g$ is assigned to the $I_g=k$ group, where $k=1,2,3$,
+if the total number of isoforms from gene $g$ is $k$ (the $I_g=3$ group contains
+all isoforms from genes having 3 or more isoforms).
+As shown in Figure 1, there is decreased variability in the $I_g=1$ group,
+but increased variability in the others, due to the relative increase in
+uncertainty inherent in estimating isoform expression when multiple isoforms of a given gene are
+present.  If this structure is not accommodated, there is reduced power for
+identifying isoforms in the $I_g=1$ group (since the true variances in that group are
+lower, on average, than that derived from the full collection of isoforms) as well as increased
+false discoveries in the $I_g=2$ and $I_g=3$ groups (since the true variances are higher, on average,
+than those derived from the full collection). EBSeq directly models differential variability
+as a function of $I_g$ providing a powerful approach for isoform level inference. As shown in Leng {\it et al.}, 2013
+\cite{Leng13}, the model is also useful for identifying DE genes.
+We will briefly detail the model in Section \ref{sec:model} and then describe
+the flow of analysis in Section \ref{sec:quickstart} for both isoform and gene-level inference.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.6\textwidth]{PlotExample.png}
+\label{fig:GouldNg}
+\caption{Empirical variance vs. mean for
+each isoform profiled in the ESCs vs iPSCs experiment detailed in
+the Case Study section of Leng {\it et al.}, 2013 \cite{Leng13}.
+A spline fit to all isoforms is shown in red with splines fit within the $I_g=1$, $I_g=2$, and $I_g=3$ isoform groups
+shown in yellow, pink, and green, respectively.}
+\end{figure}
+
+
+\section{Citing this software}
+\label{sec:cite}
+Please cite the following article when reporting results from the software.
+
+\noindent Leng, N., J.A. Dawson, J.A. Thomson, V. Ruotti, A.I. Rissman, 
+B.M.G. Smits, J.D. Haag, M.N. Gould, R.M. Stewart, and C. Kendziorski. 
+EBSeq: An empirical Bayes hierarchical model for inference in RNA-seq
+experiments, {\it Bioinformatics}, 2013.
+
+\section{The Model}
+\label{sec:model}
+\subsection{Two conditions}
+\label{sec:twocondmodel}
+We let $X_{g_i}^{C1} = X_{g_i,1} ,X_{g_i,2}, ...,X_{g_i,S_1}$ denote data from condition 1
+and $ X_{g_i}^{C2} = X_{g_i,(S_1+1)},X_{g_i,(S_1+2)},...,X_{g_i,S}$ data from condition 2.
+We assume that counts within condition $C$ are distributed as Negative Binomial: 
+$X_{g_i,s}^C|r_{g_i,s}, q_{g_i}^C \sim NB(r_{g_i,s}, q_{g_i}^C)$ where
+\begin{equation}
+P(X_{g_i,s}|r_{g_i,s},q_{g_i}^C) = {X_{g_i,s}+r_{g_i,s}-1\choose X_{g_i,s}}(1-q_{g_i}^C)^{X_{g_i,s}}(q_{g_i}^C)^{r_{g_i,s}}\label{eq:01}
+\end{equation}
+
+\noindent and $\mu_{g_i,s}^C=r_{g_i,s} (1-q_{g_i}^C)/q_{g_i}^C$;
+$(\sigma_{g_i,s}^C)^2=r_{g_i,s} (1-q_{g_i}^C)/(q_{g_i}^C)^2.$
+
+\medskip
+
+We assume a prior distribution on $q_{g_i}^C$: $q_{g_i}^C|\alpha, \beta^{I_g} \sim Beta(\alpha, \beta^{I_g})$.
+The hyperparameter $\alpha$ is shared by all the isoforms and $\beta^{I_g}$ is $I_g$ specific (note this is an index, not a power).
+We further assume that $r_{g_i,s}=r_{g_i,0} l_s$, where $r_{g_i,0}$ is an isoform specific 
+parameter common across conditions and $r_{g_i,s}$ depends on it through the sample-specific normalization factor $l_s$.
+Of interest in this two group comparison is distinguishing between two cases, or what we will refer to subsequently as
+two patterns of expression, namely equivalent expression (EE) and differential expression (DE):
+\begin{center}
+$H_0$ (EE) : $q_{g_i}^{C1}=q_{g_i}^{C2}$  vs  $H_1$ (DE) : $q_{g_i}^{C1} \neq q_{g_i}^{C2}$.
+\end{center}
+Under the null hypothesis (EE), the data $X_{g_i}^{C1,C2} = X_{g_i}^{C1}, X_{g_i}^{C2}$ arises 
+from the prior predictive distribution $f_0^{I_g}(X_{g_i}^{C1,C2})$:
+%\tiny
+\begin{equation}
+f_0^{I_g}(X_{g_i}^{C1,C2})=\Bigg[\prod_{s=1}^S {X_{g_i,s}+r_{g_i,s}-1\choose X_{g_i,s}}\Bigg]
+\frac{Beta(\alpha+\sum_{s=1}^S r_{g_i,s}, \beta^{I_g}+\sum_{s=1}^SX_{g_i,s} )}{Beta(\alpha, \beta^{I_g})}\label{eq:05}
+\end{equation}
+%\normalsize
+
+Alternatively (in a DE scenario), $X_{g_i}^{C1,C2}$ follows the prior predictive distribution $f_1^{I_g}(X_{g_i}^{C1,C2})$:
+\begin{equation}
+f_1^{I_g}(X_{g_i}^{C1,C2})=f_0^{I_g}(X_{g_i}^{C1})f_0^{I_g}(X_{g_i}^{C2}) \label{eq:06}
+\end{equation}
+
+Let the latent variable $Z_{g_i}$ be defined so that $Z_{g_i} = 1$ indicates that 
+isoform $g_i$ is DE and $Z_{g_i} =  0$ indicates isoform $g_i$ is EE, and
+$Z_{g_i} \sim Bernoulli(p)$.
+Then, the marginal distribution of $X_{g_i}^{C1,C2}$ and $Z_{g_i}$ is:
+\begin{equation}
+(1-p)f_0^{I_g}(X_{g_i}^{C1,C2}) + pf_1^{I_g}(X_{g_i}^{C1,C2})\label{eq:07}
+\end{equation}
+
+\noindent The posterior probability of being DE at isoform $g_i$ is obtained by Bayes' rule:
+\begin{equation}
+\frac{pf_1^{I_g}(X_{g_i}^{C1,C2})}{(1-p)f_0^{I_g}(X_{g_i}^{C1,C2}) + pf_1^{I_g}(X_{g_i}^{C1,C2})}\label{eq:08}
+\end{equation}
+
+%\newpage
+\subsection{More than two conditions}
+\label{sec:multicondmodel}
+EBSeq naturally accommodates multiple condition comparisons.
+For example, in a study with 3 conditions, there are K=5 possible expression patterns (P1,...,P5), or ways in which
+latent levels of expression may vary across conditions:
+\begin{align}
+\textrm {P1:}& \hspace{0.05in} q_{g_i}^{C1} = q_{g_i}^{C2}=q_{g_i}^{C3} \nonumber \\
+\textrm {P2:}& \hspace{0.05in} q_{g_i}^{C1} = q_{g_i}^{C2} \neq q_{g_i}^{C3} \nonumber \\
+\textrm {P3:}& \hspace{0.05in} q_{g_i}^{C1} = q_{g_i}^{C3} \neq q_{g_i}^{C2} \nonumber \\
+\textrm {P4:}& \hspace{0.05in} q_{g_i}^{C1} \neq q_{g_i}^{C2} = q_{g_i}^{C3} \nonumber \\
+\textrm {P5:}& \hspace{0.05in} q_{g_i}^{C1} \neq q_{g_i}^{C2} \neq
+q_{g_i}^{C3} \textrm{ and } q_{g_i}^{C1} \neq q_{g_i}^{C3} \nonumber
+\end{align}
+
+\noindent The prior predictive distributions for these are given, respectively, by:
+
+\begin{align}
+g_1^{I_g}(X_{g_i}^{C1,C2,C3}) &= f_0^{I_g}(X_{g_i}^{C1,C2,C3}) \nonumber \\
+g_2^{I_g}(X_{g_i}^{C1,C2,C3}) &= f_0^{I_g}(X_{g_i}^{C1,C2})f_0^{I_g}(X_{g_i}^{C3}) \nonumber \\
+g_3^{I_g}(X_{g_i}^{C1,C2,C3}) &= f_0^{I_g}(X_{g_i}^{C1,C3})f_0^{I_g}(X_{g_i}^{C2}) \nonumber \\
+g_4^{I_g}(X_{g_i}^{C1,C2,C3}) &= f_0^{I_g}(X_{g_i}^{C1})f_0^{I_g}(X_{g_i}^{C2,C3}) \nonumber \\
+g_5^{I_g}(X_{g_i}^{C1,C2,C3}) &= f_0^{I_g}(X_{g_i}^{C1})f_0^{I_g}(X_{g_i}^{C2})f_0^{I_g}(X_{g_i}^{C3}) \nonumber
+\end{align}
+
+\noindent where $f_0^{I_g}$ is the same as in equation \ref{eq:05}. Then the marginal distribution in 
+equation \ref{eq:07} becomes:
+
+\begin{equation}
+\sum_{k=1}^5 p_k g_k^{I_g}(X_{g_i}^{C1,C2,C3}) \label{eq:11}
+\end{equation}
+\noindent where $\sum_{k=1}^5 p_k = 1$. Thus, the posterior probability of
+isoform $g_i$ coming from pattern $K$ is readily obtained by:
+
+\begin{equation}
+\frac{p_K g_K^{I_g}(X_{g_i}^{C1,C2,C3})}{\sum_{k=1}^5 p_k g_k^{I_g}(X_{g_i}^{C1,C2,C3})} \label{eq:12}
+\end{equation}
+
+\subsection{Getting a false discovery rate (FDR) controlled list of genes or isoforms}
+\label{sec:fdrlist}
+To obtain a list of DE genes with false discovery rate (FDR) controlled
+at $\alpha$ in an experiment comparing two biological conditions, the genes
+with posterior probability of being DE (PPDE) greater than 1 - $\alpha$ should be used.
+For example, the genes with PPDE>=0.95 make up the list of DE genes with target
+FDR controlled at 5\%.  With more than two biological conditions, there are multiple
+DE patterns (see Section \ref{sec:multicondmodel}). To obtain a list of genes in a specific DE pattern with target
+FDR $\alpha$, a user should
+take the genes with posterior probability of being in that pattern greater
+than 1 - $\alpha$. Isoform-based lists are obtained in the same way.
+\newpage
+\section{Quick Start}
+\label{sec:quickstart}
+Before analysis can proceed, the EBSeq package must be loaded into the working space:
+<<>>=   
+library(EBSeq)
+@
+\subsection{Gene level DE analysis (two conditions)}
+\label{sec:startgenede}
+\subsubsection{Required input}
+\label{sec:startgenedeinput}
+\begin{flushleft}
+{\bf Data}:  The object \verb+Data+ should be a $G-by-S$ matrix containing the expression values for each gene and each sample,
+where $G$ is the number of genes and $S$ is the number of samples. These
+values should exhibit raw counts, without normalization
+across samples. Counts of this nature may be obtained from RSEM \cite{Li11b},
+Cufflinks \cite{Trapnell12}, or a similar approach.
+
+\vspace{5 mm}
+
+{\bf Conditions}:  The object \verb+Conditions+ should be a Factor vector of length $S$ that indicates to which condition each sample belongs.
+For example, if there are two conditions and three samples in each,
+$S=6$ and \verb+Conditions+ may be given by 
+
+\verb+as.factor(c("C1","C1","C1","C2","C2","C2"))+
+
+\end{flushleft} 
+\noindent The object \verb+GeneMat+ is a simulated data matrix containing 
+1,000 rows of genes and 10 columns of samples. The genes are named 
+\verb+Gene_1, Gene_2 ...+
+<<>>=
+data(GeneMat)
+str(GeneMat)
+@
+
+\subsubsection{Library size factor}
+\label{sec:startgenedesize}
+As detailed in Section \ref{sec:model}, EBSeq requires the library size factor $l_s$ for each sample $s$.
+Here, $l_s$ may be obtained via the function \verb+MedianNorm+, which reproduces the median normalization approach
+in DESeq \citep{Anders10}.
+<<>>=
+Sizes=MedianNorm(GeneMat)
+@
+
+\noindent If quantile normalization is preferred, $l_s$ may be obtained via the function \verb+QuantileNorm+. 
+(e.g. \verb+QuantileNorm(GeneMat,.75)+ for Upper-Quantile Normalization in \cite{Bullard10})
+
+\subsubsection{Running EBSeq on gene expression estimates}
+\label{sec:startgenederun}
+The function \verb+EBTest+ is used to detect DE genes. 
+For gene-level data, we don't need to specify the parameter 
+\verb+NgVector+ since there are no differences in $I_g$ structure among the different genes.
+Here, we simulated the first five samples to be in condition 1 and the other five in condition 2, so define: 
+
+\verb+Conditions=as.factor(rep(c("C1","C2"),each=5))+
+
+\noindent \verb+sizeFactors+ is used to define the library size factor of each sample. 
+It could be obtained by summing up the total number of reads within each sample, 
+Median Normalization \citep{Anders10},
+scaling normalization \citep{Robinson10}, Upper-Quantile Normalization \cite{Bullard10}, 
+or some other such approach.
+These in hand, we run the EM algorithm, setting the number 
+of iterations to five via \verb+maxround=5+ for demonstration purposes. 
+However, we note that in practice, 
+additional iterations are usually required. Convergence should always be 
+checked (see Section \ref{sec:detailedgenedeconverge} for details).
+Please note this may take several minutes:
+<<>>=
+EBOut=EBTest(Data=GeneMat, 
+Conditions=as.factor(rep(c("C1","C2"),each=5)),sizeFactors=Sizes, maxround=5)
+@
+\noindent The list of DE genes and the posterior probabilities of being DE are obtained as follows
+<<>>=
+EBDERes=GetDEResults(EBOut, FDR=0.05)
+str(EBDERes$DEfound)
+head(EBDERes$PPMat)
+str(EBDERes$Status)
+@
+\noindent \verb+EBDERes$DEfound+ is a list of genes identified with 5\% FDR. EBSeq found
+95 genes. The matrix \verb+EBDERes$PPMat+ contains two columns \verb+PPEE+ and \verb+PPDE+, 
+corresponding to the posterior probabilities of being EE or DE for each gene. 
+\verb+EBDERes$Status+ contains each gene's status called by EBSeq. 
+
+\noindent Note the \verb+GetDEResults()+ was incorporated in EBSeq since version 1.7.1. 
+By using the default settings, the number of genes identified in any given analysis may 
+differ slightly from the previous version. The updated algorithm is more robust to outliers
+and transcripts with low variance. To obtain results that are comparable
+to results from earlier versions of EBSeq ($\le$ 1.7.0), a user may set
+\verb+Method="classic"+ in \verb+GetDEResults()+ function, or use the \verb+GetPPMat()+ function.
+
+
+\subsection{Isoform level DE analysis (two conditions)}
+\label{sec:startisode}
+\subsubsection{Required inputs}
+\label{sec:startisodeinput}
+
+\begin{flushleft}
+{\bf Data}:   The object \verb+Data+ should be a $I-by-S$ matrix containing the expression values for each isoform and each sample,
+where $I$ is the number of isoforms and $S$ is the number of sample. As in the gene-level analysis, these values should exhibit raw data, without normalization
+across samples.
+
+\vspace{5 mm}
+
+{\bf Conditions}:  The object \verb+Conditions+ should be a vector with length $S$ to indicate the condition of each sample.
+
+\vspace{5 mm}
+
+{\bf IsoformNames}:   The object \verb+IsoformNames+ should be a vector with length $I$ to indicate the isoform names.
+
+\vspace{5 mm}
+
+{\bf IsosGeneNames}:  The object \verb+IsosGeneNames+ should be a vector with length $I$ to indicate the gene name of each isoform. 
+(in the same order as \verb+IsoformNames+.)
+\end{flushleft}
+
+\noindent \verb+IsoList+ contains 1,200 simulated isoforms. 
+In which \verb+IsoList$IsoMat+ is a data matrix containing
+1,200 rows of isoforms and 10 columns of samples; 
+\verb+IsoList$IsoNames+ contains the isoform names; 
+\verb+IsoList$IsosGeneNames+ contains the names of the genes the isoforms belong to.
+
+<<>>=
+data(IsoList)
+str(IsoList)
+IsoMat=IsoList$IsoMat
+str(IsoMat)
+IsoNames=IsoList$IsoNames
+IsosGeneNames=IsoList$IsosGeneNames
+@
+
+\subsubsection{Library size factor}
+\label{sec:startisodesize}
+Similar to the gene-level analysis presented above, we may obtain the isoform-level 
+library size factors via \verb+MedianNorm+:
+<<>>=
+IsoSizes=MedianNorm(IsoMat)
+@
+
+\subsubsection{The $I_g$ vector}
+\label{sec:startisodeNg}
+
+While working on isoform level data, EBSeq fits different prior 
+parameters for different uncertainty groups (defined as $I_g$ groups).
+The default setting to define the uncertainty groups consists of using 
+the number of isoforms the host gene contains ($N_g$) for each isoform. 
+The default settings will provide three uncertainty groups: 
+
+$I_g=1$ group: Isoforms with $N_g=1$;
+
+$I_g=2$ group: Isoforms with $N_g=2$;
+
+$I_g=3$ group: Isoforms with $N_g \geq 3$.
+
+The $N_g$ and $I_g$ group assignment can be obtained using the function \verb+GetNg+. 
+The required inputs of \verb+GetNg+ are the isoform names (\verb+IsoformNames+) and 
+their corresponding gene names (\verb+IsosGeneNames+).
+<<>>=
+NgList=GetNg(IsoNames, IsosGeneNames)
+IsoNgTrun=NgList$IsoformNgTrun
+IsoNgTrun[c(1:3,201:203,601:603)]
+@
+More details could be found in Section \ref{sec:detailedisode}.
+
+\subsubsection{Running EBSeq on isoform expression estimates}
+\label{sec:startisoderun}
+The \verb+EBTest+ function is also used to run EBSeq for two condition comparisons 
+on isoform-level data. 
+Below we use 5 iterations to demonstrate.  However, as
+in the gene level analysis, we advise that additional iterations will likely be 
+required in practice (see Section \ref{sec:detailedisodeconverge} for details). 
+
+<<>>=
+IsoEBOut=EBTest(Data=IsoMat, NgVector=IsoNgTrun, 
+Conditions=as.factor(rep(c("C1","C2"),each=5)),sizeFactors=IsoSizes, maxround=5)
+IsoEBDERes=GetDEResults(IsoEBOut, FDR=0.05)
+str(IsoEBDERes$DEfound)
+head(IsoEBDERes$PPMat)
+str(IsoEBDERes$Status)
+@
+\noindent We see that EBSeq found 104 DE isoforms at the target FDR of 0.05. 
+
+\noindent Note the \verb+GetDEResults()+ was incorporated in EBSeq since version 1.7.1.
+By using the default settings, the number of transcripts identified in any given analysis may 
+differ slightly from the previous version. The updated algorithm is more robust to outliers
+and transcripts with low variance. To obtain results that are comparable
+to results from earlier versions of EBSeq ($\le$ 1.7.0), a user may set
+\verb+Method="classic"+ in \verb+GetDEResults()+ function, or use the \verb+GetPPMat()+ function.
+
+
+
+
+
+
+\subsection{Gene level DE analysis (more than two conditions)}
+\label{sec:startmulticond}
+\noindent The object \verb+MultiGeneMat+ is a matrix containing 
+500 simulated genes with 6 samples: 
+the first two samples are from condition 1; the second and the third sample are 
+from condition 2; the last two samples are from condition 3.
+
+<<>>=
+data(MultiGeneMat)
+str(MultiGeneMat)
+@
+In analysis where the data are spread over more than two conditions,
+the set of possible patterns for each gene is more complicated
+than simply EE and DE. As noted in Section \ref{sec:model}, when we have 3 conditions, there are 5 expression
+patterns to consider. In the simulated data, we have 6 samples, 2 in each of 3 conditions.
+The function \verb+GetPatterns+ allows the user to generate all possible patterns given the conditions. For example:
+
+<<>>=
+Conditions=c("C1","C1","C2","C2","C3","C3")
+PosParti=GetPatterns(Conditions)
+PosParti
+@
+
+\noindent where the first row means all three conditions have the same latent mean expression level; 
+the second row means C1 and C2 have the same latent mean expression level but that of C3 is different; 
+and the last row corresponds to the case where the three conditions all have different latent mean expression levels.
+The user may use all or only some of these possible patterns as an input to \verb+EBMultiTest+.
+For example, if we were interested in Patterns 1, 2, 4 and 5 only, we'd define:
+<<>>=
+Parti=PosParti[-3,]
+Parti
+@
+
+Moving on to the analysis, \verb+MedianNorm+ or one of its competitors should be used to determine the normalization factors.
+Once this is done, the formal test is performed by \verb+EBMultiTest+. 
+<<>>=
+MultiSize=MedianNorm(MultiGeneMat)
+MultiOut=EBMultiTest(MultiGeneMat,NgVector=NULL,Conditions=Conditions,
+AllParti=Parti, sizeFactors=MultiSize, maxround=5)
+@
+\noindent The posterior probability of being in each pattern for every gene is obtained by using the 
+function \verb+GetMultiPP+:
+<<>>=
+MultiPP=GetMultiPP(MultiOut)
+names(MultiPP)
+MultiPP$PP[1:10,]
+MultiPP$MAP[1:10]
+MultiPP$Patterns
+@
+\noindent where \verb+MultiPP$PP+ provides the posterior probability of being in each pattern for every gene. 
+\verb+MultiPP$MAP+ provides the most likely pattern of each gene based on the posterior 
+probabilities. \verb+MultiPP$Patterns+ provides the details of the patterns. 
+
+
+
+\subsection{Isoform level DE analysis (more than two conditions)}
+\label{sec:startisomulticond}
+\noindent Similar to \verb+IsoList+,
+the object \verb+IsoMultiList+ is an object containing the isoform expression estimates matrix, the isoform 
+names, and the gene names of the isoforms' host genes. 
+\verb+IsoMultiList$IsoMultiMat+ contains 300 simulated isoforms with 8 samples. 
+The first two samples are from condition 1; the second and the third sample are 
+from condition 2; the fifth and sixth sample are from condition 3; 
+the last two samples are from condition 4.
+Similar to Section \ref{sec:startisode},  the function \verb+MedianNorm+ and \verb+GetNg+ could be used for normalization 
+and calculating the $N_g$'s. 
+<<>>=
+data(IsoMultiList)
+IsoMultiMat=IsoMultiList[[1]]
+IsoNames.Multi=IsoMultiList$IsoNames
+IsosGeneNames.Multi=IsoMultiList$IsosGeneNames
+IsoMultiSize=MedianNorm(IsoMultiMat)
+NgList.Multi=GetNg(IsoNames.Multi, IsosGeneNames.Multi)
+IsoNgTrun.Multi=NgList.Multi$IsoformNgTrun
+Conditions=c("C1","C1","C2","C2","C3","C3","C4","C4")
+@
+Here we have 4 conditions, there are 15 expression
+patterns to consider. 
+The function \verb+GetPatterns+ allows the user to generate all possible patterns given the conditions. For example:
+
+<<>>=
+PosParti.4Cond=GetPatterns(Conditions)
+PosParti.4Cond
+@
+
+\noindent 
+If we were interested in Patterns 1, 2, 3, 8 and 15 only, we'd define:
+<<>>=
+Parti.4Cond=PosParti.4Cond[c(1,2,3,8,15),]
+Parti.4Cond
+@
+
+\noindent
+Moving on to the analysis, \verb+EBMultiTest+ could be used to perform the test:
+<<>>=
+IsoMultiOut=EBMultiTest(IsoMultiMat,
+NgVector=IsoNgTrun.Multi,Conditions=Conditions,
+AllParti=Parti.4Cond, sizeFactors=IsoMultiSize, 
+maxround=5)
+@
+\noindent The posterior probability of being in each pattern for every gene is obtained by using the 
+function \verb+GetMultiPP+:
+<<>>=
+IsoMultiPP=GetMultiPP(IsoMultiOut)
+names(MultiPP)
+IsoMultiPP$PP[1:10,]
+IsoMultiPP$MAP[1:10]
+IsoMultiPP$Patterns
+@
+\noindent where \verb+MultiPP$PP+ provides the posterior probability of being in each pattern for every gene. 
+\verb+MultiPP$MAP+ provides the most likely pattern of each gene based on the posterior 
+probabilities. \verb+MultiPP$Patterns+ provides the details of the patterns. 
+
+
+
+\newpage
+\section{More detailed examples}
+\label{sec:detailed}
+\subsection{Gene level DE analysis (two conditions)}
+\label{sec:detailedgenede}
+
+\subsubsection{Running EBSeq on simulated gene expression estimates}
+\label{sec:detailedgenederun}
+EBSeq is applied as described in Section \ref{sec:startgenederun}.
+<<eval=FALSE>>=
+data(GeneMat)
+Sizes=MedianNorm(GeneMat)
+EBOut=EBTest(Data=GeneMat, 
+Conditions=as.factor(rep(c("C1","C2"),each=5)),sizeFactors=Sizes, maxround=5)
+EBDERes=GetDEResults(EBOut, FDR=0.05)
+@
+<<>>=
+EBDERes=GetDEResults(EBOut, FDR=0.05)
+str(EBDERes$DEfound)
+head(EBDERes$PPMat)
+str(EBDERes$Status)
+@
+\noindent EBSeq found 95 DE genes at a target FDR of 0.05.\\
+
+\subsubsection{Calculating FC}
+\label{sec:detailedgenedefc}
+The function \verb+PostFC+ may be used to calculate the Fold Change (FC) 
+of the raw data as well as the posterior FC of the normalized data.
+\begin{figure}[h!]
+\centering
+<<fig=TRUE>>=
+GeneFC=PostFC(EBOut)
+str(GeneFC)
+PlotPostVsRawFC(EBOut,GeneFC)
+@
+\caption{
+FC vs. Posterior FC for 1,000 gene expression estimates}
+\label{fig:GeneFC}
+\end{figure}
+Figure \ref{fig:GeneFC} shows the FC vs. Posterior FC on 1,000 gene expression estimates. 
+The genes are ranked by their cross-condition mean (adjusted by the normalization factors). 
+The posterior FC tends to shrink genes with low expressions (small rank); in this case the differences
+are minor. 
+
+
+\newpage
+
+\subsubsection{Checking convergence}
+\label{sec:detailedgenedeconverge}
+As detailed in Section \ref{sec:model}, we assume the prior distribution of $q_g^C$ is 
+$Beta(\alpha,\beta)$. The EM algorithm is used to estimate the 
+hyper-parameters $\alpha,\beta$ and the mixture parameter $p$. 
+The optimized parameters at each iteration may be obtained as follows (recall
+we are using 5 iterations for demonstration purposes): 
+<<>>=
+EBOut$Alpha
+EBOut$Beta
+EBOut$P
+@
+In this case the differences between the 4th and 5th iterations are always less 
+than 0.01.
+
+
+\subsubsection{Checking the model fit and other diagnostics}
+\label{sec:detailedgenedeplot}
+As noted in Leng {\it et al.}, 2013 \cite{Leng13}, EBSeq relies on parametric assumptions that should
+be checked following each analysis.
+The \verb+QQP+ function may be used to assess prior assumptions. 
+In practice, \verb+QQP+ generates the Q-Q plot of the empirical $q$'s 
+vs. the simulated $q$'s from the Beta prior distribution with 
+estimated hyper-parameters. Figure \ref{fig:GeneQQ} shows that the 
+data points lie on the $y=x$ line for both conditions, which indicates 
+that the Beta prior is appropriate.
+
+\begin{figure}[h!]
+\centering
+<<fig=TRUE>>=
+par(mfrow=c(1,2))
+QQP(EBOut)
+@
+\caption{QQ-plots for checking the assumption of a Beta prior (upper panels) as well as the
+model fit using data from condition 1 and condition 2 (lower panels)}
+\label{fig:GeneQQ}
+\end{figure}
+
+\newpage
+\noindent  
+Likewise, the \verb+DenNHist+ function may be used to check the density plot of empirical $q$'s vs the simulated
+$q$'s from the fitted Beta prior distribution. 
+Figure \ref{fig:GeneDenNHist} also shows our estimated distribution fits the 
+data very well.
+
+\begin{figure}[h!]
+\centering
+<<fig=T>>=
+par(mfrow=c(1,2))
+DenNHist(EBOut)
+@
+\caption{Density plots for checking the model fit using data from condition 1 and condition 2}
+\label{fig:GeneDenNHist}
+\end{figure}
+
+\newpage
+\subsection{Isoform level DE analysis (two conditions)}
+\label{sec:detailedisode}
+\subsubsection{The $I_g$ vector}
+\label{sec:detailedisodeNg}
+Since EBSeq fits rely on $I_g$, 
+we need to obtain the $I_g$ for each isoform. This can be done using the 
+function \verb+GetNg+. 
+The required inputs of \verb+GetNg+ are the isoform names (\verb+IsoformNames+) and 
+their corresponding gene names (\verb+IsosGeneNames+), described above.
+In the simulated data, we assume that the isoforms in the $I_g=1$ group belong to genes \verb+Gene_1, ... , Gene_200+; 
+The isoforms in the $I_g=2$ group belong to genes 
+\verb+Gene_201, ..., Gene_400+; and isoforms in the $I_g=3$ group 
+belong to \verb+Gene_401, ..., Gene_600+.
+
+<<eval=FALSE>>=
+data(IsoList)
+IsoMat=IsoList$IsoMat
+IsoNames=IsoList$IsoNames
+IsosGeneNames=IsoList$IsosGeneNames
+NgList=GetNg(IsoNames, IsosGeneNames, TrunThre=3)
+@
+<<>>=
+names(NgList)
+IsoNgTrun=NgList$IsoformNgTrun
+IsoNgTrun[c(1:3,201:203,601:603)]
+@
+
+The output of \verb+GetNg+ contains 4 vectors. \verb+GeneNg+ (\verb+IsoformNg+) provides 
+the number of isoforms $N_g$ within each gene (within each isoform's host gene). 
+\verb+GeneNgTrun+ (\verb+IsoformNgTrun+) provides the $I_g$ group assignments. 
+The default number of groups is 3, which means the isoforms  
+with $N_g$  greater than 3 will be assigned to $I_g=3$ group.
+We use 3 in the case studies 
+since the number of isoforms with $N_g$ larger than 3 is relatively small and 
+the small sample size may induce poor parameter fitting if we treat them 
+as separate groups.  
+In practice, if there is evidence that the $N_g=4,5,6...$ groups should be 
+treated as separate groups, a user can change \verb+TrunThre+ to define 
+a different truncation threshold.
+
+\subsubsection{Using mappability ambiguity clusters instead of 
+the $I_g$ vector when the gene-isoform relationship is unknown}
+\label{sec:detailedisodeNoNg}
+When working with a de-novo assembled transcriptome, in which case the gene-isoform 
+relationship is unknown, 
+a user can use read mapping ambiguity cluster information instead of Ng,
+as provided by RSEM \cite{Li11b} in the
+output file \verb+output_name.ngvec+. The file contains a vector with the same 
+length as the total number of transcripts. 
+Each transcript has been assigned to one of 3 levels 
+(1, 2, or 3) to indicate the mapping uncertainty level of that transcript. 
+The mapping ambiguity clusters are partitioned via a k-means algorithm on the unmapability 
+scores that are provided by RSEM.  A user can read in the mapping ambiguity cluster information  
+using:
+
+<<eval=FALSE>>=
+IsoNgTrun = scan(file="output_name.ngvec", what=0, sep="\n")
+@\\
+Where \verb+"output_name.ngvec"+ is the output file obtained from RSEM function rsem-generate-ngvector. 
+More details on using the RSEM-EBSeq pipeline 
+on de novo assembled transcriptomes can be found 
+at \url{http://deweylab.biostat.wisc.edu/rsem/README.html#de}.
+
+Other unmappability scores and other cluster methods (e.g. Gaussian Mixed Model) 
+could also be used to form the uncertainty clusters.
+
+\subsubsection{Running EBSeq on simulated isoform expression estimates}
+\label{sec:detailedisoderun}
+EBSeq can be applied as described in Section \ref{sec:startisoderun}.
+<<eval=FALSE>>=
+IsoSizes=MedianNorm(IsoMat)
+IsoEBOut=EBTest(Data=IsoMat, NgVector=IsoNgTrun, 
+Conditions=as.factor(rep(c("C1","C2"),each=5)),sizeFactors=IsoSizes, maxround=5)
+IsoEBDERes=GetDEResults(IsoEBOut, FDR=0.05)
+@
+<<>>=
+str(IsoEBDERes)
+@
+\noindent We see that EBSeq found 104 DE isoforms at a target FDR of 0.05. 
+The function \verb+PostFC+ could also be used here to calculate the Fold Change (FC) 
+as well as the posterior FC on the normalization factor adjusted data.
+<<>>=
+IsoFC=PostFC(IsoEBOut)
+str(IsoFC)
+@
+
+
+\subsubsection{Checking convergence}
+\label{sec:detailedisodeconverge}
+For isoform level data, we assume the prior distribution of $q_{gi}^C$ is
+$Beta(\alpha,\beta^{I_g})$.
+As in Section \ref{sec:detailedgenedeconverge}, the optimized parameters at each iteration 
+may be obtained as follows (recall
+we are using 5 iterations for demonstration purposes): 
+<<>>=
+IsoEBOut$Alpha
+IsoEBOut$Beta
+IsoEBOut$P
+@
+Here we have 3 $\beta$'s in each iteration corresponding to 
+$\beta^{I_g=1},\beta^{I_g=2},\beta^{I_g=3}$.
+We see that parameters are changing less than $10^{-2}$ or $10^{-3}$.
+In practice, we require changes less than $10^{-3}$ to declare convergence.
+
+\subsubsection{Checking the model fit and other diagnostics}
+\label{sec:detailedisodeplot}
+In Leng {\it et al.}, 2013\citep{Leng13}, we showed the mean-variance differences across different 
+isoform groups on multiple data sets. 
+In practice, if it is of interest to check differences among 
+isoform groups defined by truncated $I_g$ (such as those shown here
+in Figure 1), the function \verb+PolyFitPlot+ may be used. 
+The following code generates the three
+panels shown in Figure \ref{fig:IsoSimuNgEach}
+(if condition 2 is of interest, a user could change each \verb+C1+ to \verb+C2+.):
+\begin{figure}[h!]
+\centering
+<<fig=TRUE>>=
+par(mfrow=c(2,2))
+PolyFitValue=vector("list",3)
+for(i in 1:3)
+    PolyFitValue[[i]]=PolyFitPlot(IsoEBOut$C1Mean[[i]], 
+    IsoEBOut$C1EstVar[[i]],5)
+@
+\caption{ The mean-variance fitting plot for each Ng group}
+\label{fig:IsoSimuNgEach}
+\end{figure}
+
+\newpage
+Superimposing all $I_g$ groups using the code below will generate the figure (shown 
+here in Figure \ref{fig:IsoSimuNg}), which is similar in structure to Figure 1:
+
+
+\begin{figure}[h!]
+\centering
+<<fig=TRUE>>=
+PolyAll=PolyFitPlot(unlist(IsoEBOut$C1Mean), unlist(IsoEBOut$C1EstVar),5)
+lines(log10(IsoEBOut$C1Mean[[1]][PolyFitValue[[1]]$sort]), 
+PolyFitValue[[1]]$fit[PolyFitValue[[1]]$sort],col="yellow",lwd=2)
+lines(log10(IsoEBOut$C1Mean[[2]][PolyFitValue[[2]]$sort]), 
+PolyFitValue[[2]]$fit[PolyFitValue[[2]]$sort],col="pink",lwd=2)
+lines(log10(IsoEBOut$C1Mean[[3]][PolyFitValue[[3]]$sort]), 
+PolyFitValue[[3]]$fit[PolyFitValue[[3]]$sort],col="green",lwd=2)
+legend("topleft",c("All Isoforms","Ng = 1","Ng = 2","Ng = 3"),
+col=c("red","yellow","pink","green"),lty=1,lwd=3,box.lwd=2)
+@
+\caption{The mean-variance plot for each Ng group}
+\label{fig:IsoSimuNg}
+\end{figure}
+
+
+\newpage
+\noindent To generate a QQ-plot of the fitted Beta prior distribution 
+and the $\hat{q}^C$'s within condition, a user may 
+use the following code to generate 6 panels (as shown in Figure \ref{fig:IsoQQ}).
+\begin{figure}[h!]
+\centering
+<<fig=TRUE>>=
+par(mfrow=c(2,3))
+QQP(IsoEBOut)
+@
+\caption{ QQ-plots of the fitted prior distributions within each condition and each Ig group}
+\label{fig:IsoQQ}
+\end{figure}
+
+\newpage
+\noindent And in order to produce the plot of the fitted Beta prior densities
+and the histograms of $\hat{q}^C$'s within each condition, 
+the following may be used (it generates Figure \ref{fig:IsoDenNHist}):
+\begin{figure}[h]
+\centering
+<<fig=TRUE>>=
+par(mfrow=c(2,3))
+DenNHist(IsoEBOut)
+@
+\caption{ Prior distribution fit within each condition and each Ig group.
+(Note only a small set of isoforms are considered here for demonstration.
+Better fitting should be expected while using full set of isoforms.)}
+\label{fig:IsoDenNHist}
+\end{figure}
+
+\clearpage
+\subsection{Gene level DE analysis (more than two conditions)}
+\label{sec:detailedmulticond}
+As described in Section \ref{sec:startmulticond}, 
+the function \verb+GetPatterns+ allows the user to generate all possible patterns given the conditions.
+To visualize the patterns, the function \verb+PlotPattern+ may be used.
+
+\begin{figure}[h!]
+\centering
+<<fig=TRUE>>=
+Conditions=c("C1","C1","C2","C2","C3","C3")
+PosParti=GetPatterns(Conditions)
+PosParti
+PlotPattern(PosParti)
+@
+\caption{ All possible patterns}
+\label{fig:Patterns}
+\end{figure}
+\newpage
+\noindent If we were interested in Patterns 1, 2, 4 and 5 only, we'd define:
+<<>>=
+Parti=PosParti[-3,]
+Parti
+@
+
+\noindent 
+Moving on to the analysis, \verb+MedianNorm+ or one of its competitors should be used to determine the normalization factors.
+Once this is done, the formal test is performed by \verb+EBMultiTest+. 
+<<eval=FALSE>>=
+data(MultiGeneMat)
+MultiSize=MedianNorm(MultiGeneMat)
+MultiOut=EBMultiTest(MultiGeneMat,
+NgVector=NULL,Conditions=Conditions,
+AllParti=Parti, sizeFactors=MultiSize, 
+maxround=5)
+@
+\noindent The posterior probability of being in each pattern for every gene is obtained using the 
+function \verb+GetMultiPP+:
+<<>>=
+MultiPP=GetMultiPP(MultiOut)
+names(MultiPP)
+MultiPP$PP[1:10,]
+MultiPP$MAP[1:10]
+MultiPP$Patterns
+@
+\noindent where \verb+MultiPP$PP+ provides the posterior probability of being in each pattern for every gene. 
+\verb+MultiPP$MAP+ provides the most likely pattern of each gene based on the posterior 
+probabilities. \verb+MultiPP$Patterns+ provides the details of the patterns.  The FC and posterior FC for multiple condition data can
+be obtained by the function \verb+GetMultiFC+:
+
+<<>>=
+MultiFC=GetMultiFC(MultiOut)
+str(MultiFC)
+@
+
+\noindent To generate a QQ-plot of the fitted Beta prior distribution 
+and the $\hat{q}^C$'s within condition, a user could also use function 
+\verb+DenNHist+ and \verb+QQP+.
+
+\begin{figure}[h!]
+\centering
+<<fig=TRUE>>=
+par(mfrow=c(2,2))
+QQP(MultiOut)
+@
+\caption{ QQ-plots of the fitted prior distributions within each condition and each Ig group}
+\label{fig:GeneMultiQQ}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+<<fig=TRUE>>=
+par(mfrow=c(2,2))
+DenNHist(MultiOut)
+@
+\caption{ Prior distributions fit within each condition. 
+(Note only a small set of genes are considered here for demonstration.
+Better fitting should be expected while using full set of genes.)}
+\label{fig:GeneMultiDenNHist}
+\end{figure}
+\newpage
+\clearpage
+\newpage
+\subsection{Isoform level DE analysis (more than two conditions)}
+\label{sec:detailedisomulticond}
+Similar to Section \ref{sec:startmulticond}, 
+the function \verb+GetPatterns+ allows a user to generate all possible patterns given the conditions.
+To visualize the patterns, the function \verb+PlotPattern+ may be used.
+<<>>=
+Conditions=c("C1","C1","C2","C2","C3","C3","C4","C4")
+PosParti.4Cond=GetPatterns(Conditions)
+PosParti.4Cond
+@
+\newpage
+\begin{figure}[h!]
+\centering
+<<fig=TRUE>>=
+PlotPattern(PosParti.4Cond)
+Parti.4Cond=PosParti.4Cond[c(1,2,3,8,15),]
+Parti.4Cond
+@
+\caption{All possible patterns for 4 conditions}
+\label{fig:Patterns4Cond}
+\end{figure}
+
+\newpage
+<<eval=FALSE>>=
+data(IsoMultiList)
+IsoMultiMat=IsoMultiList[[1]]
+IsoNames.Multi=IsoMultiList$IsoNames
+IsosGeneNames.Multi=IsoMultiList$IsosGeneNames
+IsoMultiSize=MedianNorm(IsoMultiMat)
+NgList.Multi=GetNg(IsoNames.Multi, IsosGeneNames.Multi)
+IsoNgTrun.Multi=NgList.Multi$IsoformNgTrun
+IsoMultiOut=EBMultiTest(IsoMultiMat,NgVector=IsoNgTrun.Multi,Conditions=Conditions,
+AllParti=Parti.4Cond, 
+sizeFactors=IsoMultiSize, maxround=5)
+IsoMultiPP=GetMultiPP(IsoMultiOut)
+@
+<<>>=
+names(MultiPP)
+IsoMultiPP$PP[1:10,]
+IsoMultiPP$MAP[1:10]
+IsoMultiPP$Patterns
+IsoMultiFC=GetMultiFC(IsoMultiOut)
+@
+The FC and posterior FC for multiple condition data can be obtained by the function \verb+GetMultiFC+:
+
+
+\noindent To generate a QQ-plot of the fitted Beta prior distribution 
+and the $\hat{q}^C$'s within condition, a user could also use the functions 
+\verb+DenNHist+ and \verb+QQP+.
+\newpage
+\begin{figure}[h!]
+\centering
+<<fig=TRUE>>=
+par(mfrow=c(3,4))
+QQP(IsoMultiOut)
+
+@
+\caption{ QQ-plots of the fitted prior distributions within each condition and Ig group. 
+(Note only a small set of isoforms are considered here for demonstration.
+Better fitting should be expected while using full set of isoforms.)}
+\label{fig:IsoMultiQQ}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+<<fig=TRUE>>=
+par(mfrow=c(3,4))
+DenNHist(IsoMultiOut)
+@
+\caption{ Prior distributions fit within each condition and Ig group. 
+(Note only a small set of isoforms are considered here for demonstration.
+Better fitting should be expected while using full set of isoforms.)}
+\label{fig:IsoMultiDenNHist}
+\end{figure}
+\clearpage
+\newpage
+
+
+\newpage
+\subsection{Working without replicates}
+When replicates are not available, it is difficult to estimate the transcript specific variance.
+In this case, EBSeq estimates the variance by  pooling similar genes together.  
+Specifically, we take genes with FC in the 25\% - 75\% quantile of all FC's as 
+candidate genes. By defining \verb+NumBin = 1000+ (default in \verb+EBTest+), EBSeq 
+will group genes with similar means into 1,000 bins. 
+For each candidate gene, we use the across-condition variance estimate as its variance estimate. 
+For each bin, the bin-wise variance estimation is taken to be the median of the 
+across-condition variance estimates of the candidate genes within that bin. 
+For each non-candidate gene, we use the bin-wise variance estimate of the host bin (the bin containing this gene) 
+as its variance estimate.
+This approach works well when there are no more than 50\% DE genes in the data set. 
+
+\subsubsection{Gene counts with two conditions}
+\label{sec:norepgenede}
+
+To generate a data set with no replicates, we take the first sample of each condition. 
+For example, using the data from Section \ref{sec:detailedgenede}, we take sample 1 from condition 1 and 
+sample 6 from condition 2. Functions \verb+MedianNorm+, \verb+GetDEResults+ and 
+\verb+PostFC+ may be used on data without replicates.
+<<>>=
+data(GeneMat)
+GeneMat.norep=GeneMat[,c(1,6)]
+Sizes.norep=MedianNorm(GeneMat.norep)
+EBOut.norep=EBTest(Data=GeneMat.norep,
+Conditions=as.factor(rep(c("C1","C2"))),
+sizeFactors=Sizes.norep, maxround=5)
+EBDERes.norep=GetDEResults(EBOut.norep)
+GeneFC.norep=PostFC(EBOut.norep)
+@
+
+\subsubsection{Isoform counts with two conditions}
+\label{norepisode}
+To generate an isoform level data set with no replicates, we
+also take sample 1 and sample 6 in the data we used in Section
+\ref{sec:detailedisode}. 
+Example codes are shown below.
+
+<<>>=
+data(IsoList)
+IsoMat=IsoList$IsoMat
+IsoNames=IsoList$IsoNames
+IsosGeneNames=IsoList$IsosGeneNames
+NgList=GetNg(IsoNames, IsosGeneNames)
+IsoNgTrun=NgList$IsoformNgTrun
+IsoMat.norep=IsoMat[,c(1,6)]
+IsoSizes.norep=MedianNorm(IsoMat.norep)
+IsoEBOut.norep=EBTest(Data=IsoMat.norep, NgVector=IsoNgTrun,
+Conditions=as.factor(c("C1","C2")),
+sizeFactors=IsoSizes.norep, maxround=5)
+IsoEBDERes.norep=GetDEResults(IsoEBOut.norep)
+IsoFC.norep=PostFC(IsoEBOut.norep)
+@
+
+\subsubsection{Gene counts with more than two conditions}
+\label{norepisode}
+To generate a data set with multiple conditions and no replicates, 
+we take the first sample from each condition (sample 1, 3 and 5) in the data we used
+in Section \ref{sec:detailedmulticond}. 
+Example codes are shown below.
+<<>>=
+data(MultiGeneMat)
+MultiGeneMat.norep=MultiGeneMat[,c(1,3,5)]
+Conditions=c("C1","C2","C3")
+PosParti=GetPatterns(Conditions)
+Parti=PosParti[-3,]
+MultiSize.norep=MedianNorm(MultiGeneMat.norep)
+MultiOut.norep=EBMultiTest(MultiGeneMat.norep,
+NgVector=NULL,Conditions=Conditions,
+AllParti=Parti, sizeFactors=MultiSize.norep, 
+maxround=5)
+MultiPP.norep=GetMultiPP(MultiOut.norep)
+MultiFC.norep=GetMultiFC(MultiOut.norep)
+@
+
+\subsubsection{Isoform counts with more than two conditions}
+\label{sec:norepmulticond}
+To generate an isoform level data set with multiple conditions and no replicates,
+we take the first sample from each condition (sample 1, 3, 5 and 7) in the data we used
+in Section \ref{sec:detailedisomulticond}. 
+Example codes are shown below.
+
+
+
+<<>>=
+data(IsoMultiList)
+IsoMultiMat=IsoMultiList[[1]]
+IsoNames.Multi=IsoMultiList$IsoNames
+IsosGeneNames.Multi=IsoMultiList$IsosGeneNames
+IsoMultiMat.norep=IsoMultiMat[,c(1,3,5,7)]
+IsoMultiSize.norep=MedianNorm(IsoMultiMat.norep)
+NgList.Multi=GetNg(IsoNames.Multi, IsosGeneNames.Multi)
+IsoNgTrun.Multi=NgList.Multi$IsoformNgTrun
+Conditions=c("C1","C2","C3","C4")
+PosParti.4Cond=GetPatterns(Conditions)
+PosParti.4Cond
+Parti.4Cond=PosParti.4Cond[c(1,2,3,8,15),]
+Parti.4Cond
+IsoMultiOut.norep=EBMultiTest(IsoMultiMat.norep,
+NgVector=IsoNgTrun.Multi,Conditions=Conditions,
+AllParti=Parti.4Cond, sizeFactors=IsoMultiSize.norep, 
+maxround=5)
+IsoMultiPP.norep=GetMultiPP(IsoMultiOut.norep)
+IsoMultiFC.norep=GetMultiFC(IsoMultiOut.norep)
+@
+
+\section{EBSeq pipelines and extensions}
+\subsection{RSEM-EBSeq pipeline: from raw reads to differential expression analysis results}
+EBSeq is coupled with RSEM \cite{Li11b} as an RSEM-EBSeq pipeline which provides 
+quantification and DE testing on both gene and isoform levels.
+
+For more details, see 
+\url{http://deweylab.biostat.wisc.edu/rsem/README.html#de}
+
+\subsection{EBSeq interface: A user-friendly graphical interface for differetial expression analysis}
+EBSeq interface provides a graphical interface implementation for users who are not familiar with the R 
+programming language. It takes .xls, .xlsx and .csv files as input. 
+Additional packages need be downloaded; they may be found at
+\url{http://www.biostat.wisc.edu/~ningleng/EBSeq_Package/EBSeq_Interface/}
+
+\subsection{EBSeq Galaxy tool shed}
+EBSeq tool shed contains EBSeq wrappers for a local Galaxy implementation.
+For more details, see
+\url{http://www.biostat.wisc.edu/~ningleng/EBSeq_Package/EBSeq_Galaxy_toolshed/}
+
+\section{Acknowledgment}
+We would like to thank Haolin Xu for checking the package and
+proofreading the vignette.
+
+\section{News}
+2014-1-30: In EBSeq 1.3.3, the default setting of EBTest function will remove
+low expressed genes (genes whose 75th quantile of normalized counts is less
+than 10) before identifying DE genes.
+These two thresholds can be changed in EBTest function.
+Because low expressed genes are disproportionately noisy, 
+removing these genes prior to downstream analyses can improve model fitting and increase robustness
+(e.g. by removing outliers).
+
+2014-5-22: In EBSeq 1.5.2, numerical approximations are implemented to deal with
+underflow. The underflow is likely due to large number of samples.
+
+2015-1-29: In EBSeq 1.7.1, EBSeq incorporates a new function
+GetDEResults() which may be used to obtain a list of transcripts under a target FDR in a two-condition experiment.
+The results obtained by applying this function with its default setting will be
+more robust to transcripts with low variance and potential outliers.
+By using the default settings in this function,
+the number of genes identified in any given analysis may
+differ slightly from the previous version (1.7.0 or order). 
+To obtain results that are comparable
+to results from earlier versions of EBSeq (1.7.0 or older), a user may set
+Method="classic" in GetDEResults() function, or use the original GetPPMat() function.
+The GeneDEResults() function also allows a user to modify thresholds to
+target genes/isoforms with a pre-specified posterior fold change.
+
+Also, in EBSeq 1.7.1, the default settings in EBTest() and EBMultiTest() function
+will only remove transcripts with all 0's (instead of removing transcripts with 
+75th quantile less than 10 in version 1.3.3-1.7.0).
+To obtain a list of transcripts comparable to the results generated by     EBSeq version 1.3.3-1.7.0, a user may change Qtrm = 0.75 and QtrmCut = 10
+when applying EBTest() or EBMultiTest() function.
+
+\section{Common Q and A}
+\subsection{Read in data}
+
+csv file:
+
+\verb+In=read.csv("FileName", stringsAsFactors=F, row.names=1, header=T)+
+
+\verb+Data=data.matrix(In)+
+
+\noindent txt file:
+
+\verb+In=read.table("FileName", stringsAsFactors=F, row.names=1, header=T)+
+
+\verb+Data=data.matrix(In)+
+
+\noindent Check \verb+str(Data)+ and make sure it is a matrix instead of data frame. You may need to play around with the \verb+row.names+ 
+and \verb+header+ option depends on how the input file was generated.
+
+
+
+\subsection{GetDEResults() function not found}
+
+You may on an earlier version of EBSeq. The GetDEResults function
+was introduced since version 1.7.1.
+The latest release version could be found at:
+
+\url{http://www.bioconductor.org/packages/release/bioc/html/EBSeq.html}
+
+\noindent The latest devel version:
+
+\url{http://www.bioconductor.org/packages/devel/bioc/html/EBSeq.html}
+
+\noindent And you may check your package version by typing \verb+packageVersion("EBSeq")+.
+
+
+\subsection{Visualizing DE genes/isoforms}
+
+To generate a heatmap, you may consider the heatmap.2 function in gplots package.
+For example, you may run
+
+\verb+heatmap.2(NormalizedMatrix[GenesOfInterest,], scale="row", trace="none", Colv=F)+
+
+The normalized matrix may be obtained from \verb+GetNormalizedMat()+ function.
+
+
+\subsection{My favorite gene/isoform has NA in PP (status "NoTest")}
+
+\indent The NoTest status comes from two sources:
+
+1) In version 1.3.3-1.7.0, using the default parameter settings of EBMultiTest(), the function
+will not test on genes with more than 75\% values $\le$ 10 to ensure better
+model fitting. To disable this filter, you may set Qtrm=1 and
+QtrmCut=0.
+
+2) numerical over/underflow in R. That happens when the within
+condition variance is extremely large or small. we did implemented a numerical
+approximation step to calculate the approximated PP for these genes
+with over/underflow. Here we use $10^{-10}$ to approximate the parameter p
+in the NB distribution for these genes (we set it to a small value
+since we want to cover more over/underflow genes with low
+within-condition variation). You may try to tune this value (to a larger value) in the
+approximation by setting \verb+ApproxVal+ in \verb+EBTest()+ or \verb+EBMultiTest()+ function. 
+
+\pagebreak
+\bibliographystyle{plain}
+\bibliography{lengetal}
+
+\end{document}
+

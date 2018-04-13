@@ -1,0 +1,3 @@
+Attribute	cond1	cond2	cond3	cond4	cond5
+Treatment	ntrt	trt	trt	ntrt	ntrt
+Control	yes	no	yes	no	no

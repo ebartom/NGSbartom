@@ -1,0 +1,26 @@
+Package: EBSeq
+Type: Package
+Title: An R package for gene and isoform differential expression
+        analysis of RNA-seq data
+Version: 1.14.0
+Date: 2015-12-8
+Author: Ning Leng, Christina Kendziorski
+Maintainer: Ning Leng <lengning1@gmail.com>
+Depends: blockmodeling, gplots, testthat, R (>= 3.0.0)
+Description: Differential Expression analysis at both gene and isoform
+        level using RNA-seq data
+License: Artistic-2.0
+LazyLoad: yes
+Collate: 'MedianNorm.R' 'GetNg.R' 'beta.mom.R' 'f0.R' 'f1.R'
+        'Likefun.R' 'LogN.R' 'LogNMulti.R' 'LikefunMulti.R' 'EBTest.R'
+        'GetPatterns.R' 'EBMultiTest.R' 'GetPP.R' 'PostFC.R'
+        'GetPPMat.R' 'GetMultiPP.R' 'GetMultiFC.R' 'PlotPostVsRawFC.R'
+        'crit_fun.R' 'DenNHist.R' 'GetNormalizedMat.R' 'PlotPattern.R'
+        'PolyFitPlot.R' 'QQP.R' 'QuantileNorm.R' 'RankNorm.R'
+        'GetDEResults.R'
+BuildVignettes: yes
+biocViews: StatisticalMethod, DifferentialExpression,
+        MultipleComparison, RNASeq, Sequencing
+NeedsCompilation: no
+Packaged: 2016-10-17 23:14:15 UTC; biocbuild
+Built: R 3.3.1; ; 2018-01-22 17:09:50 UTC; unix

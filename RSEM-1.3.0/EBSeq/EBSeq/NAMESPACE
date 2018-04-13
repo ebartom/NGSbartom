@@ -1,0 +1,5 @@
+export(crit_fun, DenNHist, EBTest, GetNg, GetPP, MedianNorm, 
+PolyFitPlot, PostFC, QQP, QuantileNorm, RankNorm, EBMultiTest, 
+GetMultiPP, GetPatterns, PlotPattern, GetPPMat, GetMultiFC, PlotPostVsRawFC,
+GetNormalizedMat,f0,f1,LogN,LogNMulti, GetDEResults)
+import(blockmodeling, gplots, testthat)

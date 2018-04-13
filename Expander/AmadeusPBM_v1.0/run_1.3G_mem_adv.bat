@@ -1,0 +1,1 @@
+java -Xmx1300m -XX:MinHeapFreeRatio=25 -jar AmadeusPBM_v1.0.jar advanced > stdout.txt

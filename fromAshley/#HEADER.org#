@@ -1,0 +1,3321 @@
+
+# -*- org-export-babel-evaluate: nil; org-export-allow-bind-keywords: t -*-
+#+SETUPFILE:"~/config_files/SETUPFILE.org"
+#+TITLE:    Fei PAF1 PolII analysis
+#+LINK_UP:   index.html
+#+LINK_HOME: index.html
+#+OPTIONS:   H:4 num:t toc:t \n:nil @:t ::t |:t ^:nil -:t f:t *:t <:t
+#+OPTIONS:   email:T author:T creator:T timestamp:T
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://genekc07.sgc.loc/lab/css/stylesheet.css" />
+#+PROPERTY: session *fec.673*
+#+PROPERTY: exports both
+#+INFOJS_OPT: view:nil toc:nil ltoc:t mouse:underline buttons:0 path:http://orgmode.org/org-info.js
+#+EXPORT_SELECT_TAGS: export
+#+EXPORT_EXCLUDE_TAGS: noexport
+
+* PolII analysis for all genes with peaks around the tss
+** Compute escape ratio for above samples
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(GenomicAlignments)
+  library(GenomicFeatures)
+  library(Rsamtools)
+  library(rtracklayer)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  ###### make transcripts model
+  txdbfile <- "/n/projects/arw/ShilatifardLab/fec/fec.673/gene_express/hsapiens_gene_ensembl_Ens72.txdb"
+  txdb <- loadDb(txdbfile)
+  seqlevels(txdb,force=TRUE) <- seqlevels(txdb)[grep("_|\\d+.1$",seqlevels(txdb), invert=TRUE)]
+  seqlevels(txdb) <- sub("","chr", seqlevels(txdb))
+  seqlevels(txdb) <- sub("MT","M", seqlevels(txdb))
+  allTx <- transcriptsBy(txdb, 'gene')
+  seqinfo(allTx) <- seqinfo(Hsapiens)[seqlevels(allTx)]
+  ##unlist transcripts
+  model <- unlist(allTx)
+
+  ################### using GFP_959
+  bedPath <- "./bed"
+  BEDS <-  list.files(bedPath, pattern="959_peaks.bed$", full.names=TRUE)
+  BEDS
+  #[1] "./bed/shGFP_PolII_959_peaks.bed"
+
+  ## Load peaks
+  GFP_959 <- import.bed(BEDS[[1]],asRangedData=FALSE)#16679
+
+  ############ loads coverage that we need for escape ratios
+  bw1 <- '/n/projects/arw/ShilatifardLab/fec/fec.959/bam'
+  bw2 <- '/n/projects/arw/ShilatifardLab/fec/fec.990/bam'
+  bw3 <- '/n/projects/arw/ShilatifardLab/fec/fec.943/bam'
+
+  bws <-  c(list.files(bw1, pattern="N20_shGFP_HCT116_rep2.bw$|N20_shPAF1-5_HCT116_rep2.bw$", full.names=TRUE),list.files(bw2, pattern="N20_shGFP_HCT116.bw$|N20_shPAF1-2_HCT116.bw$|N20_shPAF1-3_HCT116.bw$|N20_shPAF1-5_HCT116.bw$", full.names=TRUE),list.files(bw3, pattern="N20_shGFP_HCT116_rep1.bw$|N20_shRNF20-2_HCT116_rep1.bw$|N20_shRNF20-4_HCT116_rep1.bw|N20_shPAF1-5_HCT116_rep1.bw", full.names=TRUE))
+  bws <- bws[grep('test',bws,invert=TRUE)]
+  bws
+  # [1] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shGFP_HCT116_rep2.bw"    
+  # [2] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shPAF1-5_HCT116_rep2.bw" 
+  # [3] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shGFP_HCT116.bw"         
+  # [4] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-2_HCT116.bw"      
+  # [5] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-3_HCT116.bw"      
+  # [6] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-5_HCT116.bw"      
+  # [7] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shGFP_HCT116_rep1.bw"    
+  # [8] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shPAF1-5_HCT116_rep1.bw" 
+  # [9] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shRNF20-2_HCT116_rep1.bw"
+  #[10] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shRNF20-4_HCT116_rep1.bw"
+
+  ### save most highly occupied prompters
+  tss <- promoters(model,upstream=0,downstream=500)
+  names(tss) <- NULL
+
+  Bin <- function(bw,model){
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")    
+      mean.cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              sum(bw.peak.cov[[seqname]][start:end])
+          }
+                   ,mc.cores=10
+                   ,as.character(seqnames),start,end)
+      })
+      mean.cov <- data.frame(mean.cov)
+      #rownames(mean.cov) <- model$tx_name
+      mean.cov
+  }
+
+  peakCov <- do.call(cbind,mclapply(bws[[1]],model=tss,Bin,mc.cores=1))
+
+  ## pick most occupied and remove duplicates
+  model$tssTotalCov <- peakCov$mean.cov
+  or <- order(elementMetadata(model)$tssTotalCov,decreasing=TRUE)
+  model$gene <- names(model)
+  model.or <- model[or]
+  model.or
+  reps <- duplicated(model.or$gene)
+  model <- model.or[!reps]
+
+
+  ## get tss cpm for filtered model for GFP_959
+  tss <- promoters(model,upstream=0,downstream=500)
+
+  counter <-function(BF,gnModel){
+      cat("opening:", BF, sep="\n")
+      aln <- readGAlignments(BF)
+      strand(aln) <- '*'                           #not stranded
+      totalReads <- length(aln)
+      cat("generate counts\n")
+      counts <- countOverlaps(gnModel, aln)        # Counting how many reads overlap each peak
+      counts <- 10^6*counts/length(aln)
+  }
+
+  all.equal(names(model),names(tss))
+  all.equal(model$tx_name,tss$tx_name)
+
+  BFL <- BamFileList(dir('/n/projects/arw/ShilatifardLab/fec/fec.959/bam',pattern="N20_shGFP_HCT116_rep2.bam$",full=TRUE))
+  BFL
+
+  counts <- do.call(cbind,mclapply(path(BFL[[1]]),counter,gnModel=tss,mc.cores=3))
+
+  model$tss_cpm <- counts
+
+  dists <- distanceToNearest(model)
+  foo <- data.frame(dists)
+  model$nearest <- foo$distance
+
+  bestTx959 <- model
+  save(bestTx959,file="bestTx959.rda")
+
+  seqinfo(GFP_959) <- seqinfo(Hsapiens)[seqlevels(GFP_959)]
+
+  ## get genes overlapping genes without another genen in 1kb distance and > 1cpm
+  tss <- promoters(model,upstream=0,downstream=500)
+  ranges(tss)
+
+  all.equal(tss$tx_name,model$tx_name)
+
+  ol <- findOverlaps(tss,GFP_959)
+  ol <- data.frame(ol)
+
+  model_ol<- model[unique(ol$queryHits)]
+
+  model <- model_ol[model_ol$tss_cpm >1,]
+  model <- model[width(model)>300,]
+  model <- model[model$nearest > 1000,]
+  #model1k <- model[model$tssTotalCov>0,]
+
+
+  ### calc bpor for all overlapping txs 
+  all <- resize(model,fix='start',width=2000)
+  ranges(all)
+
+  all.tss <- promoters(all,upstream=100,downstream=300)
+  ranges(all.tss)
+
+  all.body <- resize(all,fix='end',width=width(all)-300)
+  ranges(all.body)
+
+  ############## Calculate all the mean coverages of the promoter and the body regions +1kb (since ser2P flows off the end) for all transcritps that tss overlaps a GFP N20 Peak
+  tssBin <- function(bw,model){
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")
+      mean.cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              mean(bw.peak.cov[[seqname]][start:end])
+          }
+                   ,mc.cores=6
+                   ,as.character(seqnames),start,end)
+      })
+      mean.cov <- data.frame(mean.cov)
+      rownames(mean.cov) <- model$tx_name
+      mean.cov
+  }
+
+
+  bodyBin <- function(bw,model){
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")    
+      mean.cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              mean(bw.peak.cov[[seqname]][start:end])
+          }
+                   ,mc.cores=6
+                   ,as.character(seqnames),start,end)
+          })
+      mean.cov <- data.frame(mean.cov)
+      rownames(mean.cov) <- model$tx_name
+      mean.cov
+  }
+
+  tssCov <- do.call(cbind,mclapply(bws,model=all.tss,tssBin,mc.cores=5))
+
+  colnames(tssCov) <- paste(basename(bws))
+  colnames(tssCov) <-  sub("HCT116_rep2.bw$","959_tss",colnames(tssCov))
+  colnames(tssCov) <-  sub("HCT116.bw$","990_tss",colnames(tssCov))
+  colnames(tssCov) <-  sub("HCT116_rep1.bw$","943_tss",colnames(tssCov))
+  colnames(tssCov) <-  sub("sh","",colnames(tssCov))
+
+  tssEscape <- data.frame(tssCov)
+
+  bodyCov <- do.call(cbind,mclapply(bws,model=all.body,bodyBin,mc.cores=5))
+
+  colnames(bodyCov) <- paste(basename(bws))
+  colnames(bodyCov) <-  sub("HCT116_rep2.bw$","959_body",colnames(bodyCov))
+  colnames(bodyCov) <-  sub("HCT116.bw$","990_body",colnames(bodyCov))
+  colnames(bodyCov) <-  sub("HCT116_rep1.bw$","943_body",colnames(bodyCov))
+  colnames(bodyCov) <-  sub("sh","",colnames(bodyCov))
+
+  bodyEscape <- data.frame(bodyCov)
+
+  bodyEscape$gene <- all$gene
+  tssEscape$gene <- all$gene
+
+  save(tssEscape,file="tssEscape.rda")
+  save(bodyEscape,file="bodyEscape.rda")
+  ###
+
+  body <- data.frame(bodyEscape)
+  tss <- data.frame(tssEscape)
+
+  colnames(body) <- sub("N20_","",colnames(body))
+  colnames(tss) <- sub("N20_","",colnames(tss))
+
+  all.equal(rownames(body),model$tx_name)
+
+  model$delta.959 <- (body$PAF1.5_959_body/tss$PAF1.5_959_tss)/(body$GFP_959_body/tss$GFP_959_tss)
+  model$delta.990.2 <- (body$PAF1.2_990_body/tss$PAF1.2_990_tss)/(body$GFP_990_body/tss$GFP_990_tss)
+  model$delta.990.3 <- (body$PAF1.3_990_body/tss$PAF1.3_990_tss)/(body$GFP_990_body/tss$GFP_990_tss)
+  model$delta.990.5 <- (body$PAF1.5_990_body/tss$PAF1.5_990_tss)/(body$GFP_990_body/tss$GFP_990_tss)
+  model$delta.943 <- (body$PAF1.5_943_body/tss$PAF1.5_943_tss)/(body$GFP_943_body/tss$GFP_943_tss)
+
+  filtModel <- model
+
+  boo <- as.data.frame(filtModel)
+  fc <- log2(boo$delta.959)
+
+  q1 <- fc >= 0.585
+  q2 <- fc < 0.585 & fc > -0.585
+  q3 <- fc <= -0.585
+
+  flag <- rep(0, nrow(boo))
+  flag[q1] <- 1
+  flag[q2] <- 2
+  flag[q3] <- 3
+
+  boo$quan <- flag
+  filtModel$quan <- flag
+  save(filtModel,file="filtModel.rda")
+
+  #################### calculate pausing index
+  all.tss <- promoters(filtModel,upstream=100,downstream=300)
+  all.body <- resize(filtModel,fix='end',width=width(filtModel)-299)
+
+  bw.pi <- bws[grep("PAF1_HCT116.bw",bws,invert=TRUE)]
+                 
+  tssCov <- do.call(cbind,mclapply(bw.pi,model=all.tss,tssBin,mc.cores=5))
+
+  colnames(tssCov) <- paste(basename(bw.pi))
+  colnames(tssCov) <-  sub("HCT116_rep2.bw$","959_tss",colnames(tssCov))
+  colnames(tssCov) <-  sub("HCT116.bw$","990_tss",colnames(tssCov))
+  colnames(tssCov) <-  sub("HCT116_rep1.bw$","943_tss",colnames(tssCov))
+  colnames(tssCov) <-  sub("sh","",colnames(tssCov))
+
+  bodyCov <- do.call(cbind,mclapply(bw.pi,model=all.body,bodyBin,mc.cores=5))
+
+  colnames(bodyCov) <- paste(basename(bw.pi))
+  colnames(bodyCov) <-  sub("HCT116_rep2.bw$","959_body",colnames(bodyCov))
+  colnames(bodyCov) <-  sub("HCT116.bw$","990_body",colnames(bodyCov))
+  colnames(bodyCov) <-  sub("HCT116_rep1.bw$","943_body",colnames(bodyCov))
+  colnames(bodyCov) <-  sub("sh","",colnames(bodyCov))
+
+  bodyCov$gene <- filtModel$gene
+  tssCov$gene <- filtModel$gene
+
+  bodyPI <- data.frame(bodyCov)
+  tssPI <- data.frame(tssCov)
+
+  save(bodyPI,file="bodyPI.rda")
+  save(tssPI,file="tssPI.rda")
+#+END_SRC
+
+** Metagene matricies
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(GenomicAlignments)
+  library(GenomicFeatures)
+  library(Rsamtools)
+  library(rtracklayer)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("filtModel.rda")
+
+  ################## make meta gene matrices while we are here..
+  ############## set up windows
+  all <- filtModel[width(filtModel)>350,]
+  TSS <- promoters(all,upstream=100,downstream=0)
+  TES <- resize(all,fix='end',width=1)
+  TES <- promoters(TES,upstream=0,downstream=2000)
+  Body <- all
+
+  head(ranges(TSS))
+  head(ranges(Body))
+  head(ranges(TES))
+
+  ############## Function it!
+  metadf <- function(bw,tss.model,body.model,tes.model,name){
+      fname <- paste("./meta_gene/",name,".rda", sep="")
+      tssBin <- function(bw,tss.model){
+          cat("importing:", bw, sep="\n")
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(tss.model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")
+          cov <- with(as.data.frame(tss.model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  r <- approx(r,n=100)$y
+                  return(r)
+              }
+                       ,mc.cores=16
+                       ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cov <- t(cov)
+      }
+      tss <- tssBin(bw,tss.model)    
+      bodyBin <- function(bw,body.model){
+          cat("importing:", bw, sep="\n")
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(body.model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")    
+          cov <- with(as.data.frame(body.model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  r <- approx(r,n=800)$y
+                  return(r)
+              }
+                       ,mc.cores=16
+                       ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cov <- t(cov)
+      }
+      body <- bodyBin(bw,body.model)
+      tesBin <- function(bw,tes.model){
+          cat("importing:", bw, sep="\n")
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(tes.model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")
+          cov <- with(as.data.frame(tes.model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  r <- approx(r,n=100)$y
+                  return(r)
+              }
+                       ,mc.cores=16
+                       ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cov <- t(cov)
+      }
+      tes <- tesBin(bw,tes.model)    
+      df <- data.frame(cbind(tss,body,tes))
+      rownames(df) <- tss.model$tx_name
+      save(df,file=fname)
+      df
+  }
+
+
+  bw1 <- '/n/projects/arw/ShilatifardLab/fec/fec.959/bam'
+  bw2 <- '/n/projects/arw/ShilatifardLab/fec/fec.990/bam'
+  bw3 <- '/n/projects/arw/ShilatifardLab/fec/fec.943/bam'
+
+
+  ## whops for got paf chip! add it to bws
+  bws <-  c(list.files(bw1, pattern="N20_shGFP_HCT116_rep2.bw$|N20_shPAF1-5_HCT116_rep2.bw$", full.names=TRUE),list.files(bw2, pattern="N20_shGFP_HCT116.bw$|N20_shPAF1-2_HCT116.bw$|N20_shPAF1-3_HCT116.bw$|N20_shPAF1-5_HCT116.bw$|PAF1_HCT116.bw$", full.names=TRUE),list.files(bw3, pattern="N20_shGFP_HCT116_rep1.bw$|N20_shRNF20-2_HCT116_rep1.bw$|N20_shRNF20-4_HCT116_rep1.bw|N20_shPAF1-5_HCT116_rep1.bw", full.names=TRUE))
+  bws <- bws[grep('test',bws,invert=TRUE)]
+  bws
+  # [1] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shGFP_HCT116_rep2.bw"    
+  # [2] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shPAF1-5_HCT116_rep2.bw" 
+  # [3] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shGFP_HCT116.bw"         
+  # [4] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-2_HCT116.bw"      
+  # [5] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-3_HCT116.bw"      
+  # [6] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-5_HCT116.bw"      
+  # [7] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/PAF1_HCT116.bw"              
+  # [8] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shGFP_HCT116_rep1.bw"    
+  # [9] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shPAF1-5_HCT116_rep1.bw" 
+  #[10] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shRNF20-2_HCT116_rep1.bw"
+  #[11] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shRNF20-4_HCT116_rep1.bw"
+
+
+  N20_GFP_959 <- metadf(bws[[1]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_GFP_959")
+  N20_PAF1.5_959 <- metadf(bws[[2]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_PAF1.5_959")
+  N20_GFP_990 <- metadf(bws[[3]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_GFP_990")
+  N20_PAF1.2_990 <- metadf(bws[[4]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_PAF1.2_990")
+  N20_PAF1.3_990 <- metadf(bws[[5]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_PAF1.3_990")
+  N20_PAF1.5_990 <- metadf(bws[[6]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_PAF1.5_990")
+  PAF1_chip_990 <- metadf(bws[[7]],tss.model=TSS,body.model=Body,tes.model=TES,name="PAF1_chip_990")
+  N20_GFP_943 <- metadf(bws[[8]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_GFP_943")
+  N20_PAF1.5_943 <- metadf(bws[[9]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_PAF1.5_943")
+  N20_RNF20.2_943 <- metadf(bws[[10]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_RNF20.2_943")
+  N20_RNF20.4_943 <- metadf(bws[[11]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_RNF20.4_943")
+
+  ###### make meta gene for Sec and Ser2P
+  bws <-  c(list.files("/n/projects/arw/ShilatifardLab/fec/fec.935/more_reads/bam", pattern=".bw$", full.names=TRUE),list.files("/n/projects/arw/ShilatifardLab/fec/fec.990/bam", pattern=".bw$", full.names=TRUE))
+  bws <- bws[grep("N20|AZ|BRD4|Input|NELF|CTR|PNUTS",bws,invert=TRUE)]
+  bws
+
+  AFF4_GFP.935 <- metadf(bws[[1]],tss.model=TSS,body.model=Body,tes.model=TES,name="AFF4_GFP.935")
+  AFF4_PAF1.935 <- metadf(bws[[2]],tss.model=TSS,body.model=Body,tes.model=TES,name="AFF4_PAF1.935")
+  ELL2_GFP.935 <- metadf(bws[[3]],tss.model=TSS,body.model=Body,tes.model=TES,name="ELL2_GFP.935")
+  ELL2_PAF1.935 <- metadf(bws[[4]],tss.model=TSS,body.model=Body,tes.model=TES,name="ELL2_PAF1.935")
+  GFP_Ser2P.935 <- metadf(bws[[5]],tss.model=TSS,body.model=Body,tes.model=TES,name="GFP_Ser2P.935")
+  PAF1_Ser2P.935 <- metadf(bws[[6]],tss.model=TSS,body.model=Body,tes.model=TES,name="PAF1_Ser2P.935")
+  AFF4_GFP.990 <- metadf(bws[[7]],tss.model=TSS,body.model=Body,tes.model=TES,name="AFF4_GFP.990")
+  AFF4_PAF1.990 <- metadf(bws[[8]],tss.model=TSS,body.model=Body,tes.model=TES,name="AFF4_PAF1.990")
+  ELL2_GFP.990 <- metadf(bws[[9]],tss.model=TSS,body.model=Body,tes.model=TES,name="ELL2_GFP.990")
+  ELL2_PAF1.990 <- metadf(bws[[10]],tss.model=TSS,body.model=Body,tes.model=TES,name="ELL2_PAF1.990")
+  GFP_Ser2P.990 <- metadf(bws[[12]],tss.model=TSS,body.model=Body,tes.model=TES,name="GFP_Ser2P.990")
+  PAF1_Ser2P.990 <- metadf(bws[[13]],tss.model=TSS,body.model=Body,tes.model=TES,name="PAF1_Ser2P.990")
+
+
+#+END_SRC
+
+** list
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(biomaRt)
+
+  load("./filtModel.rda")
+  load("./tssPI.rda")
+  load("./bodyPI.rda")
+
+  boo <- as.data.frame(filtModel)
+
+  df <- boo[,c(1:4,7,9,12:17)]
+
+  all.equal(df$tx_name,rownames(tssPI))
+  #[1] TRUE
+  all.equal(df$tx_name,rownames(bodyPI))
+  #[1] TRUE
+
+  df$GFP.959.pi <- tssPI$N20_GFP_959_tss/bodyPI$N20_GFP_959_body
+  df$PAF1.5.959.pi <- tssPI$N20_PAF1.5_959_tss/bodyPI$N20_PAF1.5_959_body
+  df$GFP.959.tssCov <- tssPI$N20_GFP_959_tss
+
+  bm <- useMart("ensembl")
+  ds <- listDatasets(bm)
+  dataset <- ds[grep('Homo',ds$description),]$dataset
+
+  bm <- useDataset("hsapiens_gene_ensembl", mart=bm)
+  attrib <- listAttributes(bm)
+  #foo <- attrib[grep('Ref',attrib$description),]$name
+    # [1] "study_external_id"        "refseq_mrna"             
+    # [3] "refseq_mrna_predicted"    "refseq_ncrna"            
+    # [5] "refseq_ncrna_predicted"   "refseq_peptide"          
+    # [7] "refseq_peptide_predicted" "illumina_humanref_8_v3"  
+    # [9] "external_id"              "somatic_reference_id"    
+             
+  anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','gene_biotype','external_gene_name','description'))
+
+  all.equal(boo$tx_name,rownames(tssPI))
+  #[1] TRUE
+  all.equal(boo$tx_name,rownames(bodyPI))
+  #[1] TRUE
+
+  iv2 <- match(df$gene,anno$ensembl_gene_id)
+  df$commom_gene <- anno[iv2,"external_gene_id"]
+  df$description <- anno[iv2,"description"]
+  df$biotype <- anno[iv2,"gene_biotype"]
+
+  write.table(df,file="tertiles.txt",sep="\t",quote=FALSE,col.names=NA)
+
+#+END_SRC
+
+#+RESULTS:
+
+* Heatmaps
+** Make Matrix for -2k to +4k around tss
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("./filtModel.rda")
+
+  bw1 <- '/n/projects/arw/ShilatifardLab/fec/fec.959/bam'
+  bw2 <- '/n/projects/arw/ShilatifardLab/fec/fec.990/bam'
+  bw3 <- '/n/projects/arw/ShilatifardLab/fec/fec.943/bam'
+  bw4 <- '/n/projects/arw/ShilatifardLab/fec/fec.935/bam'
+
+  bws <-  c(list.files(bw1, pattern="N20_shGFP_HCT116_rep2.bw$|N20_shPAF1-5_HCT116_rep2.bw$", full.names=TRUE),list.files(bw2, pattern=".bw$", full.names=TRUE),list.files(bw3, pattern="N20_shGFP_HCT116_rep1.bw$|N20_shPAF1-5_HCT116_rep1.bw", full.names=TRUE),list.files(bw4, pattern=".bw$", full.names=TRUE))
+  bws <- bws[grep('test|Input|PNUTS|BRD4|NELF|CTR9|AZ',bws,invert=TRUE)]
+  bws
+
+  tss <- promoters(filtModel,upstream=2000,downstream=4000)
+  ranges(tss)
+
+  ############## Function it!
+  matBin <- function(bw,model,name){
+      fname <- paste("./meta_6k/",name,".rda", sep="")
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")
+      cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end,strand){
+              r <- bw.peak.cov[[seqname]][start:end]
+              if(strand == '-'){r <- rev(r)}
+              return(r)
+          }
+                   ,mc.cores=16
+                   ,as.character(seqnames),start,end,as.character(strand))
+      })
+      cat("convert list to matrix\n")
+      mat <- do.call(rbind, mclapply(cov, as.numeric,mc.cores=6))
+      x <- mat
+      cov <- data.frame(x)
+      cat("bin the matrix\n")
+      window.cov <- function(row){
+          window <- as.integer(ncol(cov)/25)
+          window.coverage <- lapply(0:(window-1), function(jump)
+                                    rowMeans(row[(jump*24+1):(jump*24+1)+24])
+                                    )
+          t(as.matrix(unlist(window.coverage)))
+      }
+      win <- mclapply(1:nrow(cov), function(i)
+                      window.cov(cov[i,]),mc.cores=16) 
+      bin.mat <- do.call(rbind, mclapply(win, as.numeric, mc.cores=16))
+      df <- data.frame(bin.mat)
+      rownames(df) <- tss$tx_name
+      save(df,file=fname)
+      df
+  }
+
+  #Dir <- "heat"
+  #dir.create(Dir,FALSE,TRUE)
+
+  N20_GFP_959 <- matBin(bws[[1]],model=tss,name="N20_GFP_959")
+  N20_PAF1.5_959 <- matBin(bws[[2]],model=tss,name="N20_PAF1.5_959")
+  AFF4_GFP_990 <- matBin(bws[[3]],model=tss,name="AFF4_GFP_990")
+  AFF4_PAF1.5_990 <- matBin(bws[[4]],model=tss,name="AFF4_PAF1.5_990")
+  ELL2_GFP_990 <- matBin(bws[[5]],model=tss,name="ELL2_GFP_990")
+  ELL2_PAF1.5_990 <- matBin(bws[[6]],model=tss,name="ELL2_PAF1.5_990")
+  N20_GFP_990 <- matBin(bws[[7]],model=tss,name="N20_GFP_990")
+  N20_PAF1.2_990 <- matBin(bws[[8]],model=tss,name="N20_PAF1.2_990")
+  N20_PAF1.3_990 <- matBin(bws[[9]],model=tss,name="N20_PAF1.3_990")
+  N20_PAF1.5_990 <- matBin(bws[[10]],model=tss,name="N20_PAF1.5_990")
+  PAF1_chip_990 <- matBin(bws[[11]],model=tss,name="PAF1_chip_990")
+  S2P_GFP_990 <- matBin(bws[[12]],model=tss,name="S2P_GFP_990")
+  S2P_PAF1.5_990 <- matBin(bws[[13]],model=tss,name="S2P_PAF1.5_990")
+  N20_GFP_943 <- matBin(bws[[14]],model=tss,name="N20_GFP_943")
+  N20_PAF1.5_943 <- matBin(bws[[15]],model=tss,name="N20_PAF1.5_943")
+  S2P_GFP_935 <- matBin(bws[[16]],model=tss,name="S2P_GFP_935")
+  S2P_PAF1.5_935 <- matBin(bws[[17]],model=tss,name="S2P_PAF1.5_935")
+  AFF4_GFP_935 <- matBin(bws[[18]],model=tss,name="AFF4_GFP_935")
+  AFF4_PAF1.5_935 <- matBin(bws[[19]],model=tss,name="AFF4_PAF1.5_935")
+  ELL2_GFP_935 <- matBin(bws[[20]],model=tss,name="ELL2_GFP_935")
+  ELL2_PAF1.5_935 <- matBin(bws[[21]],model=tss,name="ELL2_PAF1.5_935")
+
+
+#+END_SRC
+
+** Heat map for the body only (+300:2kb)
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("./filtModel.rda")
+
+  bw1 <- '/n/projects/arw/ShilatifardLab/fec/fec.959/bam'
+  bw2 <- '/n/projects/arw/ShilatifardLab/fec/fec.943/bam'
+  bw3 <- '/n/projects/arw/ShilatifardLab/fec/fec.990/bam'
+
+  bws <-  c(list.files(bw1, pattern="N20_shGFP_HCT116_rep2.bw$|N20_shPAF1-5_HCT116_rep2.bw$", full.names=TRUE),list.files(bw2, pattern="N20_shGFP_HCT116_rep1.bw$|N20_shPAF1-5_HCT116_rep1.bw$", full.names=TRUE),list.files(bw3, pattern="N20_shGFP_HCT116.bw$|N20_shPAF1-5_HCT116.bw$|N20_shPAF1-3_HCT116.bw$|N20_shPAF1-2_HCT116.bw$", full.names=TRUE))
+  bws <- bws[grep('test',bws,invert=TRUE)]
+  bws
+  #[1] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shGFP_HCT116_rep2.bw"   
+  #[2] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shPAF1-5_HCT116_rep2.bw"
+  #[3] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shGFP_HCT116_rep1.bw"   
+  #[4] "/n/projects/arw/ShilatifardLab/fec/fec.943/bam/N20_shPAF1-5_HCT116_rep1.bw"
+  #[5] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shGFP_HCT116.bw"        
+  #[6] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-2_HCT116.bw"     
+  #[7] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-3_HCT116.bw"     
+  #[8] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-5_HCT116.bw"   
+
+  Body <- resize(filtModel,fix='start',width=2000)
+  ranges(Body)
+
+  all.body <- resize(Body,fix='end',width=width(Body)-300)
+  ranges(all.body)
+
+
+  ############## Function it!
+  matBin <- function(bw,model,name){
+      fname <- paste("./meta_300_2k/",name,".rda", sep="")
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")
+      cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end,strand){
+              r <- bw.peak.cov[[seqname]][start:end]
+              if(strand == '-'){r <- rev(r)}
+              return(r)
+          }
+                   ,mc.cores=16
+                   ,as.character(seqnames),start,end,as.character(strand))
+      })
+      cat("convert list to matrix\n")
+      mat <- do.call(rbind, mclapply(cov, as.numeric,mc.cores=6))
+      x <- mat
+      cov <- data.frame(x)
+      cat("bin the matrix\n")
+      window.cov <- function(row){
+          window <- as.integer(ncol(cov)/25)
+          window.coverage <- lapply(0:(window-1), function(jump)
+                                    rowMeans(row[(jump*24+1):(jump*24+1)+24])
+                                    )
+          t(as.matrix(unlist(window.coverage)))
+      }
+      win <- mclapply(1:nrow(cov), function(i)
+                      window.cov(cov[i,]),mc.cores=16) 
+      bin.mat <- do.call(rbind, mclapply(win, as.numeric, mc.cores=16))
+      df <- data.frame(bin.mat)
+      rownames(df) <- model$tx_name
+      save(df,file=fname)
+      df
+  }
+
+  #Dir <- "meta_300_2k"
+  #dir.create(Dir,FALSE,TRUE)
+
+  N20_GFP_959 <- matBin(bws[[1]],model=all.body,name="N20_GFP_959")
+  N20_PAF1.5_959 <- matBin(bws[[2]],model=all.body,name="N20_PAF1.5_959")
+  N20_GFP_943 <- matBin(bws[[3]],model=all.body,name="N20_GFP_943")
+  N20_PAF1.5_943 <- matBin(bws[[4]],model=all.body,name="N20_PAF1.5_943")
+  N20_GFP_990 <- matBin(bws[[5]],model=all.body,name="N20_GFP_990")
+  N20_PAF1.2_990 <- matBin(bws[[6]],model=all.body,name="N20_PAF1.2_990")
+  N20_PAF1.3_990 <- matBin(bws[[7]],model=all.body,name="N20_PAF1.3_990")
+  N20_PAF1.5_990 <- matBin(bws[[8]],model=all.body,name="N20_PAF1.5_990")
+
+  #Dir <- "heat_body"
+  #dir.create(Dir,FALSE,TRUE)
+
+
+  ################ make matrix for 959
+  or <- order(-rowSums(N20_GFP_959))
+
+  gfp.959 <- N20_GFP_959[or,]
+  paf1.959 <- N20_PAF1.5_959[or,]
+
+  n20.959.cdt <- cbind(UID=rownames(gfp.959),NAME=rownames(gfp.959),gfp.959,paf1.959)
+  write.table(n20.959.cdt, file="./heat_body/n20.959.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.959/gfp.959)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.959.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.959.FC, file="./heat_body/n20.959.FC.cdt", sep="\t",row.names=FALSE)
+
+  ################### 
+  g1 <- filtModel[filtModel$quan==1,]
+
+  or <- order(-rowSums(N20_GFP_959[g1$tx_name,]))
+
+  g1 <- g1[or]
+
+  gfp.g1 <- N20_GFP_959[g1$tx_name,]
+  all.equal(rownames(gfp.g1),g1$tx_name)
+  paf1.g1 <- N20_PAF1.5_959[g1$tx_name,]
+  #paf.1 <- paf[g1$tx_name,]
+
+  n20.959.g1.cdt <- cbind(UID=rownames(gfp.g1),NAME=rownames(gfp.g1),gfp.g1,paf1.g1)
+  write.table(n20.959.g1.cdt, file="./heat_body/n20.959.g1.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.g1/gfp.g1)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+          
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.959.g1.FC.cdt <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.959.g1.FC.cdt, file="./heat_body/n20.959.g1.FC.cdt", sep="\t",row.names=FALSE)
+
+  ###################
+  g2 <- filtModel[filtModel$quan==2,]
+  or <- order(-rowSums(N20_GFP_959[g2$tx_name,]))
+  g2 <- g2[or]
+
+  gfp.g2 <- N20_GFP_959[g2$tx_name,]
+  all.equal(rownames(gfp.g2),g2$tx_name)
+  paf1.g2 <- N20_PAF1.5_959[g2$tx_name,]
+  #paf.1 <- paf[g1$tx_name,]
+
+  n20.959.g2.cdt <- cbind(UID=rownames(gfp.g2),NAME=rownames(gfp.g2),gfp.g2,paf1.g2)
+  write.table(n20.959.g2.cdt, file="./heat_body/n20.959.g2.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.g2/gfp.g2)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+          
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.959.g2.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.959.g2.FC, file="./heat_body/n20.959.g2.FC.cdt", sep="\t",row.names=FALSE)
+
+
+  ################### groups for 943
+  ################### 
+  g1 <- filtModel[filtModel$quan==1,]
+  or <- order(-rowSums(N20_GFP_943[g1$tx_name,]))
+  g1 <- g1[or]
+
+  gfp.g1 <- N20_GFP_943[g1$tx_name,]
+  all.equal(rownames(gfp.g1),g1$tx_name)
+  paf1.g1 <- N20_PAF1.5_943[g1$tx_name,]
+  #paf.1 <- paf[g1$tx_name,]
+
+  n20.943.g1.cdt <- cbind(UID=rownames(gfp.g1),NAME=rownames(gfp.g1),gfp.g1,paf1.g1)
+  write.table(n20.943.g1.cdt, file="./heat_body/n20.943.g1.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.g1/gfp.g1)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+          
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.943.g1.FC.cdt <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.943.g1.FC.cdt, file="./heat_body/n20.943.g1.FC.cdt", sep="\t",row.names=FALSE)
+
+  ###################
+  g2 <- filtModel[filtModel$quan==2,]
+  or <- order(-rowSums(N20_GFP_943[g2$tx_name,]))
+  g2 <- g2[or]
+
+  gfp.g2 <- N20_GFP_943[g2$tx_name,]
+  all.equal(rownames(gfp.g2),g2$tx_name)
+  paf1.g2 <- N20_PAF1.5_943[g2$tx_name,]
+  #paf.1 <- paf[g1$tx_name,]
+
+  n20.943.g2.cdt <- cbind(UID=rownames(gfp.g2),NAME=rownames(gfp.g2),gfp.g2,paf1.g2)
+  write.table(n20.943.g2.cdt, file="./heat_body/n20.943.g2.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.g2/gfp.g2)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+          
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.943.g2.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.943.g2.FC, file="./heat_body/n20.943.g2.FC.cdt", sep="\t",row.names=FALSE)
+  ######################################################
+
+  ##### finally for 990
+  ################### 
+  g1 <- filtModel[filtModel$quan==1,]
+  or <- order(-rowSums(N20_GFP_990[g1$tx_name,]))
+  g1 <- g1[or]
+
+  gfp.g1 <- N20_GFP_990[g1$tx_name,]
+  all.equal(rownames(gfp.g1),g1$tx_name)
+  paf1.5.g1 <- N20_PAF1.5_990[g1$tx_name,]
+  paf1.3.g1 <- N20_PAF1.3_990[g1$tx_name,]
+  paf1.2.g1 <- N20_PAF1.2_990[g1$tx_name,]
+
+  n20.990.g1.cdt <- cbind(UID=rownames(gfp.g1),NAME=rownames(gfp.g1),gfp.g1,paf1.5.g1,paf1.3.g1,paf1.2.g1)
+  write.table(n20.990.g1.cdt, file="./heat_body/n20.990.g1.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.5.g1/gfp.g1)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.990.5.g1.FC.cdt <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.990.5.g1.FC.cdt, file="./heat_body/n20.990.5.g1.FC.cdt", sep="\t",row.names=FALSE)
+
+  FC <- as.matrix(paf1.3.g1/gfp.g1)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.990.3.g1.FC.cdt <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.990.3.g1.FC.cdt, file="./heat_body/n20.990.3.g1.FC.cdt", sep="\t",row.names=FALSE)
+
+  FC <- as.matrix(paf1.2.g1/gfp.g1)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.990.2.g1.FC.cdt <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.990.2.g1.FC.cdt, file="./heat_body/n20.990.2.g1.FC.cdt", sep="\t",row.names=FALSE)
+
+  ###################
+  g2 <- filtModel[filtModel$quan==2,]
+  or <- order(-rowSums(N20_GFP_990[g2$tx_name,]))
+  g2 <- g2[or]
+
+  gfp.g2 <- N20_GFP_990[g2$tx_name,]
+  all.equal(rownames(gfp.g2),g2$tx_name)
+  paf1.5.g2 <- N20_PAF1.5_990[g2$tx_name,]
+  paf1.3.g2 <- N20_PAF1.3_990[g2$tx_name,]
+  paf1.2.g2 <- N20_PAF1.2_990[g2$tx_name,]
+
+  n20.990.g2.cdt <- cbind(UID=rownames(gfp.g2),NAME=rownames(gfp.g2),gfp.g2,paf1.5.g2,paf1.3.g2,paf1.2.g2)
+  write.table(n20.990.g2.cdt, file="./heat_body/n20.990.g2.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.5.g2/gfp.g2)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.990.5.g2.FC.cdt <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.990.5.g2.FC.cdt, file="./heat_body/n20.990.5.g2.FC.cdt", sep="\t",row.names=FALSE)
+
+  FC <- as.matrix(paf1.3.g2/gfp.g2)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.990.3.g2.FC.cdt <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.990.3.g2.FC.cdt, file="./heat_body/n20.990.3.g2.FC.cdt", sep="\t",row.names=FALSE)
+
+  FC <- as.matrix(paf1.2.g2/gfp.g2)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.990.2.g2.FC.cdt <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.990.2.g2.FC.cdt, file="./heat_body/n20.990.2.g2.FC.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+
+** Make heatmap matricies
+*** N20 and paf
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  gfp.959 <- get(load("./meta_6k/N20_GFP_959.rda"))
+  paf.5.959 <- get(load("./meta_6k/N20_PAF1.5_959.rda"))
+
+  load("./filtModel.rda")
+
+  ########################################## sort by rowsums
+  or <- order(-rowSums(gfp.959))
+
+  gfp.all <- gfp.959[or,]
+  paf1.all <- paf.5.959[or,]
+
+  n20.all.cdt <- cbind(UID=rownames(gfp.all),NAME=rownames(gfp.all),gfp.all,paf1.all)
+  write.table(n20.all.cdt, file="./heat_rowSums/n20.all.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.all/gfp.all)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+        
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.FC, file="./heat_rowSums/n20.FC.cdt", sep="\t",row.names=FALSE)
+
+  ############################################## PAF1 chip seq matrix transform
+  paf <- get(load("./meta_6k/PAF1_chip_990.rda"))
+
+  paf <- paf[or,]
+
+  paf.chip.cdt <- cbind(UID=rownames(paf),NAME=rownames(paf),paf)
+  write.table(paf.chip.cdt, file="./heat_rowSums/paf.chip.cdt", sep="\t",row.names=FALSE)
+
+  ############################################## Groups by rowsums
+  ################################## group1
+  g1 <- filtModel[filtModel$quan==1,]
+
+  or <- order(-rowSums(gfp.959[g1$tx_name,]))
+
+  g1 <- g1[or]
+
+  gfp.g1 <- gfp.959[g1$tx_name,]
+  all.equal(rownames(gfp.g1),g1$tx_name)
+  paf1.g1 <- paf.5.959[g1$tx_name,]
+  paf.1 <- paf[g1$tx_name,]
+
+  n20.g1.cdt <- cbind(UID=rownames(gfp.g1),NAME=rownames(gfp.g1),gfp.g1,paf1.g1)
+  write.table(n20.g1.cdt, file="./heat_rowSums/n20.g1.cdt", sep="\t",row.names=FALSE)
+
+  paf.g1.cdt <- cbind(UID=rownames(paf.1),NAME=rownames(paf.1),paf.1)
+  write.table(paf.g1.cdt, file="./heat_rowSums/paf.g1.cdt", sep="\t",row.names=FALSE)
+
+  ################################## group2
+  g2 <- filtModel[filtModel$quan==2,]
+
+  or <- order(-rowSums(gfp.959[g2$tx_name,]))
+
+  g2 <- g2[or]
+
+  gfp.g2 <- gfp.959[g2$tx_name,]
+  all.equal(rownames(gfp.g2),g2$tx_name)
+  paf1.g2 <- paf.5.959[g2$tx_name,]
+  paf.2 <- paf[g2$tx_name,]
+
+  n20.g2.cdt <- cbind(UID=rownames(gfp.g2),NAME=rownames(gfp.g2),gfp.g2,paf1.g2)
+  write.table(n20.g2.cdt, file="./heat_rowSums/n20.g2.cdt", sep="\t",row.names=FALSE)
+
+  paf.g2.cdt <- cbind(UID=rownames(paf.2),NAME=rownames(paf.2),paf.2)
+  write.table(paf.g2.cdt, file="./heat_rowSums/paf.g2.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+*** S2P
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  gfp.959 <- get(load("./meta_6k/N20_GFP_959.rda"))
+  gfp.935 <- get(load("./meta_6k/S2P_GFP_935.rda"))
+  gfp.990 <- get(load("./meta_6k/S2P_GFP_990.rda"))
+  paf.935 <- get(load("./meta_6k/S2P_PAF1.5_935.rda"))
+  paf.990 <- get(load("./meta_6k/S2P_PAF1.5_990.rda"))
+
+  load("./filtModel.rda")
+
+  ########################################## sort by rowsums
+  or <- order(-rowSums(gfp.959))
+
+  gfp.all.935 <- gfp.935[or,]
+  paf.all.935 <- paf.935[or,]
+
+  s2p.all.935.cdt <- cbind(UID=rownames(gfp.all.935),NAME=rownames(gfp.all.935),gfp.all.935,paf.all.935)
+  write.table(s2p.all.935.cdt, file="./heat_rowSums/s2p.all.935.cdt", sep="\t",row.names=FALSE)
+
+  gfp.all.990 <- gfp.990[or,]
+  paf.all.990 <- paf.990[or,]
+
+  s2p.all.990.cdt <- cbind(UID=rownames(gfp.all.990),NAME=rownames(gfp.all.990),gfp.all.990,paf.all.990)
+  write.table(s2p.all.990.cdt, file="./heat_rowSums/s2p.all.990.cdt", sep="\t",row.names=FALSE)
+
+  ##################add fc for 935 only
+
+  FC <- as.matrix(paf.all.935/gfp.all.935)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+            
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  s2p.all.935.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(s2p.all.935.FC, file="./heat_rowSums/s2p.all.935.FC.cdt", sep="\t",row.names=FALSE)
+
+  ################################## group1
+  g1 <- filtModel[filtModel$quan==1,]
+
+  or <- order(-rowSums(gfp.959[g1$tx_name,]))
+
+  g1 <- g1[or]
+
+  gfp.935.g1 <- gfp.935[g1$tx_name,]
+  paf.935.g1 <- paf.935[g1$tx_name,]
+  all.equal(rownames(gfp.935.g1),g1$tx_name)
+
+  s2p.g1.935.cdt <- cbind(UID=rownames(gfp.935.g1),NAME=rownames(gfp.935.g1),gfp.935.g1,paf.935.g1)
+  write.table(s2p.g1.935.cdt, file="./heat_rowSums/s2p.g1.935.cdt", sep="\t",row.names=FALSE)
+
+  gfp.990.g1 <- gfp.990[g1$tx_name,]
+  paf.990.g1 <- paf.990[g1$tx_name,]
+  all.equal(rownames(gfp.990.g1),g1$tx_name)
+
+  s2p.g1.990.cdt <- cbind(UID=rownames(gfp.990.g1),NAME=rownames(gfp.990.g1),gfp.990.g1,paf.990.g1)
+  write.table(s2p.g1.990.cdt, file="./heat_rowSums/s2p.g1.990.cdt", sep="\t",row.names=FALSE)
+
+  ###########FC
+  FC <- as.matrix(paf.935.g1/gfp.935.g1)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+            
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  s2p.g1.935.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(s2p.g1.935.FC, file="./heat_rowSums/s2p.g1.935.FC.cdt", sep="\t",row.names=FALSE)
+
+
+  ################################## group2
+  g2 <- filtModel[filtModel$quan==2,]
+
+  or <- order(-rowSums(gfp.959[g2$tx_name,]))
+
+  g2 <- g2[or]
+
+  gfp.935.g2 <- gfp.935[g2$tx_name,]
+  paf.935.g2 <- paf.935[g2$tx_name,]
+  all.equal(rownames(gfp.935.g2),g2$tx_name)
+
+  s2p.g2.935.cdt <- cbind(UID=rownames(gfp.935.g2),NAME=rownames(gfp.935.g2),gfp.935.g2,paf.935.g2)
+  write.table(s2p.g2.935.cdt, file="./heat_rowSums/s2p.g2.935.cdt", sep="\t",row.names=FALSE)
+
+  gfp.990.g2 <- gfp.990[g2$tx_name,]
+  paf.990.g2 <- paf.990[g2$tx_name,]
+  all.equal(rownames(gfp.990.g2),g2$tx_name)
+
+  s2p.g2.990.cdt <- cbind(UID=rownames(gfp.990.g2),NAME=rownames(gfp.990.g2),gfp.990.g2,paf.990.g2)
+  write.table(s2p.g2.990.cdt, file="./heat_rowSums/s2p.g2.990.cdt", sep="\t",row.names=FALSE)
+
+  ###########FC
+  FC <- as.matrix(paf.935.g2/gfp.935.g2)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+            
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  s2p.g2.935.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(s2p.g2.935.FC, file="./heat_rowSums/s2p.g2.935.FC.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+*** Sec
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  gfp.959 <- get(load("./meta_6k/N20_GFP_959.rda"))
+  aff.gfp.935 <- get(load("./meta_6k/AFF4_GFP_935.rda"))
+  aff.gfp.990 <- get(load("./meta_6k/AFF4_GFP_990.rda"))
+  aff.paf.935 <- get(load("./meta_6k/AFF4_PAF1.5_935.rda"))
+  aff.paf.990 <- get(load("./meta_6k/AFF4_PAF1.5_990.rda"))
+  ell.gfp.935 <- get(load("./meta_6k/ELL2_GFP_935.rda"))
+  ell.gfp.990 <- get(load("./meta_6k/ELL2_GFP_990.rda"))
+  ell.paf.935 <- get(load("./meta_6k/ELL2_PAF1.5_935.rda"))
+  ell.paf.990 <- get(load("./meta_6k/ELL2_PAF1.5_990.rda"))
+
+  load("./filtModel.rda")
+
+  ########################################## sort by rowsums
+  or <- order(-rowSums(gfp.959))
+
+  aff.gfp.all.935 <- aff.gfp.935[or,]
+  aff.paf.all.935 <- aff.paf.935[or,]
+  ell.gfp.all.935 <- ell.gfp.935[or,]
+  ell.paf.all.935 <- ell.paf.935[or,]
+
+  sec.all.935.cdt <- cbind(UID=rownames(aff.gfp.all.935),NAME=rownames(aff.gfp.all.935),aff.gfp.all.935,aff.paf.all.935,ell.gfp.all.935,ell.paf.all.935)
+  write.table(sec.all.935.cdt, file="./heat_rowSums/sec.all.935.cdt", sep="\t",row.names=FALSE)
+
+  aff.gfp.all.990 <- aff.gfp.990[or,]
+  aff.paf.all.990 <- aff.paf.990[or,]
+  ell.gfp.all.990 <- ell.gfp.990[or,]
+  ell.paf.all.990 <- ell.paf.990[or,]
+
+  sec.all.990.cdt <- cbind(UID=rownames(aff.gfp.all.990),NAME=rownames(aff.gfp.all.990),aff.gfp.all.990,aff.paf.all.990,ell.gfp.all.990,ell.paf.all.990)
+  write.table(sec.all.990.cdt, file="./heat_rowSums/sec.all.990.cdt", sep="\t",row.names=FALSE)
+
+  ###########FC for 935 only
+  FC <- as.matrix(aff.paf.all.935/aff.gfp.all.935)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+              
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  aff4.all.935.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(aff4.all.935.FC, file="./heat_rowSums/aff4.all.935.FC.cdt", sep="\t",row.names=FALSE)
+
+  FC <- as.matrix(ell.paf.all.935/ell.gfp.all.935)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+              
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  ell2.all.935.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(ell2.all.935.FC, file="./heat_rowSums/ell2.all.935.FC.cdt", sep="\t",row.names=FALSE)
+
+
+  ################################## group1
+  g1 <- filtModel[filtModel$quan==1,]
+
+  or <- order(-rowSums(gfp.959[g1$tx_name,]))
+
+  g1 <- g1[or]
+
+  aff.gfp.935.g1 <- aff.gfp.935[g1$tx_name,]
+  aff.paf.935.g1 <- aff.paf.935[g1$tx_name,]
+  ell.gfp.935.g1 <- ell.gfp.935[g1$tx_name,]
+  ell.paf.935.g1 <- ell.paf.935[g1$tx_name,]
+
+
+  all.equal(rownames(aff.gfp.935.g1),g1$tx_name)
+
+  sec.g1.935.cdt <- cbind(UID=rownames(aff.gfp.935.g1),NAME=rownames(aff.gfp.935.g1),aff.gfp.935.g1,aff.paf.935.g1,ell.gfp.935.g1,ell.paf.935.g1)
+  write.table(sec.g1.935.cdt, file="./heat_rowSums/sec.g1.935.cdt", sep="\t",row.names=FALSE)
+
+  aff.gfp.990.g1 <- aff.gfp.990[g1$tx_name,]
+  aff.paf.990.g1 <- aff.paf.990[g1$tx_name,]
+  ell.gfp.990.g1 <- ell.gfp.990[g1$tx_name,]
+  ell.paf.990.g1 <- ell.paf.990[g1$tx_name,]
+  all.equal(rownames(aff.gfp.990.g1),g1$tx_name)
+
+  sec.g1.990.cdt <- cbind(UID=rownames(aff.gfp.990.g1),NAME=rownames(aff.gfp.990.g1),aff.gfp.990.g1,aff.paf.990.g1,ell.gfp.990.g1,ell.paf.990.g1)
+  write.table(sec.g1.990.cdt, file="./heat_rowSums/sec.g1.990.cdt", sep="\t",row.names=FALSE)
+
+  ###########FC for 935 only
+  FC <- as.matrix(aff.paf.935.g1/aff.gfp.935.g1)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+              
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  aff4.g1.935.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(aff4.g1.935.FC, file="./heat_rowSums/aff4.g1.935.FC.cdt", sep="\t",row.names=FALSE)
+
+  FC <- as.matrix(ell.paf.935.g1/ell.gfp.935.g1)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+              
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  ell2.g1.935.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(ell2.g1.935.FC, file="./heat_rowSums/ell2.g1.935.FC.cdt", sep="\t",row.names=FALSE)
+
+
+  ################################## group2
+  g2 <- filtModel[filtModel$quan==2,]
+  or <- order(-rowSums(gfp.959[g2$tx_name,]))
+  g2 <- g2[or]
+
+  aff.gfp.935.g2 <- aff.gfp.935[g2$tx_name,]
+  aff.paf.935.g2 <- aff.paf.935[g2$tx_name,]
+  ell.gfp.935.g2 <- ell.gfp.935[g2$tx_name,]
+  ell.paf.935.g2 <- ell.paf.935[g2$tx_name,]
+
+
+  all.equal(rownames(aff.gfp.935.g2),g2$tx_name)
+
+  sec.g2.935.cdt <- cbind(UID=rownames(aff.gfp.935.g2),NAME=rownames(aff.gfp.935.g2),aff.gfp.935.g2,aff.paf.935.g2,ell.gfp.935.g2,ell.paf.935.g2)
+  write.table(sec.g2.935.cdt, file="./heat_rowSums/sec.g2.935.cdt", sep="\t",row.names=FALSE)
+
+  aff.gfp.990.g2 <- aff.gfp.990[g2$tx_name,]
+  aff.paf.990.g2 <- aff.paf.990[g2$tx_name,]
+  ell.gfp.990.g2 <- ell.gfp.990[g2$tx_name,]
+  ell.paf.990.g2 <- ell.paf.990[g2$tx_name,]
+  all.equal(rownames(aff.gfp.990.g2),g2$tx_name)
+
+  sec.g2.990.cdt <- cbind(UID=rownames(aff.gfp.990.g2),NAME=rownames(aff.gfp.990.g2),aff.gfp.990.g2,aff.paf.990.g2,ell.gfp.990.g2,ell.paf.990.g2)
+  write.table(sec.g2.990.cdt, file="./heat_rowSums/sec.g2.990.cdt", sep="\t",row.names=FALSE)
+
+  ###########FC for 935 only
+  FC <- as.matrix(aff.paf.935.g2/aff.gfp.935.g2)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+              
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  aff4.g2.935.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(aff4.g2.935.FC, file="./heat_rowSums/aff4.g2.935.FC.cdt", sep="\t",row.names=FALSE)
+
+  FC <- as.matrix(ell.paf.935.g2/ell.gfp.935.g2)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+              
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  ell2.g2.935.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(ell2.g2.935.FC, file="./heat_rowSums/ell2.g2.935.FC.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+* Add Pausing index to model
+#+begin_src R :exports none
+  library(GenomicRanges)
+  library(GenomicAlignments)
+  library(GenomicFeatures)
+  library(Rsamtools)
+  library(rtracklayer)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("./filtModel.rda")
+
+  tss <- get(load("tssPI.rda"))
+  body <- get(load("bodyPI.rda"))
+
+  colnames(tss) <- sub("N20_","",colnames(tss))
+  colnames(body) <- sub("N20_","",colnames(body))
+
+  all.equal(rownames(tss),filtModel$tx_name)
+  #[1] TRUE
+
+  filtModel$gfp959.pi <- log2(tss$GFP_959_tss/body$GFP_959_body)
+  filtModel$paf959.pi <- log2(tss$PAF1.5_959_tss/body$PAF1.5_959_body)
+
+  save(filtModel,file="filtModel.rda")
+#+END_SRC 
+
+
+* Correlation of WT Escape Ratio vs FC escape ratios for all genes
+** Smear
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/es.corr.png :width 500 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  load("./filtModel.rda")
+
+  model <- filtModel[is.finite(filtModel$delta.959),]
+
+  tss <- get(load("tssCov_sub.rda"))
+  body <- get(load("bodyCov_sub.rda"))
+
+  gfp.959 <- log2(body[filtModel$tx_name,]$GFP_959_body/tss[filtModel$tx_name,]$GFP_959_tss)
+
+  df <- data.frame(GFP_escape=-gfp.959,Escape_FC=log2(model$delta.959))
+  df <- df[complete.cases(df),]
+
+  smoothScatter(df,main="Escape Ratio"
+       ,xlab="log2(shGFP Escape)", ylab="log2(shPAF1/shGFP Escape)"
+       #,ylim=c(-6,6)
+       #,xlim=c(-10,2)
+       ,cex=0.5, cex.lab=1.4,cex.axis=1.4, cex.main=1.4,col="blue")
+  legend("topleft", title="correlation", legend= round(cor(df$GFP_escape,df$Escape_FC,method="spearman"), 4), cex=1.5)
+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/es.corr.png]]
+
+*** Dot plot
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/es.corr2.png :width 500 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  load("./filtModel.rda")
+
+  model <- filtModel[is.finite(filtModel$delta.959),]
+
+  tss <- get(load("tssCov_sub.rda"))
+  body <- get(load("bodyCov_sub.rda"))
+
+  gfp.959 <- log2(body[filtModel$tx_name,]$GFP_959_body/tss[filtModel$tx_name,]$GFP_959_tss)
+
+  df <- data.frame(GFP_escape=-gfp.959,Escape_FC=log2(model$delta.959))
+  df <- df[complete.cases(df),]
+
+  plot(df,main="Escape Ratio"
+       ,xlab="log2(shGFP Escape)", ylab="log2(shPAF1/shGFP Escape)"
+       #,ylim=c(-10,2)
+       #,xlim=c(-10,2)
+       ,cex=1.5, cex.lab=1.4,cex.axis=1.4, cex.main=1.4,col="#1C0DFF05",pch=19)
+  legend("topleft", title="correlation", legend= round(cor(df$GFP_escape,df$Escape_FC,method="spearman"), 4), cex=1.5)
+
+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/es.corr2.png]]
+
+** seperate by FC
+*** all 3 groups
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/FCgroup.png :width 500 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  load("./filtModel.rda")
+  tss <- get(load("tssCov_sub.rda"))
+  body <- get(load("bodyCov_sub.rda"))
+
+  boo <- as.data.frame(filtModel)
+  fc <- log2(boo$delta.959)
+
+  q1 <- fc >= 0.585
+  q2 <- fc < 0.585 & fc > -0.585
+  q3 <- fc <= -0.585
+
+  flag <- rep(0, nrow(boo))
+  flag[q1] <- 1
+  flag[q2] <- 2
+  flag[q3] <- 3
+
+  boo$quan <- flag
+  filtModel$quan <- flag
+  save(filtModel,file="filtModel.rda")
+
+  gfp <- log2(body[filtModel$tx_name,]$GFP_959_body/tss[filtModel$tx_name,]$GFP_959_tss)
+  paf <- log2(body[filtModel$tx_name,]$PAF1.5_959_body/tss[filtModel$tx_name,]$PAF1.5_959_tss)
+
+  sub <- data.frame(id=filtModel$quan
+                    ,shGFP=gfp
+                    ,shPAF1=paf)
+
+  boo <- apply(sub, 1, function(x) all(is.finite(x)))
+  dat <- sub[boo, ]
+  dat$id <- sub("^","Group_",dat$id)
+
+  Order<-c(paste(1:3))
+  Order <- sub("^","Group_",Order)
+
+  library(reshape2)
+  library(ggplot2)
+
+  df.long<-melt(dat)
+
+  df.long$bin <-factor(df.long$id, levels=Order)
+      
+  boxcols <- c("blue","purple")
+
+  ggplot(df.long,aes(x=bin,y=value,fill=variable)) + stat_boxplot(geom ='errorbar')+
+      geom_boxplot(notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+      scale_fill_manual(values=boxcols)+
+      facet_grid(.~bin, scales="free")+
+      labs(x="Groups")+
+      geom_rug(col="black",alpha=.1)+
+                                          #theme(axis.text.x=element_blank())
+      ylab("log2(Pausing Index Ratio)") +
+      xlab("")+
+      ggtitle("All Genes with PolII") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=22),
+            axis.text.x = element_blank(),
+            axis.text.y = element_text(color="black",size=20),
+            plot.title=element_text(size=18))+
+                                          #theme(axis.text=element_text(colour="red"))
+      ylim(-6.5,4) #+ scale_x_discrete(limits=c("WTKAPLAN","E1103G","F1086S","G1097D","H1085Q","H1085Y"))#+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/FCgroup.png]]
+
+#+TBLNAME: ksTest
+| Sample     | Group |    Median Promoter |
+|            |       | Escape Ratio (PER) |
+|------------+-------+--------------------|
+| GFP_959    |     1 |          -3.265107 |
+| GFP 959    |     2 |          -2.048325 |
+| GFP 959    |     3 |          -1.244803 |
+| PAF1.5 959 |     1 |          -2.146074 |
+| PAF1.5 959 |     2 |          -1.902043 |
+| PAF1.5 959 |     3 |          -2.052271 |
+
+*** only increased and no change
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/FCgroup.2.png :width 500 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  load("./filtModel.rda")
+  tss <- get(load("tssCov_sub.rda"))
+  body <- get(load("bodyCov_sub.rda"))
+
+  boo <- as.data.frame(filtModel)
+  fc <- log2(boo$delta.959)
+
+  q1 <- fc >= 0.585
+  q2 <- fc < 0.585 & fc > -0.585
+  q3 <- fc <= -0.585
+
+  flag <- rep(0, nrow(boo))
+  flag[q1] <- 1
+  flag[q2] <- 2
+  flag[q3] <- 3
+
+  boo$quan <- flag
+  filtModel$quan <- flag
+  save(filtModel,file="filtModel.rda")
+
+  filtModel <- filtModel[!filtModel$quan==3,]
+
+  gfp <- log2(body[filtModel$tx_name,]$GFP_959_body/tss[filtModel$tx_name,]$GFP_959_tss)
+  paf <- log2(body[filtModel$tx_name,]$PAF1.5_959_body/tss[filtModel$tx_name,]$PAF1.5_959_tss)
+
+  sub <- data.frame(id=filtModel$quan
+                    ,shGFP=gfp
+                    ,shPAF1=paf)
+
+  boo <- apply(sub, 1, function(x) all(is.finite(x)))
+  dat <- sub[boo, ]
+  dat$id <- sub("^","Group_",dat$id)
+
+  Order<-c(paste(1:3))
+  Order <- sub("^","Group_",Order)
+
+  library(reshape2)
+  library(ggplot2)
+
+  df.long<-melt(dat)
+
+  df.long$bin <-factor(df.long$id, levels=Order)
+      
+  boxcols <- c("blue","purple")
+
+  ggplot(df.long,aes(x=bin,y=value,fill=variable)) + stat_boxplot(geom ='errorbar')+
+      geom_boxplot(notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+      scale_fill_manual(values=boxcols)+
+      facet_grid(.~bin, scales="free")+
+      labs(x="Groups")+
+      geom_rug(col="black",alpha=.1)+
+                                          #theme(axis.text.x=element_blank())
+      ylab("log2(Esacpe Index)") +
+      xlab("")+
+      ggtitle("All Genes with PolII") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=22),
+            axis.text.x = element_blank(),
+            axis.text.y = element_text(color="black",size=20),
+            plot.title=element_text(size=18))+
+                                          #theme(axis.text=element_text(colour="red"))
+      ylim(-7.5,2.5) #+ scale_x_discrete(limits=c("WTKAPLAN","E1103G","F1086S","G1097D","H1085Q","H1085Y"))#+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/FCgroup.2.png]]
+**** only increased and no change FC escape index
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/FCgroup.3.png :width 300 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  load("./filtModel.rda")
+  tss <- get(load("tssCov_sub.rda"))
+  body <- get(load("bodyCov_sub.rda"))
+
+  boo <- as.data.frame(filtModel)
+  fc <- log2(boo$delta.959)
+
+  q1 <- fc >= 0.585
+  q2 <- fc < 0.585 & fc > -0.585
+  q3 <- fc <= -0.585
+
+  flag <- rep(0, nrow(boo))
+  flag[q1] <- 1
+  flag[q2] <- 2
+  flag[q3] <- 3
+
+  boo$quan <- flag
+  filtModel$quan <- flag
+  save(filtModel,file="filtModel.rda")
+
+  filtModel <- filtModel[!filtModel$quan==3,]
+
+  sub <- data.frame(id=filtModel$quan
+                    ,FC=log2(filtModel$delta.959)
+                    )
+
+  boo <- apply(sub, 1, function(x) all(is.finite(x)))
+  dat <- sub[boo, ]
+  dat$id <- sub("^","Group_",dat$id)
+
+  Order<-c(paste(1:3))
+  Order <- sub("^","Group_",Order)
+
+  library(reshape2)
+  library(ggplot2)
+
+  df.long<-melt(dat)
+
+  df.long$bin <-factor(df.long$id, levels=Order)
+      
+  boxcols <- c("#FF5800")
+
+  ggplot(df.long,aes(id,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+      ylab("log2(Escape Index FC)") +
+      xlab("")+
+      ggtitle("") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=22),
+            axis.text.x = element_text(angle=45, vjust=0.6,color="black",size=20),
+            axis.text.y = element_text(color="black",size=20),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+      ylim(-1,3) #+ scale_x_discrete(limits=c("WTKAPLAN","E1103G","F1086S","G1097D","H1085Q","H1085Y"))#+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/FCgroup.3.png]]
+
+#+TBLNAME: medianPER
+| Group by | Median log2(Promoter |
+|      PER |  Escape Ratio (PER)) |
+|----------+----------------------|
+|        1 |             1.045021 |
+|        2 |            0.1691201 |
+
+** separate by pausing index
+*** calc pausing index for tss in escape index(-100,300) and body (301,tts)
+#+begin_src R :exports results :results graphics :file ./plots/globalBox.png :width 200 :height 500
+  library(GenomicRanges)
+  library(GenomicAlignments)
+  library(GenomicFeatures)
+  library(Rsamtools)
+  library(rtracklayer)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+  load("./filtModel.rda")
+
+  all.tss <- promoters(filtModel,upstream=100,downstream=300)
+  all.body <- resize(filtModel,fix='end',width=width(filtModel)-299)
+  ##all.body <- resize(all.body,fix='start',width=width(all.body)+1000)
+
+  bw5 <- '/n/projects/arw/ShilatifardLab/fec/fec.959/bam'
+  bw6 <- '/n/projects/arw/ShilatifardLab/fec/fec.990/bam'
+
+  bws <-  c(list.files(bw5, pattern="N20_shGFP_HCT116_rep2.bw$|N20_shPAF1-5_HCT116_rep2.bw$", full.names=TRUE),list.files(bw6, pattern="N20_shGFP_HCT116.bw$|N20_shPAF1-2_HCT116.bw$|N20_shPAF1-3_HCT116.bw$|N20_shPAF1-5_HCT116.bw$|PAF1_HCT116.bw$", full.names=TRUE))
+  bws <- bws[grep('test',bws,invert=TRUE)]
+  bws
+
+  ############## Calculate all the mean coverages of the promoter and the body regions +1kb (since ser2P flows off the end) for all transcritps that tss overlaps a GFP N20 Peak
+  tssBin <- function(bw,model){
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")
+      mean.cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              mean(bw.peak.cov[[seqname]][start:end])
+          }
+                   ,mc.cores=6
+                   ,as.character(seqnames),start,end)
+      })
+      mean.cov <- data.frame(mean.cov)
+      rownames(mean.cov) <- model$tx_name
+      mean.cov
+  }
+
+
+  bodyBin <- function(bw,model){
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")    
+      mean.cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              mean(bw.peak.cov[[seqname]][start:end])
+          }
+                   ,mc.cores=6
+                   ,as.character(seqnames),start,end)
+      })
+      mean.cov <- data.frame(mean.cov)
+      rownames(mean.cov) <- model$tx_name
+      mean.cov
+  }
+
+  tssCov <- do.call(cbind,mclapply(bws,model=all.tss,tssBin,mc.cores=5))
+
+  colnames(tssCov) <- paste(basename(bws))
+  colnames(tssCov)[1:2] <-  sub("HCT116_rep2.bw$","959_tss",colnames(tssCov)[1:2])
+  colnames(tssCov)[3:6] <-  sub("HCT116.bw$","990_tss",colnames(tssCov)[3:6])
+  colnames(tssCov) <-  sub("N20_","",colnames(tssCov))
+  colnames(tssCov) <-  sub("sh","",colnames(tssCov))
+
+
+  bodyCov <- do.call(cbind,mclapply(bws,model=all.body,bodyBin,mc.cores=5))
+
+  colnames(bodyCov) <- paste(basename(bws))
+  colnames(bodyCov)[1:2] <-  sub("HCT116_rep2.bw$","959_body",colnames(bodyCov)[1:2])
+  colnames(bodyCov)[3:6] <-  sub("HCT116.bw$","990_body",colnames(bodyCov)[3:6])
+  colnames(bodyCov) <-  sub("N20_","",colnames(bodyCov))
+  colnames(bodyCov) <-  sub("sh","",colnames(bodyCov))
+
+
+  bodyCov$gene <- filtModel$gene
+  tssCov$gene <- filtModel$gene
+
+  bodyPI <- data.frame(bodyCov)
+  tssPI <- data.frame(tssCov)
+
+  save(bodyPI,file="bodyPI.rda")
+  save(tssPI,file="tssPI.rda")
+
+
+  tss <- tssCov[filtModel$tx_name,]
+  body <- bodyCov[filtModel$tx_name,]
+  all.equal(rownames(tss),rownames(body))
+
+  filtModel$gfp.pi <- log2(tss$GFP_959_tss/body$GFP_959_body)
+  filtModel$paf.pi <- log2(tss$PAF1.5_959_tss/body$PAF1.5_959_body)
+
+  save(filtModel,file="filtModel.rda")
+#+END_SRC 
+
+#+RESULTS:
+
+*** plot
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/piFCbox.png :width 300 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  load("./filtModel.rda")
+  boo <- as.data.frame(filtModel)
+
+  q1 <- boo$gfp.pi > quantile(boo$gfp.pi,probs=c(1/3,2/3))[2]
+  q2 <- boo$gfp.pi <= quantile(boo$gfp.pi,probs=c(1/3,2/3))[2] & boo$gfp.pi > quantile(boo$gfp.pi,probs=c(1/3,2/3))[1]
+  q3 <- boo$gfp.pi <= quantile(boo$gfp.pi,probs=c(1/3,2/3))[1]
+
+  flag <- rep(0, nrow(boo))
+  flag[q1] <- 1
+  flag[q2] <- 2
+  flag[q3] <- 3
+
+  boo$quan <- flag
+  filtModel$quan <- flag
+
+  df <- data.frame(id=filtModel$quan,FC=filtModel$delta.959)
+  df$tr <- log2(df$FC)
+
+  library(reshape2)
+  library(ggplot2)
+
+  df$id <- sub("^","quan",df$id)
+
+  df.long <- melt(df)
+
+  df.long$id <- sub("quan","G",df.long$id)
+  boxcols <- "#FF5800"
+
+  ggplot(df.long,aes(id,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+      ylab("log2(Escape Index FC)") +
+      xlab("")+
+      ggtitle("PolII Pausing Index Groups") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=18),
+            axis.text.x = element_text(angle=45, vjust=0.5,color="black",size=20),
+            axis.text.y = element_text(color="black",size=18),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+      ylim(-2.5,5) #+ scale_x_discrete(limits=c("WTKAPLAN","E1103G","F1086S","G1097D","H1085Q","H1085Y"))#+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/piFCbox.png]]
+
+#+TBLNAME: ksTest
+|      Group by | Median log2(Promoter |
+| Pausing Index |  Escape Ratio (PER)) |
+|---------------+----------------------|
+|             1 |             1.356637 |
+|             2 |             1.101923 |
+|             3 |            0.7730007 |
+
+* Corrlation escape FC between replicates
++ come back and calculate the delta and number of peaks for the peaks that overlap in 990 and 959
+** shPAF1.5 MOLNG-990 and MOLNG-959
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/shPAF1.5.corr.png :width 500 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  model <- get(load("./filtModel.rda"))
+
+  df <- data.frame(shPAF1.5_959=log2(model$delta.959)
+                   ,shPAF1.5_990=log2(model$delta.990.5))
+
+  df <- df[is.finite(rowSums(df)),]
+
+  smoothScatter(df,main="Escape Ratio"
+                ,xlab="log2(Escape Ratio FC shPAF1.5_959)"
+                , ylab="log2(Escape Ratio FC shPAF1.5_990)"
+                ,nbin=300
+                                          ,ylim=c(-5.5,5.5)
+                                          ,xlim=c(-5.5,5.5)
+                ,cex=0.5, cex.lab=1.4,cex.axis=1.4, cex.main=1.4,col="blue")
+  legend("topleft", title="correlation", legend= round(cor(df$shPAF1.5_959,df$shPAF1.5_990,method="pearson"), 4), cex=1.5)
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/shPAF1.5.corr.png]]
+
+** shPAF1.5 MOLNG-990 and shPAF1.3 990
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/shPAF1.53.corr.png :width 505 :height 505
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  model <- get(load("./filtModel.rda"))
+
+  df <- data.frame(shPAF1.5_990=log2(model$delta.990.5)
+                   ,shPAF1.3_990=log2(model$delta.990.3))
+
+  df <- df[is.finite(rowSums(df)),]
+
+  smoothScatter(df,main="Escape Ratio"
+                ,xlab="log2(Escape Ratio FC shPAF1.5_990)"
+                , ylab="log2(Escape Ratio FC shPAF1.3_990)"
+                ,nbin=300
+                                          ,ylim=c(-5,5)
+                                          ,xlim=c(-5,5)
+                ,cex=0.5, cex.lab=1.4,cex.axis=1.4, cex.main=1.4,col="blue")
+  legend("topleft", title="correlation", legend= round(cor(df$shPAF1.3_990,df$shPAF1.5_990,method="pearson"), 4), cex=1.5)
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/shPAF1.53.corr.png]]
+
+*** shPAF1.5 MOLNG-959 and shPAF1.3 990
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/shPAF1.959.3.corr.png :width 505 :height 505
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  model <- get(load("./filtModel.rda"))
+
+  df <- data.frame(shPAF1.5_959=log2(model$delta.959)
+                   ,shPAF1.3_990=log2(model$delta.990.3))
+
+  df <- df[is.finite(rowSums(df)),]
+
+  smoothScatter(df,main="Escape Ratio"
+                ,xlab="log2(Escape Ratio FC shPAF1.5_959)"
+                , ylab="log2(Escape Ratio FC shPAF1.3_990)"
+                ,nbin=300
+                                          ,ylim=c(-5,5)
+                                          ,xlim=c(-5,5)
+                ,cex=0.5, cex.lab=1.4,cex.axis=1.4, cex.main=1.4,col="blue")
+  legend("topleft", title="correlation", legend= round(cor(df$shPAF1.3_990,df$shPAF1.5_959,method="pearson"), 4), cex=1.5)
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/shPAF1.959.3.corr.png]]
+
+
+** shPAF1.5 MOLNG-990 and shPAF1.2 990
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/shPAF1.52.corr.png :width 500 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  model <- get(load("./filtModel.rda"))
+
+  df <- data.frame(shPAF1.5_990=log2(model$delta.990.5)
+                   ,shPAF1.2_990=log2(model$delta.990.2))
+
+  df <- df[is.finite(rowSums(df)),]
+
+  smoothScatter(df,main="Escape Ratio"
+                ,xlab="log2(Escape Ratio FC shPAF1.5_990)"
+                , ylab="log2(Escape Ratio FC shPAF1.2_990)"
+                ,nbin=300
+                                          ,ylim=c(-5.5,5.5)
+                                          ,xlim=c(-5.5,5.5)
+                ,cex=0.5, cex.lab=1.4,cex.axis=1.4, cex.main=1.4,col="blue")
+  legend("topleft", title="correlation", legend= round(cor(df$shPAF1.2_990,df$shPAF1.5_990,method="pearson"), 4), cex=1.5)
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/shPAF1.52.corr.png]]
+* tss GFP.959 and escape FC
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/tss.corr.png :width 500 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  model <- get(load("./filtModel.rda"))
+  tss <- get(load(("./tssCov_sub.rda")))
+
+
+  df <- data.frame(shPAF1.5_959=log2(model$delta.990.5)
+                   ,GFP_tss=log2(tss$GFP_959_tss))
+
+  df <- df[is.finite(rowSums(df)),]
+
+  smoothScatter(df,main="Escape Ratio"
+                ,xlab="log2(Escape Ratio FC shPAF1.5_959)"
+                , ylab="log2(GFP_tss)"
+                ,nbin=300
+                                          #,ylim=c(-6,6)
+                                          #,xlim=c(-10,2)
+                ,cex=0.5, cex.lab=1.4,cex.axis=1.4, cex.main=1.4,col="blue")
+  legend("topleft", title="correlation", legend= round(cor(df$shPAF1.5_959,df$GFP_tss,method="pearson"), 4), cex=1.5)
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/tss.corr.png]]
+* Meta plots
+** Matrix
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("./filtModel.rda")
+
+  bw5 <- '/n/projects/arw/ShilatifardLab/fec/fec.959/bam'
+  bw6 <- '/n/projects/arw/ShilatifardLab/fec/fec.990/bam'
+
+  bws <-  c(list.files(bw5, pattern="N20_shGFP_HCT116_rep2.bw$|N20_shPAF1-5_HCT116_rep2.bw$", full.names=TRUE),list.files(bw6, pattern="N20_shGFP_HCT116.bw$|N20_shPAF1-2_HCT116.bw$|N20_shPAF1-3_HCT116.bw$|N20_shPAF1-5_HCT116.bw$|PAF1_HCT116.bw$", full.names=TRUE))
+  bws <- bws[grep('test',bws,invert=TRUE)]
+  bws
+  #[1] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shGFP_HCT116_rep2.bw"   
+  #[2] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shPAF1-5_HCT116_rep2.bw"
+  #[3] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shGFP_HCT116.bw"        
+  #[4] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-2_HCT116.bw"     
+  #[5] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-3_HCT116.bw"     
+  #[6] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-5_HCT116.bw"     
+  #[7] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/PAF1_HCT116.bw"
+
+  tss <- promoters(filtModel,upstream=2000,downstream=4000)
+  ranges(tss)
+
+  ############## Function it!
+  matBin <- function(bw,model,name){
+      fname <- paste("./meta_6k/",name,".rda", sep="")
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")
+      cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end,strand){
+              r <- bw.peak.cov[[seqname]][start:end]
+              if(strand == '-'){r <- rev(r)}
+              return(r)
+          }
+                   ,mc.cores=16
+                   ,as.character(seqnames),start,end,as.character(strand))
+      })
+      cat("convert list to matrix\n")
+      mat <- do.call(rbind, mclapply(cov, as.numeric,mc.cores=6))
+      x <- mat
+      cov <- data.frame(x)
+      cat("bin the matrix\n")
+      window.cov <- function(row){
+          window <- as.integer(ncol(cov)/25)
+          window.coverage <- lapply(0:(window-1), function(jump)
+                                    rowMeans(row[(jump*24+1):(jump*24+1)+24])
+                                    )
+          t(as.matrix(unlist(window.coverage)))
+      }
+      win <- mclapply(1:nrow(cov), function(i)
+                      window.cov(cov[i,]),mc.cores=16) 
+      bin.mat <- do.call(rbind, mclapply(win, as.numeric, mc.cores=16))
+      df <- data.frame(bin.mat)
+      rownames(df) <- tss$tx_name
+      save(df,file=fname)
+      df
+  }
+
+  #Dir <- "heat"
+  #dir.create(Dir,FALSE,TRUE)
+
+  N20_GFP_959 <- matBin(bws[[1]],model=tss,name="N20_GFP_959")
+  N20_PAF1.5_959 <- matBin(bws[[2]],model=tss,name="N20_PAF1.5_959")
+  N20_GFP_990 <- matBin(bws[[3]],model=tss,name="N20_GFP_990")
+  N20_PAF1.2_990 <- matBin(bws[[4]],model=tss,name="N20_PAF1.2_990")
+  N20_PAF1.3_990 <- matBin(bws[[5]],model=tss,name="N20_PAF1.3_990")
+  N20_PAF1.5_990 <- matBin(bws[[6]],model=tss,name="N20_PAF1.5_990")
+  PAF1_chip_990 <- matBin(bws[[7]],model=tss,name="PAF1_chip_990")
+
+  #### make meta for -100 to 2k
+  tss <- promoters(filtModel,upstream=100,downstream=2000)
+  ranges(tss)
+
+  N20_GFP_959 <- matBin(bws[[1]],model=tss,name="N20_GFP_959")
+  N20_PAF1.5_959 <- matBin(bws[[2]],model=tss,name="N20_PAF1.5_959")
+  N20_GFP_990 <- matBin(bws[[3]],model=tss,name="N20_GFP_990")
+  N20_PAF1.2_990 <- matBin(bws[[4]],model=tss,name="N20_PAF1.2_990")
+  N20_PAF1.3_990 <- matBin(bws[[5]],model=tss,name="N20_PAF1.3_990")
+  N20_PAF1.5_990 <- matBin(bws[[6]],model=tss,name="N20_PAF1.5_990")
+  PAF1_chip_990 <- matBin(bws[[7]],model=tss,name="PAF1_chip_990")
+
+  ##### make matrix for Ser2 P
+  bws <-  c(list.files("/n/projects/arw/ShilatifardLab/fec/fec.935/more_reads/bam", pattern=".bw$", full.names=TRUE)
+            ,list.files("/n/projects/arw/ShilatifardLab/fec/fec.990/bam", pattern="Ser2P_shGFP_HCT116.bw$|Ser2P_shPAF1-5_HCT116.bw$", full.names=TRUE)
+            )
+  bws <- bws[grep("Input|AFF4|ELL2",bws,invert=TRUE)]
+  bws
+
+  tss <- promoters(filtModel,upstream=2000,downstream=4000)
+  ranges(tss)
+
+  S2P_GFP_935 <- matBin(bws[[1]],model=tss,name="S2P_GFP_935")
+  S2P_PAF1.5_935 <- matBin(bws[[2]],model=tss,name="S2P_PAF1.5_935")
+  S2P_GFP_990 <- matBin(bws[[3]],model=tss,name="S2P_GFP_990")
+  S2P_PAF1.5_990 <- matBin(bws[[4]],model=tss,name="S2P_PAF1.5_990")
+
+  ##### make matrix for Sec
+  bws <-  c(list.files("/n/projects/arw/ShilatifardLab/fec/fec.935/more_reads/bam", pattern=".bw$", full.names=TRUE)
+            ,list.files("/n/projects/arw/ShilatifardLab/fec/fec.990/bam", pattern="AFF4_shGFP_HCT116.bw$|AFF4_shPAF1-5_HCT116.bw$|ELL2_shGFP_HCT116.bw$|ELL2_shPAF1-5_HCT116.bw$", full.names=TRUE)
+            )
+  bws <- bws[grep("Input|S2P",bws,invert=TRUE)]
+  bws
+
+  tss <- promoters(filtModel,upstream=2000,downstream=4000)
+  ranges(tss)
+
+  AFF4_GFP_935 <- matBin(bws[[1]],model=tss,name="AFF4_GFP_935")
+  AFF4_PAF1.5_935 <- matBin(bws[[2]],model=tss,name="AFF4_PAF1.5_935")
+  ELL2_GFP_935 <- matBin(bws[[3]],model=tss,name="ELL2_GFP_935")
+  ELL2_PAF1.5_935 <- matBin(bws[[4]],model=tss,name="ELL2_PAF1.5_935")
+  AFF4_GFP_990 <- matBin(bws[[5]],model=tss,name="AFF4_GFP_990")
+  AFF4_PAF1.5_990 <- matBin(bws[[6]],model=tss,name="AFF4_PAF1.5_990")
+  ELL2_GFP_990 <- matBin(bws[[7]],model=tss,name="ELL2_GFP_990")
+  ELL2_PAF1.5_990 <- matBin(bws[[8]],model=tss,name="ELL2_PAF1.5_990")
+
+#+END_SRC
+
+** Plots
+*** N20_959 6k
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/meta6k.959.png :width 500 :height 500
+  gfp.959 <- get(load("./meta_6k/N20_GFP_959.rda"))
+  paf.959 <- get(load("./meta_6k/N20_PAF1.5_959.rda"))
+
+  all <- data.frame(GFP_959=colMeans(gfp.959)
+                    ,PAF1.5_959=colMeans(paf.959)
+                    )
+
+  cols <- rep(c("blue","purple"),2)
+
+  matplot(all, type =c('l'),pch=4,col=cols
+          ,lty=c(1,1,2,2)
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total Pol II"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,ceiling(max(all)))
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=0.5),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,80,240),labels=c('-2kb','TSS','+4kb'),cex.axis=1.3)
+  legend("topright", legend = names(all), col=cols, lwd=4,lty=1,cex=1.3,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/meta6k.959.png]]
+
+*** N20_959 2.1k
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/meta2k.959.png :width 500 :height 500
+  gfp.959 <- get(load("./meta_2k/N20_GFP_959.rda"))
+  paf.959 <- get(load("./meta_2k/N20_PAF1.5_959.rda"))
+
+  all <- data.frame(GFP_959=colMeans(gfp.959)
+                    ,PAF1.5_959=colMeans(paf.959)
+                    )
+
+  cols <- rep(c("blue","purple"),2)
+
+  matplot(all, type =c('l'),pch=4,col=cols
+          ,lty=c(1,1,2,2)
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total Pol II"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,ceiling(max(all)))
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=0.5),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,4,84),labels=c('-100','TSS','+2kb'),cex.axis=1.3)
+  legend("topright", legend = names(all), col=cols, lwd=4,lty=1,cex=1.3,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/meta2k.959.png]]
+
+*** N20_990.5 6k
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/meta6k.990.5.png :width 500 :height 500
+  gfp <- get(load("./meta_6k/N20_GFP_990.rda"))
+  paf <- get(load("./meta_6k/N20_PAF1.5_990.rda"))
+
+  all <- data.frame(GFP_990=colMeans(gfp)
+                    ,PAF1.5_990=colMeans(paf)
+                    )
+
+  cols <- rep(c("blue","purple"),2)
+
+  matplot(all, type =c('l'),pch=4,col=cols
+          ,lty=c(1,1,2,2)
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total Pol II"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,1.5)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=0.5),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,80,240),labels=c('-2kb','TSS','+4kb'),cex.axis=1.3)
+  legend("topright", legend = names(all), col=cols, lwd=4,lty=1,cex=1.3,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/meta6k.990.5.png]]
+*** N20_990.5 2k
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/meta2k.990.5.png :width 500 :height 500
+  gfp <- get(load("./meta_2k/N20_GFP_990.rda"))
+  paf <- get(load("./meta_2k/N20_PAF1.5_990.rda"))
+
+  all <- data.frame(GFP_990=colMeans(gfp)
+                    ,PAF1.5_990=colMeans(paf)
+                    )
+
+  cols <- rep(c("blue","purple"),2)
+
+  matplot(all, type =c('l'),pch=4,col=cols
+          ,lty=c(1,1,2,2)
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total Pol II"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,1.5)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=0.5),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,4,84),labels=c('-100','TSS','+2kb'),cex.axis=1.3)
+  legend("topright", legend = names(all), col=cols, lwd=4,lty=1,cex=1.3,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/meta2k.990.5.png]]
+*** N20_990.3 6k
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/meta6k.990.3.png :width 500 :height 500
+  gfp <- get(load("./meta_6k/N20_GFP_990.rda"))
+  paf <- get(load("./meta_6k/N20_PAF1.3_990.rda"))
+
+  all <- data.frame(GFP_990=colMeans(gfp)
+                    ,PAF1.3_990=colMeans(paf)
+                    )
+
+  cols <- rep(c("blue","purple"),2)
+
+  matplot(all, type =c('l'),pch=4,col=cols
+          ,lty=c(1,1,2,2)
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total Pol II"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,1.5)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=0.5),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,80,240),labels=c('-2kb','TSS','+4kb'),cex.axis=1.3)
+  legend("topright", legend = names(all), col=cols, lwd=4,lty=1,cex=1.3,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/meta6k.990.3.png]]
+*** N20_990.3 2k
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/meta2k.990.3.png :width 500 :height 500
+  gfp <- get(load("./meta_2k/N20_GFP_990.rda"))
+  paf <- get(load("./meta_2k/N20_PAF1.3_990.rda"))
+
+  all <- data.frame(GFP_990=colMeans(gfp)
+                    ,PAF1.3_990=colMeans(paf)
+                    )
+
+  cols <- rep(c("blue","purple"),2)
+
+  matplot(all, type =c('l'),pch=4,col=cols
+          ,lty=c(1,1,2,2)
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total Pol II"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,1.5)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=0.5),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,4,84),labels=c('-100','TSS','+2kb'),cex.axis=1.3)
+  legend("topright", legend = names(all), col=cols, lwd=4,lty=1,cex=1.3,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/meta2k.990.3.png]]
+*** N20_990.2 6k
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/meta6k.990.2.png :width 500 :height 500
+  gfp <- get(load("./meta_6k/N20_GFP_990.rda"))
+  paf <- get(load("./meta_6k/N20_PAF1.2_990.rda"))
+
+  all <- data.frame(GFP_990=colMeans(gfp)
+                    ,PAF1.2_990=colMeans(paf)
+                    )
+
+  cols <- rep(c("blue","purple"),2)
+
+  matplot(all, type =c('l'),pch=4,col=cols
+          ,lty=c(1,1,2,2)
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total Pol II"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,1)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=0.5),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,80,240),labels=c('-2kb','TSS','+4kb'),cex.axis=1.3)
+  legend("topright", legend = names(all), col=cols, lwd=4,lty=1,cex=1.3,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/meta6k.990.2.png]]
+*** N20_990.2 2k
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/meta2k.990.2.png :width 500 :height 500
+  gfp <- get(load("./meta_2k/N20_GFP_990.rda"))
+  paf <- get(load("./meta_2k/N20_PAF1.2_990.rda"))
+
+  all <- data.frame(GFP_990=colMeans(gfp)
+                    ,PAF1.2_990=colMeans(paf)
+                    )
+
+  cols <- rep(c("blue","purple"),2)
+
+  matplot(all, type =c('l'),pch=4,col=cols
+          ,lty=c(1,1,2,2)
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total Pol II"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,1)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=0.5),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,4,84),labels=c('-100','TSS','+2kb'),cex.axis=1.3)
+  legend("topright", legend = names(all), col=cols, lwd=4,lty=1,cex=1.3,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/meta2k.990.2.png]]
+** Make heatmap matricies
+*** N20 and paf
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  gfp.959 <- get(load("./meta_6k/N20_GFP_959.rda"))
+  paf.5.959 <- get(load("./meta_6k/N20_PAF1.5_959.rda"))
+
+  load("./filtModel.rda")
+
+  bw5 <- '/n/projects/arw/ShilatifardLab/fec/fec.959/bam'
+  bw6 <- '/n/projects/arw/ShilatifardLab/fec/fec.990/bam'
+
+  bws <-  c(list.files(bw5, pattern="N20_shGFP_HCT116_rep2.bw$|N20_shPAF1-5_HCT116_rep2.bw$", full.names=TRUE),list.files(bw6, pattern="N20_shGFP_HCT116.bw$|N20_shPAF1-2_HCT116.bw$|N20_shPAF1-3_HCT116.bw$|N20_shPAF1-5_HCT116.bw$|PAF1_HCT116.bw$", full.names=TRUE))
+  bws <- bws[grep('test',bws,invert=TRUE)]
+  bws
+
+
+  peakBin <- function(bw,model){
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")    
+      cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              sum(bw.peak.cov[[seqname]][start:end])
+          }
+                   ,mc.cores=12
+                   ,as.character(seqnames),start,end)
+      })                    
+  }
+
+  tss <- promoters(filtModel,upstream=250,downstream=500)
+  ranges(tss)
+
+  totalCov <- do.call(cbind,mclapply(bws[[1]],model=tss,peakBin,mc.cores=1))
+
+  colnames(totalCov) <- sub(".bw","",basename(bws[[1]]))
+  totalCov <- data.frame(totalCov)
+
+  filtModel$GFP_959_750<- totalCov[,1]
+
+  all.equal(tss$tx_name,filtModel$tx_name)
+  #[1] TRUE
+
+  save(filtModel,file="filtModel.rda")
+
+  or <- order(elementMetadata(filtModel)$GFP_959_750,decreasing=TRUE)
+
+  all <- filtModel[or]
+
+  gfp.all <- gfp.959[or,]
+  all.equal(rownames(gfp.all),all$tx_name)
+  paf1.all <- paf.5.959[or,]
+
+  n20.all.cdt <- cbind(UID=rownames(gfp.all),NAME=rownames(gfp.all),gfp.all,paf1.all)
+  write.table(n20.all.cdt, file="./heat/n20.all.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.all/gfp.all)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+        
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.FC, file="./heat/n20.FC.cdt", sep="\t",row.names=FALSE)
+
+  ############################################## PAF1 chip seq matrix transform
+  paf <- get(load("./meta_6k/PAF1_chip_990.rda"))
+
+  paf <- paf[or,]
+
+  paf.chip.cdt <- cbind(UID=rownames(paf),NAME=rownames(paf),paf)
+  write.table(paf.chip.cdt, file="./heat/paf.chip.cdt", sep="\t",row.names=FALSE)
+
+
+  ########################################## sort by rowsums
+  or <- order(-rowSums(gfp.959))
+
+  gfp.all <- gfp.959[or,]
+  paf1.all <- paf.5.959[or,]
+
+  n20.all.cdt <- cbind(UID=rownames(gfp.all),NAME=rownames(gfp.all),gfp.all,paf1.all)
+  write.table(n20.all.cdt, file="./heat_rowSums/n20.all.cdt", sep="\t",row.names=FALSE)
+
+  ## n20 FC
+  FC <- as.matrix(paf1.all/gfp.all)
+  FC[is.nan(FC)] = 1
+  FC[is.infinite(FC)] = max(FC[!FC %in% "Inf"])
+  dif <- log2(FC)
+        
+  dif[is.infinite(dif)] = min(dif[!dif %in% "-Inf"])
+
+  n20.FC <- cbind(UID=rownames(dif),NAME=rownames(dif),dif)
+  write.table(n20.FC, file="./heat_rowSums/n20.FC.cdt", sep="\t",row.names=FALSE)
+
+  ############################################## PAF1 chip seq matrix transform
+  paf <- get(load("./meta_6k/PAF1_chip_990.rda"))
+
+  paf <- paf[or,]
+
+  paf.chip.cdt <- cbind(UID=rownames(paf),NAME=rownames(paf),paf)
+  write.table(paf.chip.cdt, file="./heat_rowSums/paf.chip.cdt", sep="\t",row.names=FALSE)
+
+  ############################################## Groups by rowsums
+  ################################## group1
+  g1 <- filtModel[filtModel$quan==1,]
+
+  or <- order(-rowSums(gfp.959[g1$tx_name,]))
+
+  g1 <- g1[or]
+
+  gfp.g1 <- gfp.959[g1$tx_name,]
+  all.equal(rownames(gfp.g1),g1$tx_name)
+  paf1.g1 <- paf.5.959[g1$tx_name,]
+  paf.1 <- paf[g1$tx_name,]
+
+  n20.g1.cdt <- cbind(UID=rownames(gfp.g1),NAME=rownames(gfp.g1),gfp.g1,paf1.g1)
+  write.table(n20.g1.cdt, file="./heat_rowSums/n20.g1.cdt", sep="\t",row.names=FALSE)
+
+  paf.g1.cdt <- cbind(UID=rownames(paf.1),NAME=rownames(paf.1),paf.1)
+  write.table(paf.g1.cdt, file="./heat_rowSums/paf.g1.cdt", sep="\t",row.names=FALSE)
+
+  ################################## group2
+  g2 <- filtModel[filtModel$quan==2,]
+
+  or <- order(-rowSums(gfp.959[g2$tx_name,]))
+
+  g2 <- g2[or]
+
+  gfp.g2 <- gfp.959[g2$tx_name,]
+  all.equal(rownames(gfp.g2),g2$tx_name)
+  paf1.g2 <- paf.5.959[g2$tx_name,]
+  paf.2 <- paf[g2$tx_name,]
+
+  n20.g2.cdt <- cbind(UID=rownames(gfp.g2),NAME=rownames(gfp.g2),gfp.g2,paf1.g2)
+  write.table(n20.g2.cdt, file="./heat_rowSums/n20.g2.cdt", sep="\t",row.names=FALSE)
+
+  paf.g2.cdt <- cbind(UID=rownames(paf.2),NAME=rownames(paf.2),paf.2)
+  write.table(paf.g2.cdt, file="./heat_rowSums/paf.g2.cdt", sep="\t",row.names=FALSE)
+
+  ################################## group3
+  g3 <- filtModel[filtModel$quan==3,]
+
+  or <- order(-rowSums(gfp.959[g3$tx_name,]))
+
+  g3 <- g3[or]
+
+  gfp.g3 <- gfp.959[g3$tx_name,]
+  all.equal(rownames(gfp.g3),g3$tx_name)
+  paf1.g3 <- paf.5.959[g3$tx_name,]
+  paf.3 <- paf[g3$tx_name,]
+
+  n20.g3.cdt <- cbind(UID=rownames(gfp.g3),NAME=rownames(gfp.g3),gfp.g3,paf1.g3)
+  write.table(n20.g3.cdt, file="./heat_rowSums/n20.g3.cdt", sep="\t",row.names=FALSE)
+
+  paf.g3.cdt <- cbind(UID=rownames(paf.3),NAME=rownames(paf.3),paf.3)
+  write.table(paf.g3.cdt, file="./heat_rowSums/paf.g3.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+*** S2P
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  gfp.959 <- get(load("./meta_6k/N20_GFP_959.rda"))
+  gfp.935 <- get(load("./meta_6k/S2P_GFP_935.rda"))
+  gfp.990 <- get(load("./meta_6k/S2P_GFP_990.rda"))
+  paf.935 <- get(load("./meta_6k/S2P_PAF1.5_935.rda"))
+  paf.990 <- get(load("./meta_6k/S2P_PAF1.5_990.rda"))
+
+  load("./filtModel.rda")
+
+  ########################################## sort by rowsums
+  or <- order(-rowSums(gfp.959))
+
+  gfp.all.935 <- gfp.935[or,]
+  paf.all.935 <- paf.935[or,]
+
+  s2p.all.935.cdt <- cbind(UID=rownames(gfp.all.935),NAME=rownames(gfp.all.935),gfp.all.935,paf.all.935)
+  write.table(s2p.all.935.cdt, file="./heat_rowSums/s2p.all.935.cdt", sep="\t",row.names=FALSE)
+
+  gfp.all.990 <- gfp.990[or,]
+  paf.all.990 <- paf.990[or,]
+
+  s2p.all.990.cdt <- cbind(UID=rownames(gfp.all.990),NAME=rownames(gfp.all.990),gfp.all.990,paf.all.990)
+  write.table(s2p.all.990.cdt, file="./heat_rowSums/s2p.all.990.cdt", sep="\t",row.names=FALSE)
+
+  ################################## group1
+  g1 <- filtModel[filtModel$quan==1,]
+
+  or <- order(-rowSums(gfp.959[g1$tx_name,]))
+
+  g1 <- g1[or]
+
+  gfp.935.g1 <- gfp.935[g1$tx_name,]
+  paf.935.g1 <- paf.935[g1$tx_name,]
+  all.equal(rownames(gfp.935.g1),g1$tx_name)
+
+  s2p.g1.935.cdt <- cbind(UID=rownames(gfp.935.g1),NAME=rownames(gfp.935.g1),gfp.935.g1,paf.935.g1)
+  write.table(s2p.g1.935.cdt, file="./heat_rowSums/s2p.g1.935.cdt", sep="\t",row.names=FALSE)
+
+  gfp.990.g1 <- gfp.990[g1$tx_name,]
+  paf.990.g1 <- paf.990[g1$tx_name,]
+  all.equal(rownames(gfp.990.g1),g1$tx_name)
+
+  s2p.g1.990.cdt <- cbind(UID=rownames(gfp.990.g1),NAME=rownames(gfp.990.g1),gfp.990.g1,paf.990.g1)
+  write.table(s2p.g1.990.cdt, file="./heat_rowSums/s2p.g1.990.cdt", sep="\t",row.names=FALSE)
+
+
+  ################################## group2
+  g2 <- filtModel[filtModel$quan==2,]
+
+  or <- order(-rowSums(gfp.959[g2$tx_name,]))
+
+  g2 <- g2[or]
+
+  gfp.935.g2 <- gfp.935[g2$tx_name,]
+  paf.935.g2 <- paf.935[g2$tx_name,]
+  all.equal(rownames(gfp.935.g2),g2$tx_name)
+
+  s2p.g2.935.cdt <- cbind(UID=rownames(gfp.935.g2),NAME=rownames(gfp.935.g2),gfp.935.g2,paf.935.g2)
+  write.table(s2p.g2.935.cdt, file="./heat_rowSums/s2p.g2.935.cdt", sep="\t",row.names=FALSE)
+
+  gfp.990.g2 <- gfp.990[g2$tx_name,]
+  paf.990.g2 <- paf.990[g2$tx_name,]
+  all.equal(rownames(gfp.990.g2),g2$tx_name)
+
+  s2p.g2.990.cdt <- cbind(UID=rownames(gfp.990.g2),NAME=rownames(gfp.990.g2),gfp.990.g2,paf.990.g2)
+  write.table(s2p.g2.990.cdt, file="./heat_rowSums/s2p.g2.990.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+*** Sec
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  gfp.959 <- get(load("./meta_6k/N20_GFP_959.rda"))
+  aff.gfp.935 <- get(load("./meta_6k/AFF4_GFP_935.rda"))
+  aff.gfp.990 <- get(load("./meta_6k/AFF4_GFP_990.rda"))
+  aff.paf.935 <- get(load("./meta_6k/AFF4_PAF1.5_935.rda"))
+  aff.paf.990 <- get(load("./meta_6k/AFF4_PAF1.5_990.rda"))
+  ell.gfp.935 <- get(load("./meta_6k/ELL2_GFP_935.rda"))
+  ell.gfp.990 <- get(load("./meta_6k/ELL2_GFP_990.rda"))
+  ell.paf.935 <- get(load("./meta_6k/ELL2_PAF1.5_935.rda"))
+  ell.paf.990 <- get(load("./meta_6k/ELL2_PAF1.5_990.rda"))
+
+  load("./filtModel.rda")
+
+  ########################################## sort by rowsums
+  or <- order(-rowSums(gfp.959))
+
+  aff.gfp.all.935 <- aff.gfp.935[or,]
+  aff.paf.all.935 <- aff.paf.935[or,]
+  ell.gfp.all.935 <- ell.gfp.935[or,]
+  ell.paf.all.935 <- ell.paf.935[or,]
+
+  sec.all.935.cdt <- cbind(UID=rownames(aff.gfp.all.935),NAME=rownames(aff.gfp.all.935),aff.gfp.all.935,aff.paf.all.935,ell.gfp.all.935,ell.paf.all.935)
+  write.table(sec.all.935.cdt, file="./heat_rowSums/sec.all.935.cdt", sep="\t",row.names=FALSE)
+
+  aff.gfp.all.990 <- aff.gfp.990[or,]
+  aff.paf.all.990 <- aff.paf.990[or,]
+  ell.gfp.all.990 <- ell.gfp.990[or,]
+  ell.paf.all.990 <- ell.paf.990[or,]
+
+  sec.all.990.cdt <- cbind(UID=rownames(aff.gfp.all.990),NAME=rownames(aff.gfp.all.990),aff.gfp.all.990,aff.paf.all.990,ell.gfp.all.990,ell.paf.all.990)
+  write.table(sec.all.990.cdt, file="./heat_rowSums/sec.all.990.cdt", sep="\t",row.names=FALSE)
+
+  ################################## group1
+  g1 <- filtModel[filtModel$quan==1,]
+
+  or <- order(-rowSums(gfp.959[g1$tx_name,]))
+
+  g1 <- g1[or]
+
+  aff.gfp.935.g1 <- aff.gfp.935[g1$tx_name,]
+  aff.paf.935.g1 <- aff.paf.935[g1$tx_name,]
+  ell.gfp.935.g1 <- ell.gfp.935[g1$tx_name,]
+  ell.paf.935.g1 <- ell.paf.935[g1$tx_name,]
+
+
+  all.equal(rownames(aff.gfp.935.g1),g1$tx_name)
+
+  sec.g1.935.cdt <- cbind(UID=rownames(aff.gfp.935.g1),NAME=rownames(aff.gfp.935.g1),aff.gfp.935.g1,aff.paf.935.g1,ell.gfp.935.g1,ell.paf.935.g1)
+  write.table(sec.g1.935.cdt, file="./heat_rowSums/sec.g1.935.cdt", sep="\t",row.names=FALSE)
+
+  aff.gfp.990.g1 <- aff.gfp.990[g1$tx_name,]
+  aff.paf.990.g1 <- aff.paf.990[g1$tx_name,]
+  ell.gfp.990.g1 <- ell.gfp.990[g1$tx_name,]
+  ell.paf.990.g1 <- ell.paf.990[g1$tx_name,]
+  all.equal(rownames(aff.gfp.990.g1),g1$tx_name)
+
+  sec.g1.990.cdt <- cbind(UID=rownames(aff.gfp.990.g1),NAME=rownames(aff.gfp.990.g1),aff.gfp.990.g1,aff.paf.990.g1,ell.gfp.990.g1,ell.paf.990.g1)
+  write.table(sec.g1.990.cdt, file="./heat_rowSums/sec.g1.990.cdt", sep="\t",row.names=FALSE)
+
+
+
+  ################################## group2
+  g2 <- filtModel[filtModel$quan==2,]
+  or <- order(-rowSums(gfp.959[g2$tx_name,]))
+  g2 <- g2[or]
+
+  aff.gfp.935.g2 <- aff.gfp.935[g2$tx_name,]
+  aff.paf.935.g2 <- aff.paf.935[g2$tx_name,]
+  ell.gfp.935.g2 <- ell.gfp.935[g2$tx_name,]
+  ell.paf.935.g2 <- ell.paf.935[g2$tx_name,]
+
+
+  all.equal(rownames(aff.gfp.935.g2),g2$tx_name)
+
+  sec.g2.935.cdt <- cbind(UID=rownames(aff.gfp.935.g2),NAME=rownames(aff.gfp.935.g2),aff.gfp.935.g2,aff.paf.935.g2,ell.gfp.935.g2,ell.paf.935.g2)
+  write.table(sec.g2.935.cdt, file="./heat_rowSums/sec.g2.935.cdt", sep="\t",row.names=FALSE)
+
+  aff.gfp.990.g2 <- aff.gfp.990[g2$tx_name,]
+  aff.paf.990.g2 <- aff.paf.990[g2$tx_name,]
+  ell.gfp.990.g2 <- ell.gfp.990[g2$tx_name,]
+  ell.paf.990.g2 <- ell.paf.990[g2$tx_name,]
+  all.equal(rownames(aff.gfp.990.g2),g2$tx_name)
+
+  sec.g2.990.cdt <- cbind(UID=rownames(aff.gfp.990.g2),NAME=rownames(aff.gfp.990.g2),aff.gfp.990.g2,aff.paf.990.g2,ell.gfp.990.g2,ell.paf.990.g2)
+  write.table(sec.g2.990.cdt, file="./heat_rowSums/sec.g2.990.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+* Meta gene
+** matrix
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("./filtModel.rda")
+
+  bw5 <- '/n/projects/arw/ShilatifardLab/fec/fec.959/bam'
+  bw6 <- '/n/projects/arw/ShilatifardLab/fec/fec.990/bam'
+
+  bws <-  c(list.files(bw5, pattern="N20_shGFP_HCT116_rep2.bw$|N20_shPAF1-5_HCT116_rep2.bw$", full.names=TRUE),list.files(bw6, pattern="N20_shGFP_HCT116.bw$|N20_shPAF1-2_HCT116.bw$|N20_shPAF1-3_HCT116.bw$|N20_shPAF1-5_HCT116.bw$|PAF1_HCT116.bw$", full.names=TRUE))
+  bws <- bws[grep('test',bws,invert=TRUE)]
+  bws
+  #[1] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shGFP_HCT116_rep2.bw"   
+  #[2] "/n/projects/arw/ShilatifardLab/fec/fec.959/bam/N20_shPAF1-5_HCT116_rep2.bw"
+  #[3] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shGFP_HCT116.bw"        
+  #[4] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-2_HCT116.bw"     
+  #[5] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-3_HCT116.bw"     
+  #[6] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/N20_shPAF1-5_HCT116.bw"     
+  #[7] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/PAF1_HCT116.bw"
+
+   
+  ############## Function it!
+  all <- filtModel[width(filtModel)>501,]
+  TSS <- promoters(all,upstream=250,downstream=500)
+  TES <- resize(all,fix='end',width=1)
+  TES <- promoters(TES,upstream=0,downstream=2000)
+  Body <- psetdiff(all,TES)
+  Body <- psetdiff(Body,TSS)
+
+  ############## Function it!
+  metadf <- function(bw,tss.model,body.model,tes.model,name){
+      fname <- paste("./meta_gene/",name,".rda", sep="")
+      tssBin <- function(bw,tss.model){
+          cat("importing:", bw, sep="\n")
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(tss.model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")
+          cov <- with(as.data.frame(tss.model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  r <- approx(r,n=200)$y
+                  return(r)
+              }
+                       ,mc.cores=16
+                       ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cov <- t(cov)
+      }
+      tss <- tssBin(bw,tss.model)    
+      bodyBin <- function(bw,body.model){
+          cat("importing:", bw, sep="\n")
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(body.model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")    
+          cov <- with(as.data.frame(body.model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  r <- approx(r,n=600)$y
+                  return(r)
+              }
+                       ,mc.cores=16
+                       ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cov <- t(cov)
+      }
+      body <- bodyBin(bw,body.model)
+      tesBin <- function(bw,tes.model){
+          cat("importing:", bw, sep="\n")
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(tes.model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")
+          cov <- with(as.data.frame(tes.model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  r <- approx(r,n=200)$y
+                  return(r)
+              }
+                       ,mc.cores=16
+                       ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cov <- t(cov)
+      }
+      tes <- tesBin(bw,tes.model)    
+      df <- data.frame(cbind(tss,body,tes))
+      rownames(df) <- tss.model$tx_name
+      save(df,file=fname)
+      df
+  }
+
+
+  #Dir <- "heat"
+  #dir.create(Dir,FALSE,TRUE)
+
+  N20_GFP_959 <- metadf(bws[[1]],tss.model=TSS,body.model=Body,tes.model=TES,name="GFP_N20.959")
+  N20_PAF1.5_959 <- metadf(bws[[2]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_PAF1.5_959")
+  N20_GFP_990 <- metadf(bws[[3]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_GFP_990")
+  N20_PAF1.2_990 <- metadf(bws[[4]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_PAF1.2_990")
+  N20_PAF1.3_990 <- metadf(bws[[5]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_PAF1.3_990")
+  N20_PAF1.5_990 <- metadf(bws[[6]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_PAF1.5_990")
+  PAF1_chip_990 <- metadf(bws[[7]],tss.model=TSS,body.model=Body,tes.model=TES,name="PAF1_chip_990")
+
+#+END_SRC
+** plots
+*** Global
+**** Order 959
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene.959.png :width 600 :height 600
+  library(GenomicRanges)
+  GFP <- get(load("./meta_gene/N20_GFP_959.rda"))
+  PAF1 <- get(load("./meta_gene/N20_PAF1.5_959.rda"))
+  
+  load("./filtModel.rda")
+
+  paf.up <- data.frame(shGFP_959=colMeans(GFP[rownames(GFP) %in% filtModel$tx_name,])
+                       ,shPAF1.5_959=colMeans(PAF1[rownames(PAF1) %in% filtModel$tx_name,])
+                       )
+
+  cols <- c("blue","purple")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total PolII for All Genes Bound"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,2.6)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.2),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene.959.png]]
+
+**** Order 990 shPAF1.5
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene.990.5.png :width 600 :height 600
+  library(GenomicRanges)
+  GFP <- get(load("./meta_gene/N20_GFP_990.rda"))
+  PAF1 <- get(load("./meta_gene/N20_PAF1.5_990.rda"))
+  
+  load("./filtModel.rda")
+
+  paf.up <- data.frame(shGFP_990=colMeans(GFP[rownames(GFP) %in% filtModel$tx_name,])
+                       ,shPAF1.5_990=colMeans(PAF1[rownames(PAF1) %in% filtModel$tx_name,])
+                       )
+
+  cols <- c("blue","purple")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total PolII for All Genes Bound"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          #,ylim=c(0,1.7)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.2),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene.990.5.png]]
+
+
+**** Order 990 shPAF1.3
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene.990.3.png :width 600 :height 600
+  library(GenomicRanges)
+  GFP <- get(load("./meta_gene/N20_GFP_990.rda"))
+  PAF1 <- get(load("./meta_gene/N20_PAF1.3_990.rda"))
+  
+  load("./filtModel.rda")
+
+  paf.up <- data.frame(shGFP_990=colMeans(GFP[rownames(GFP) %in% filtModel$tx_name,])
+                       ,shPAF1.3_990=colMeans(PAF1[rownames(PAF1) %in% filtModel$tx_name,])
+                       )
+
+  cols <- c("blue","purple")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total PolII for All Genes Bound"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          #,ylim=c(0,1.7)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.2),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene.990.3.png]]
+
+
+**** Order 990 shPAF1.2
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene.990.2.png :width 600 :height 600
+  library(GenomicRanges)
+  GFP <- get(load("./meta_gene/N20_GFP_990.rda"))
+  PAF1 <- get(load("./meta_gene/N20_PAF1.2_990.rda"))
+  
+  load("./filtModel.rda")
+
+  paf.up <- data.frame(shGFP_990=colMeans(GFP[rownames(GFP) %in% filtModel$tx_name,])
+                       ,shPAF1.2_990=colMeans(PAF1[rownames(PAF1) %in% filtModel$tx_name,])
+                       )
+
+  cols <- c("blue","purple")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Total PolII for All Genes Bound"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          #,ylim=c(0,1.7)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.2),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene.990.2.png]]
+*** Group 1
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene1.959.png :width 600 :height 600
+  library(GenomicRanges)
+  GFP <- get(load("./meta_gene/N20_GFP_959.rda"))
+  PAF1 <- get(load("./meta_gene/N20_PAF1.5_959.rda"))
+  
+  load("./filtModel.rda")
+  filtModel <- filtModel[filtModel$quan==1,]
+
+  paf.up <- data.frame(shGFP_959=colMeans(GFP[rownames(GFP) %in% filtModel$tx_name,])
+                       ,shPAF1.5_959=colMeans(PAF1[rownames(PAF1) %in% filtModel$tx_name,])
+                       )
+
+  cols <- c("blue","purple")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Group 1"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,3.2)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.2),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene1.959.png]]
+*** Group 2
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene2.959.png :width 600 :height 600
+  library(GenomicRanges)
+  GFP <- get(load("./meta_gene/N20_GFP_959.rda"))
+  PAF1 <- get(load("./meta_gene/N20_PAF1.5_959.rda"))
+  
+  load("./filtModel.rda")
+  filtModel <- filtModel[filtModel$quan==2,]
+
+  paf.up <- data.frame(shGFP_959=colMeans(GFP[rownames(GFP) %in% filtModel$tx_name,])
+                       ,shPAF1.5_959=colMeans(PAF1[rownames(PAF1) %in% filtModel$tx_name,])
+                       )
+
+  cols <- c("blue","purple")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Group 2"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0,3.2)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.2),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene2.959.png]]
+* Cumulative Percent
+** Global
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/pri.959.png :width 600 :height 600
+  library(GenomicRanges)
+
+  load("./filtModel.rda")
+  load("./tssCov_sub.rda")
+  load("./bodyCov_sub.rda")
+
+   
+  tss <- tssCov[filtModel$tx_name,]
+  body <- bodyCov[filtModel$tx_name,]
+  all.equal(rownames(tss),rownames(body))
+
+  gfp <- log2(body$GFP_959_body/tss$GFP_959_tss)
+  paf <- log2(body$PAF1.5_959_body/tss$PAF1.5_959_tss)
+
+  GFP=ecdf(gfp)
+  PAF1=ecdf(paf)
+  ks.test(gfp,paf)
+  # D = 0.2449, p-value < 2.2e-16
+  Names <- c("shGFP_959","shPAF1.5_959")
+  cols <- c("blue","purple")
+    
+  plot(GFP,main="Total PolII for All Genes Bound",
+       col=cols[1],axes=FALSE,ann=TRUE,ylab="Cumulative Percent"
+       ,xlab="log2(PRI)",lwd=4,xlim=c(-7,3)
+       ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2)
+  lines(PAF1,col=cols[2],lty=1,lwd=4)
+  legend(x=-6.9,y=.99, legend=Names, col=cols, lty=1,lwd=4,cex=1.3,box.col="white")
+  axis(2,at=seq(0,1,by=0.1),labels=seq(0,100,by=10),cex.axis=1.3)
+  axis(1,at=seq(-8,10,by=2),labels=seq(-8,10,by=2),cex.axis=1.3)
+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/pri.959.png]]
+
+*** box
+#+begin_src R :exports results :results graphics :file ./plots/globalBox.png :width 250 :height 500
+  library(GenomicRanges)
+  load("./filtModel.rda")
+  load("./tssCov_sub.rda")
+  load("./bodyCov_sub.rda")
+
+   
+  tss <- tssCov[filtModel$tx_name,]
+  body <- bodyCov[filtModel$tx_name,]
+  all.equal(rownames(tss),rownames(body))
+
+  gfp <- log2(body$GFP_959_body/tss$GFP_959_tss)
+  paf <- log2(body$PAF1.5_959_body/tss$PAF1.5_959_tss)
+
+  sub <- data.frame(GFP_959=gfp,PAF1_959=paf)
+
+  boo <- apply(sub, 1, function(x) all(is.finite(x)))
+  dat <- sub[boo, ]
+
+  library(reshape2)
+  library(ggplot2)
+  df.long<-melt(dat)
+
+    
+  boxcols <- c("blue","purple")
+      
+  #ks.test(sub$PAF1,sub$GFP)
+    #data:  sub$PAF1bpor and sub$GFPbpor
+    #D = 0.3482, p-value < 2.2e-16
+    #alternative hypothesis: two-sided
+
+  ggplot(df.long,aes(variable,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+      ylab("log2(PRI)") +
+      xlab("")+
+      ggtitle("Total PolII for All Genes Bound") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=22),
+            axis.text.x = element_text(angle=45, vjust=0.4,color="black",size=20),
+            axis.text.y = element_text(color="black",size=20),
+            plot.title=element_text(size=18))+
+                                          #theme(axis.text=element_text(colour="red"))
+      ylim(-7.5,2.5) #+ scale_x_discrete(limits=c("WTKAPLAN","E1103G","F1086S","G1097D","H1085Q","H1085Y"))#+
+
+#+END_SRC 
+
+#+RESULTS:
+[[file:./plots/globalBox.png]]
++ median(paf) = -2.04599; median(gfp)= -2.664912
+
+** Group 1
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/pri.1.959.png :width 600 :height 600
+  library(GenomicRanges)
+
+  load("./filtModel.rda")
+  load("./tssCov_sub.rda")
+  load("./bodyCov_sub.rda")
+
+  filtModel <- filtModel[filtModel$quan==1,]
+   
+  tss <- tssCov[filtModel$tx_name,]
+  body <- bodyCov[filtModel$tx_name,]
+  all.equal(rownames(tss),rownames(body))
+
+  gfp <- log2(body$GFP_959_body/tss$GFP_959_tss)
+  paf <- log2(body$PAF1.5_959_body/tss$PAF1.5_959_tss)
+
+  GFP=ecdf(gfp)
+  PAF1=ecdf(paf)
+  ks.test(gfp,paf)
+  # D = 0.471, p-value < 2.2e-16
+  Names <- c("shGFP_959","shPAF1.5_959")
+  cols <- c("blue","purple")
+    
+  plot(GFP,main="Group 1",
+       col=cols[1],axes=FALSE,ann=TRUE,ylab="Cumulative Percent"
+       ,xlab="log2(PRI)",lwd=4,xlim=c(-7,3)
+       ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2)
+  lines(PAF1,col=cols[2],lty=1,lwd=4)
+  legend(x=-6.9,y=.99, legend=Names, col=cols, lty=1,lwd=4,cex=1.3,box.col="white")
+  axis(2,at=seq(0,1,by=0.1),labels=seq(0,100,by=10),cex.axis=1.3)
+  axis(1,at=seq(-8,10,by=2),labels=seq(-8,10,by=2),cex.axis=1.3)
+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/pri.1.959.png]]
+** Group 2
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/pri.2.959.png :width 600 :height 600
+  library(GenomicRanges)
+
+  load("./filtModel.rda")
+  load("./tssCov_sub.rda")
+  load("./bodyCov_sub.rda")
+
+  filtModel <- filtModel[filtModel$quan==2,]
+   
+  tss <- tssCov[filtModel$tx_name,]
+  body <- bodyCov[filtModel$tx_name,]
+  all.equal(rownames(tss),rownames(body))
+
+  gfp <- log2(body$GFP_959_body/tss$GFP_959_tss)
+  paf <- log2(body$PAF1.5_959_body/tss$PAF1.5_959_tss)
+
+  GFP=ecdf(gfp)
+  PAF1=ecdf(paf)
+  ks.test(gfp,paf)
+  # D = 0.0566, p-value = 3.066e-07
+  Names <- c("shGFP_959","shPAF1.5_959")
+  cols <- c("blue","purple")
+    
+  plot(GFP,main="Group 2",
+       col=cols[1],axes=FALSE,ann=TRUE,ylab="Cumulative Percent"
+       ,xlab="log2(PRI)",lwd=4,xlim=c(-7,3)
+       ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2)
+  lines(PAF1,col=cols[2],lty=1,lwd=4)
+  legend(x=-6.9,y=.99, legend=Names, col=cols, lty=1,lwd=4,cex=1.3,box.col="white")
+  axis(2,at=seq(0,1,by=0.1),labels=seq(0,100,by=10),cex.axis=1.3)
+  axis(1,at=seq(-8,10,by=2),labels=seq(-8,10,by=2),cex.axis=1.3)
+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/pri.2.959.png]]
+* KS test for PolII Traveling Ratio
+#+TBLNAME: ksTest
+| Sample          | Distance | Two-sample Kolmogorov-Smirnov test p-value |
+|-----------------+----------+--------------------------------------------|
+| PAF1 959 all    |   0.2449 | < 2.2e-16                                  |
+| PAF1 959 group1 |    0.471 | < 2.2e-16                                  |
+| PAF1 959 group2 |   0.0566 | 3.066e-07                                  |
+
+* PAF1 ChIP-seq 
+** Meta gene
+*** Global
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene.PAF.png :width 600 :height 600
+  library(GenomicRanges)
+  PAF1 <- get(load("./meta_gene/PAF1_chip_990.rda"))
+  
+  load("./filtModel.rda")
+
+  paf.up <- data.frame(PAF1_chip=colMeans(PAF1[rownames(PAF1) %in% filtModel$tx_name,])
+                       )
+
+  cols <- c("blue","purple")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="PAF1 ChIP-seq for All Genes Bound"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0.05,0.13)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.01),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene.PAF.png]]
+
+**** Group 1 and 2
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene12.PAF.png :width 600 :height 600
+  library(GenomicRanges)
+  
+  PAF1 <- get(load("./meta_gene/PAF1_chip_990.rda"))
+  
+  load("./filtModel.rda")
+  filtModel <- filtModel[!filtModel$quan==3,]
+
+  paf.up <- data.frame(PAF1_1_ChIP=colMeans(PAF1[rownames(PAF1) %in% filtModel[filtModel$quan==1,]$tx_name,])
+                       ,PAF1_2_ChIP=colMeans(PAF1[rownames(PAF1) %in% filtModel[filtModel$quan==2,]$tx_name,]))
+
+  cols <- c("blue","navy")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Group 2"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0.05,0.13)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.01),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene12.PAF.png]]
+
+*** Group 1
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene1.PAF.png :width 600 :height 600
+  library(GenomicRanges)
+
+  PAF1 <- get(load("./meta_gene/PAF1_chip_990.rda"))
+  
+  load("./filtModel.rda")
+  filtModel <- filtModel[filtModel$quan==1,]
+
+  paf.up <- data.frame(shPAF1.5_959=colMeans(PAF1[rownames(PAF1) %in% filtModel$tx_name,])
+                       )
+
+  cols <- c("blue","purple")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Group 1"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0.05,0.13)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.01),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene1.PAF.png]]
+*** Group 2
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/metaGene2.PAF.png :width 600 :height 600
+  library(GenomicRanges)
+  
+  PAF1 <- get(load("./meta_gene/PAF1_chip_990.rda"))
+  
+  load("./filtModel.rda")
+  filtModel <- filtModel[filtModel$quan==2,]
+
+  paf.up <- data.frame(PAF1_ChIP=colMeans(PAF1[rownames(PAF1) %in% filtModel$tx_name,])
+                       )
+
+  cols <- c("blue","purple")
+
+  matplot(paf.up, type =c('l'),pch=4,col=cols
+          ,lty=1#c(rep(c(1,3),3),rep(c(1,3,2),2))
+          ,lwd =4
+          ,ylab="Occupancy (r.p.m)"
+          ,xlab=""
+          ,main="Group 2"
+          ,axes=FALSE,ann=TRUE
+          ,cex.lab=1.5, cex.axis=2, cex.main=2, cex.sub=2
+          ,ylim=c(0.05,0.13)
+                #,axis=FALSE
+                #,axis(side=1,labels=FALSE)
+          )
+  axis(2,at=seq(0,20,by=.01),labels=TRUE,cex.axis=1.3)
+  axis(1,at=c(0,66.67,200,800,1000),labels=c('-250','TSS','+500','TTS','+2kb'),cex.axis=1.4)
+  legend("topright", legend = names(paf.up), col=cols, lwd=5,lty=1,cex=1.8,box.col="white")
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/metaGene2.PAF.png]]
+** Box Plot
+*** calc avg cov for paf chip from tss to tts +1000
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(GenomicFeatures)
+  library(Rsamtools)
+  library(rtracklayer)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("./filtModel.rda")
+
+  bws <-  list.files("/n/projects/arw/ShilatifardLab/fec/fec.990/bam", pattern="PAF1_HCT116.bw$", full.names=TRUE)
+  bws
+  #[1] "/n/projects/arw/ShilatifardLab/fec/fec.990/bam/PAF1_HCT116.bw"
+
+  gene <- resize(filtModel,fix='start',width=width(filtModel)+1000)
+
+  ############## Function it!
+  geneBin <- function(bw,model){
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")    
+      mean.cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              mean(bw.peak.cov[[seqname]][start:end])
+          }
+                   ,mc.cores=6
+                   ,as.character(seqnames),start,end)
+      })
+      mean.cov <- data.frame(mean.cov)
+      rownames(mean.cov) <- model$tx_name
+      mean.cov
+  }
+
+  cov <- do.call(cbind,mclapply(bws,model=gene,geneBin,mc.cores=4))
+
+  filtModel$pafChip.avg <- cov$mean.cov
+
+  save(filtModel,file="filtModel.rda")
+
+
+#+END_SRC
+*** plot
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/paf1Chipbox.png :width 300 :height 500
+  library(GenomicRanges)
+  library(GenomicAlignments)
+  library(GenomicFeatures)
+  library(Rsamtools)
+  library(rtracklayer)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("./filtModel.rda")
+
+  bedPath <- "/n/projects/arw/ShilatifardLab/fec/fec.990/PAF1_chip/sicer"
+  BED <-  list.files(bedPath, pattern="PAF1_HCT116-W200-G600-FDR1e-8-island.bed", full.names=TRUE)
+  BED
+  ##[1] "/n/projects/arw/ShilatifardLab/fec/fec.990/PAF1_chip/sicer/PAF1_HCT116-W200-G600-FDR1e-8-island.bed"
+
+  PAF1 <- import.bed(BED[[1]],asRangedData=FALSE)
+  seqinfo(PAF1) <- seqinfo(Hsapiens)[seqlevels(PAF1)]
+
+  ol <- findOverlaps(filtModel,PAF1)
+  ol <- data.frame(ol)
+
+  model <- filtModel[unique(ol$queryHits)]
+
+  model <- model[!model$quan==3,]
+
+  g1 <- model[model$quan==1,]
+  g2 <- model[model$quan==2,]
+
+  or <- order(elementMetadata(g1)$pafChip.avg,decreasing=TRUE)
+  or2 <- order(elementMetadata(g2)$pafChip.avg,decreasing=TRUE)
+
+  g1 <- g1[or]
+  g2 <- g2[or2]
+
+  top <- c(g1[1:261],g2[1:245])
+
+  sub <- data.frame(id=top$quan
+                    ,PAF1_avg=top$pafChip.avg
+                    )
+
+  boo <- apply(sub, 1, function(x) all(is.finite(x)))
+  dat <- sub[boo, ]
+  dat$id <- sub("^","Group_",dat$id)
+  Order<-c(paste(1:2))
+  Order <- sub("^","Group_",Order)
+
+  library(reshape2)
+  library(ggplot2)
+
+  df.long<-melt(dat)
+  df.long$bin <-factor(df.long$id, levels=Order)
+      
+  boxcols <- c("#FF5800")
+  ggplot(df.long,aes(id,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+      ylab("log2(Average Occupancy PAF1)") +
+      xlab("")+
+      ggtitle("") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=22),
+            axis.text.x = element_text(angle=45, vjust=0.6,color="black",size=20),
+            axis.text.y = element_text(color="black",size=20),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+      ylim(0,0.4) #+ scale_x_discrete(limits=c("WTKAPLAN","E1103G","F1086S","G1097D","H1085Q","H1085Y"))#+
+
+#+END_SRC
+
+#+RESULTS:
+[[file:./plots/paf1Chipbox.png]]
+
+#+TBLNAME: medianPER
+| Group by PER | Median PAF1 average occupancy for genes with peaks |
+|--------------+----------------------------------------------------|
+|            1 |                                          0.1646049 |
+|            2 |                                          0.1458621 |
+
++ took the top 5% of total in each group, so here there are 261 for G1 and 245 for G2

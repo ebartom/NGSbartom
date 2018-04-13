@@ -1,0 +1,20 @@
+2015-04-9  Tomas Flouri  <Tomas.Flouri@h-its.org>
+    * Release 0.9.8
+    * Fixed missing define in reader.c 
+    * Changed AC_PREREQ to 2.63
+
+2015-01-15  Tomas Flouri  <Tomas.Flouri@h-its.org>
+    * Release 0.9.6
+    * Added zlib support
+    * Fixed options:
+      --left-fastq -> --forward-fastq
+      --right-fastq -> --reverse-fastq
+    * Added --nbase option that places an N as the result of merging when the
+      base-pair to be merged consists of two different, non degenerate bases
+    * Updated man-pages with new options
+
+2013-06-18  Tomas Flouri  <Tomas.Flouri@h-its.org>
+    
+    * Added memory option switch (-y)
+    * Improved explanations in command-line arguments
+    * Fixed usage of PHRED base

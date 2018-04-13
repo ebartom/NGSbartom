@@ -1,0 +1,3 @@
+[console_scripts]
+cutadapt = cutadapt.scripts.cutadapt:main
+

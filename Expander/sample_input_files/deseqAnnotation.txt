@@ -1,0 +1,8 @@
+sample id	Cell	treatment
+lane1	cell1	trt
+lane2	cell1	ntrt
+lane3	cell1	trt
+lane4	cell1	trt
+lane5	cell2	trt
+lane6	cell2	ntrt
+lane8	cell2	trt

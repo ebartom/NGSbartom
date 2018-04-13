@@ -1,0 +1,9 @@
+java.io.FileNotFoundException: ./preferences.txt (No such file or directory)
+	at java.io.FileInputStream.open(Native Method)
+	at java.io.FileInputStream.<init>(FileInputStream.java:138)
+	at java.io.FileInputStream.<init>(FileInputStream.java:93)
+	at expander.ds.Preferences.loadPrefs(Unknown Source)
+	at expander.MainFrame.<init>(Unknown Source)
+	at expander.Expander.main(Unknown Source)
+Free memory is 2258Mb
+Free memory after GC is 2393Mb

@@ -1,0 +1,12 @@
+LICENSE.txt
+MANIFEST.in
+README.md
+py2bit.c
+py2bit.h
+setup.cfg
+setup.py
+lib2bit/2bit.c
+lib2bit/2bit.h
+py2bitTest/__init__.py
+py2bitTest/foo.2bit
+py2bitTest/test.py

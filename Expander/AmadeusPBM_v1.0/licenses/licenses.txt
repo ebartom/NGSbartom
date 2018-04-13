@@ -1,0 +1,24 @@
+AMADEUS PBM v1.0, AMADEUS v1.2, ALLEGRO v1.0 License information
+
+Copyright 
+Tel-Aviv University, Israel (2007-2008).
+
+Licenses
+
+This product uses the biojava, FreeHEP, JFreeChart, JCommon, 
+and PngEncoder Java libraries, which are distributed under the 
+LGPL license (see LICENSE.LGPL.txt). 
+
+This product uses the Xerces and Jakarta-regexp Java libraries, 
+which are distributed under the Apache software license (see 
+LICENSE.APACHE.txt). 
+
+This product uses the JUnit Java library, which is distributed 
+under the Common Public license (see LICENSE.CPL.txt). 
+
+A portion of the user interface code is due to Sun Microsystems Inc.  
+The license rules that apply to this portion are stated in the
+file LICENSE.SUN.txt. 
+
+See also "Copyright Notice.doc".
+

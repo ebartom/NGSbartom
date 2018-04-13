@@ -1,0 +1,138 @@
+You can find more information about each bug number by visiting the
+Bug Parade in the Java Developer Connection(SM) and looking up each
+bug you're interested in. Check it out at:
+
+	http://developer.java.sun.com/developer/bugParade/index.html
+
+
+
+		  CHANGES IN THE 1.2 FCS RELEASE
+		  ------------------------------
+The following bugs have been fixed in the 1.2 release.
+
+4107752	need MimeMessage(MimeMessage msg) constructor to allow copying message
+4112065	Need API to list and set/remove ACLs on folders (IMAP-specific)
+4119681	MimeMessage should allow creation of light-weight messages
+4124022 Two connections required to IMAP server to open a folder
+4124840	A mechanism to get the raw (unencoded) data from a MimePart is needed
+4126013	javax.mail.search terms should be serializable
+4129743	MimeMessage.parse() and MimeMessage.modified should be protected
+4132029	SMTP Submit is limited to 7bit; does not use ESMTP/8BITMIME
+4140579 MimeUtility.encode() does not allow for filename when using UUEncode
+4163360 Need a suitable MessagingException subclass to indicate read-only folder
+4181144	InternetAddress should be Cloneable
+4230553	AuthenticationFailedException should include error message from server
+4259211 exception constructors inconsistent
+4266390 MailDateFormat class should be part of the public API
+4281729 AddressStringTerm.match bug
+4319895	POP3 provider doesn't enforce read-only mode
+4319957	Ambiguous documentation in Javamail 1.1.3 early access edition
+4328824 string based methods to add recipients
+4328826 getDefaultInstance method with no Authenticator
+4330580	MimeMultipart.getBodyPart(String CID) throws exception
+4333694	NullPointerException in version 1.1.1 of the POP3 Provider
+4336435	quoted right angle bracket not handled in InternetAddress
+4339203	writeTo should automatically call saveChanges
+4340648	MimeUtility.getEncoding(DataHandler) method should be public
+4364827	Support IMAP NAMESPACE extension
+4366373	ContentDisposition class should be public
+4371862	improve performance of MimeMessage
+4372700 ParameterList.toString method should allow for returning folded results
+<no id>	most control characters must be encoded, not sent as "7bit"
+<no id>	appending very large message to IMAP folder uses too much memory
+<no id>	changed multipart boundary generation to not include email address
+<no id>	support IMAP LITERAL+ extension (RFC 2088)
+<no id>	allow SMTP multiline reponses with no text (e.g., "250-")
+<no id>	fix many potential locking bugs in IMAP provider
+<no id>	add mail.smtp.sendpartial property to send msg with some bad addresses
+<no id>	add mail.pop3.rsetbeforequit property (see NOTEST.txt)
+<no id>	throw IllegalStateException instead of MessagingException when folder
+	is not open (or closed, as appropriate)
+<no id>	added support for IMAP QUOTA extension
+<no id>	added support for IMAP PREAUTH greeting response
+<no id>	added DataContentHandler for text/xml data
+<no id>	added SMTPMessage class to specify SMTP options on a per-message basis
+<no id>	added javadocs for Sun protocol providers
+<no id>	mail.pop3.message.class property allows POP3Message class to be replaced
+<no id>	mail.{smtp,imap,pop3}.connectiontimeout property for connection timeouts
+
+
+
+		  CHANGES IN THE 1.1.3 FCS RELEASE
+		  --------------------------------
+The following bugs have been fixed in the 1.1.3 release.
+
+4248755	Problem loading a custom provider
+4249046	don't put space after SMTP FROM: and TO:
+4249058	IMAP appendMessages() should include the message Flags as well.
+4263185	JavaMail and JAF can't find properties when used as std ext
+4271714	DEBUG message always printed when providers loaded from <java.home>/lib
+4276080	getEncoding method doesn't parse MIME header
+4279603	RFC822 and MIME specials does not include period "."
+4292793	using Message.reply(true) twice on the same IMAP message causes NPE
+4293605	javax.mail.MimeMultipart boundary string contains invalid characters
+4296711	JavaMail IMAP provider doesn't set SEEN on messages with 0 length body
+4305687	JavaMail speaking SMTP fails to quote dots in some cases
+<no id>	add support for SMTP Authentication, see NOTES.txt
+<no id>	add support for SMTP Delivery Status Notification, see NOTES.txt
+<no id>	SMTP return address is now set in mail.smtp.from
+<no id>	fix bug in InternetAddress when parsing ``<x@foo.com> (Mr. X)''
+<no id>	improve javadocs in many places based on questions to javamail@sun.com
+<no id>	avoid JDK 1.2 bug 4208960 in SimpleTimeZone.getOffset
+<no id>	canonicalize the URLName before fetching saved PasswordAuthentication
+<no id>	convert SimpleClient to swing 1.1 package names (javax.swing.*)
+<no id>	folder.getURLName() should return native separator, not /, per RFC 2192
+<no id>	use JDK 1.2 ClassLoader.getResources() method (if available) to find all
+	META-INF/javamail.providers and META-INF/javamail.address.map files in
+	the CLASSPATH, to better support protocol provider jar files
+<no id>	encode/decode username and password fields of URLName to allow (e.g.)
+	usernames with "@"
+<no id>	added DataContentHandler for text/html, to simplify creation of HTML
+	messages and body parts
+<no id>	remove escapes from personal name when parsing in InternetAddress
+<no id>	cache results of IMAP STATUS command for 1 second, to improve
+	performance of back-to-back calls to getMessageCount,
+	getNewMessageCount, getUnreadMessageCount
+<no id>	fix InternetHeaders Enumeration to work even if hasMoreElements isn't
+	called
+<no id>	support mail.smtp.timeout property
+
+
+
+		  CHANGES IN THE 1.1.2 FCS RELEASE
+		  --------------------------------
+The following bugs have been fixed in the 1.1.2 release.
+
+<no id> Fixed bug where IMAP server connection hangs around even though
+	the connect() method failed.
+4199595	force quoted-printable encoding of long text lines
+<no id>	fix bug in SMTP output that sometimes duplicated "."
+<no id>	close SMTP transport on I/O error
+4230541	don't send SMTP NOOP unnecessarily
+4216666 IMAP provider INTERNALDATE formatter error, causing 
+	problems during appendMessages()
+4227888 IMAP provider does not honor the UID item in its FetchProfile
+
+
+		  CHANGES IN THE 1.1.1 FCS RELEASE
+		  --------------------------------
+The following bugs have been fixed in the 1.1.1 release.
+
+4181143 personal can't be null in constructor
+4134273 more careful & picky address parsing in InternetAddress parser
+4183700 SMTPTransport fails to close socket under certain situations.
+<no id> IMAP provider retains appended message's internal date during
+	Folder.appendMessages(Message[] m);
+<no id> More efficient server-side search for MessageIDTerm in the
+	IMAP provider
+<no id> Fix RFC2047 decoding bug in InternetAddress.getPersonal()
+<no id> Be more tolerant of illegally formatted dates in date parsing.
+<no id> ignore empty lines in loadMappings
+<no id> forgot to use javaCharset() in MimeUtility.decodeWord()
+<no id> Allow addresses without hostnames in InternetAddress parser
+<no id> unrecognized charsets can cause IllegalArgument runtime
+	exception when invoking getContent().
+<no id> Authentication failure when connecting to Sun IMAP server.
+<no id>	Reset SMTP connection after invalid address to allow future
+	sends to succeed
+<no id>	Any response to an SMTP NOOP command means we're still connected

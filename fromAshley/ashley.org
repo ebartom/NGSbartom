@@ -1,0 +1,1783 @@
+# -*- org-export-babel-evaluate: nil; org-export-allow-bind-keywords: t -*-
+#+SETUPFILE:"~/config_files/SETUPFILE.org"
+#+TITLE:    Ryan TRR/TRX HCT116 data analysis
+#+LINK_UP:   index.html
+#+LINK_HOME: index.html
+#+OPTIONS:   H:4 num:t toc:t \n:nil @:t ::t |:t ^:nil -:t f:t *:t <:t
+#+OPTIONS:   email:T author:T creator:T timestamp:T
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="http://genekc07.sgc.loc/lab/css/stylesheet.css" />
+#+PROPERTY: session *fec.673*
+#+PROPERTY: exports both
+#+INFOJS_OPT: view:nil toc:nil ltoc:t mouse:underline buttons:0 path:http://orgmode.org/org-info.js
+#+EXPORT_SELECT_TAGS: export
+#+EXPORT_EXCLUDE_TAGS: noexport
+
+* Call peaks
+#+BEGIN_SRC R
+  tango95 <- "/projects/b1025/tango/TANGO-091.095/TANGO-095/bam"
+  tango125 <- "/projects/b1025/tango/TANGO-125/TANGO-125/bam"
+
+  bam95 <-  list.files(tango95, pattern="H3K4me2-150408.bam$", full.names=TRUE)
+  bam95
+
+  bam125 <-  list.files(tango125, pattern="H3K4me2-150727.bam$|Input-150729.bam$", full.names=TRUE)
+  bam125
+
+
+  BAMS <- c(bam95,bam125)
+
+  chip <- BAMS[grep("Input",BAMS,invert=TRUE)]
+  chip
+
+  input <- BAMS[grep("Input",BAMS,invert=FALSE)]
+  input
+
+  report <- data.frame(sample=sub(".bam","",basename(chip)),chip=chip)
+
+  report$experiment <- NA
+
+  report[grep("GFP",report$sample),"experiment"] <- paste("GFP")
+  report[grep("MLL",report$sample),"experiment"] <- paste("MLL")
+
+  report$input <- NA
+  report[grep("GFP$",report$experiment),"input"] <- input[grep("GFP",input)]
+  report[grep("MLL$",report$experiment),"input"] <- input[grep("MLL",input)]
+
+
+  report$order <- sub('.*\\-',"",dirname(as.character(report$chip)))
+  report$order <- sub("/bam","",report$order)
+
+  report$sample.rename <- paste(sub("-","_",report$sample),report$order,sep="_")
+  report$sample.rename <-sub("-","_",report$sample.rename)
+
+  commands <- sapply(unique(report$sample.rename), function(x, report) {
+      dx   <- report[report$sample.rename %in% x,]
+      ip   <-  paste(dx$chip)
+      con <- paste(dx$input)
+      dir <- paste(getwd(),"macs14",sep="/")
+      sprintf("macs14 -t %s -c %s -f BAM -g hs -n %s/%s 2> %s/%s_log", ip, con, dir, x, dir, x)
+  }, report,simplify=FALSE)
+
+  names(commands) <- tolower(unique(report$sample.rename))
+
+  Dir <- "./macs14"
+    if(!(file.exists(Dir))) {
+        dir.create(Dir,FALSE,TRUE)  
+    } 
+
+  write.table(report,"peakcalling_samples.txt",sep="\t",quote=FALSE,row.names=FALSE)
+
+  header <-"#!/bin/bash
+  #MSUB -l nodes=1:ppn=1
+  #MSUB -A b1025
+  #MSUB –m abe
+  #MSUB -j oe
+  #MSUB –l walltime=24:00:00
+  #MSUB -q normal
+  export PATH=$PATH:/projects/b1025/tools/MACS-1.4.2/bin
+  export PYTHONPATH=/projects/b1025/tools/MACS-1.4.2/lib/python2.6/site-packages:$PYTHONPATH"
+
+  nothing <- lapply(names(commands), function(n,c.dx,h,dir="") {
+      writeLines(paste(h, c.dx[[n]],sep="\n\n"), paste0(dir, paste0(n,".sh")))
+  }, commands, header,dir="./macs14/")
+  commands
+
+  ##find ./scripts/ -iname "*.sh" -exec msub {} ./ \;
+#+END_SRC 
+
+* Get overlapping peaks and generate counts 
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(GenomicAlignments)
+  library(GenomicFeatures)
+  library(Rsamtools)
+  library(rtracklayer)
+  library(biomaRt)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  txdbfile <- "/projects/b1025/arw/stowers_projects/fec/fec.673/gene_express/hsapiens_gene_ensembl_Ens72.txdb"
+  txdb <- loadDb(txdbfile)
+  seqlevels(txdb,force=TRUE) <- seqlevels(txdb)[grep("_|\\d+.1$",seqlevels(txdb), invert=TRUE)]
+  seqlevels(txdb) <- sub("","chr", seqlevels(txdb))
+  seqlevels(txdb) <- sub("MT","M", seqlevels(txdb))
+
+  allTx <- transcriptsBy(txdb, 'gene')
+  seqinfo(allTx) <- seqinfo(Hsapiens)[seqlevels(allTx)]
+  ##unlist transcripts
+  model <- unlist(allTx)
+
+  ################### Do all macs14 peaks have FDR < 0.05
+  macs <- "./macs14"
+  BEDS <-  list.files(macs, pattern="_peaks.xls$", full.names=TRUE)
+  BEDS <- BEDS[grep("negative",BEDS,invert=TRUE)]
+  BEDS
+
+  sigPeaks <- function(BED){
+      tab <- read.delim(BED, sep="\t", header=T, as.is=T, skip=23)
+      tab <- tab[tab$FDR... <0.05,]
+      gr <- as(tab, "GRanges")
+      names(gr) <- NULL
+      gr
+  }
+
+  shGFP_H3K4me2_095 <- sigPeaks(BEDS[[1]])
+  shGFP_H3K4me2_125 <- sigPeaks(BEDS[[2]])
+  shMLL_H3K4me2_095 <- sigPeaks(BEDS[[3]])
+  shMLL_H3K4me2_125 <- sigPeaks(BEDS[[4]])
+
+  Dir <- "./bed_filt"
+  if(!(file.exists(Dir))) {
+      dir.create(Dir,FALSE,TRUE)  
+  }
+
+  ## overlap peaks
+  repPeaks <- function(gr1,gr2,name){
+      rdaname <- paste("./bed_filt/",name,".rda", sep="")
+      ol <- findOverlaps(gr1,gr2)
+      ol <- as.data.frame(ol)
+      gr1.ol <- gr1[unique(ol$queryHits)]
+      gr2.ol <- gr2[unique(ol$subjectHits)]
+      gr <- c(gr1.ol,gr2.ol)
+      gr <- reduce(gr)
+      save(gr,file=paste("./bed_filt/",name,".rda", sep=""))
+      df <-as.data.frame(gr)
+      df <- df[,1:3]
+      write.table(df, file=paste("./bed_filt/",name,".bed", sep=""), quote=F, sep="\t", row.names=F, col.names=F)
+      gr
+  }
+
+  shGFP_H3K4me2_ol <- repPeaks(shGFP_H3K4me2_095,shGFP_H3K4me2_125,name='shGFP_H3K4me2_ol')
+  shMLL_H3K4me2_ol <- repPeaks(shMLL_H3K4me2_095,shMLL_H3K4me2_125,name='shMLL_H3K4me2_ol')
+
+  H3K4me2 <- c(shGFP_H3K4me2_ol,shMLL_H3K4me2_ol)
+  H3K4me2 <- reduce(H3K4me2)
+  save(H3K4me2,file="H3K4me2.rda")
+
+  df <- as.data.frame(H3K4me2)
+  df <- df[,1:3]
+  write.table(df, file=paste("./bed_filt/",'H3K4me2',".bed", sep=""), quote=F, sep="\t", row.names=F, col.names=F)
+
+  ### Overlap peaks with tss
+  tss <- promoters(model,upstream=500,downstream=500)
+  ranges(tss)
+
+  ol <- findOverlaps(H3K4me2,tss)
+  ol <- data.frame(ol)
+
+  H3K4me2_tss <- H3K4me2[unique(ol$queryHits)]
+  H3K4me2_non <- H3K4me2[-unique(ol$queryHits)]
+  TSS <- tss[unique(ol$subjectHits)]
+
+  save(H3K4me2_tss,file="H3K4me2_tss.rda")
+
+
+  counter <-function(BF,gnModel){
+      cat("opening:", BF, sep="\n")
+      aln <- readGAlignments(BF)
+      strand(aln) <- '*'                           #not stranded
+      #totalReads <- length(aln)
+      cat("generate counts\n")
+      counts <- countOverlaps(gnModel, aln)        # Counting how many reads overlap each peak
+      #counts <- 10^6*counts/length(aln)
+  }
+
+  BFL <- c(list.files('/projects/b1025/tango/TANGO-091.095/TANGO-095/bam',pattern="H3K4me2-150408.bam$",full=TRUE),
+           list.files('/projects/b1025/tango/TANGO-125/TANGO-125/bam',pattern="H3K4me2-150727.bam$",full=TRUE)
+           )
+  BFL <- BFL[grep(".bam$",BFL,invert=FALSE)]
+  BFL
+
+  counts <- do.call(cbind,mclapply(BFL,counter,gnModel=H3K4me2_non,mc.cores=4,mc.preschedule=FALSE))
+
+  colnames(counts) <- sub(".bam$","",basename(BFL))
+  colnames(counts) <- sub("-","_",colnames(counts))
+  colnames(counts) <- sub("-","_",colnames(counts))
+
+  mcols(H3K4me2_non) <- data.frame(counts)
+
+  save(H3K4me2_non,file="H3K4me2_non.rda")
+  H3K4me2_counts <- data.frame(counts)
+  save(H3K4me2_counts,file="H3K4me2_counts.rda")
+
+  ########## tss
+  counts <- do.call(cbind,mclapply(BFL,counter,gnModel=H3K4me2_tss,mc.cores=4,mc.preschedule=FALSE))
+
+  colnames(counts) <- sub(".bam$","",basename(BFL))
+  colnames(counts) <- sub("-","_",colnames(counts))
+  colnames(counts) <- sub("-","_",colnames(counts))
+
+  mcols(H3K4me2_tss) <- data.frame(counts)
+
+  save(H3K4me2_tss,file="H3K4me2_tss.rda")
+  H3K4me2_tssCounts <- data.frame(counts)
+  save(H3K4me2_tssCounts,file="H3K4me2_tssCounts.rda")
+#+END_SRC
+
+* Heatmap matrix
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  txdbfile <- "/projects/b1025/arw/stowers_projects/fec/fec.673/gene_express/hsapiens_gene_ensembl_Ens72.txdb"
+  txdb <- loadDb(txdbfile)
+  seqlevels(txdb,force=TRUE) <- seqlevels(txdb)[grep("_|\\d+.1$",seqlevels(txdb), invert=TRUE)]
+  seqlevels(txdb) <- sub("","chr", seqlevels(txdb))
+  seqlevels(txdb) <- sub("MT","M", seqlevels(txdb))
+
+  allTx <- transcriptsBy(txdb, 'gene')
+  seqinfo(allTx) <- seqinfo(Hsapiens)[seqlevels(allTx)]
+  ##unlist transcripts
+  model <- unlist(allTx)
+
+  load("./H3K4me2_tss.rda")
+  load("./H3K4me2_non.rda")
+
+  tss <- promoters(model,upstream=500,downstream=500)
+  ranges(tss)
+
+  ol <- findOverlaps(H3K4me2_tss,tss)
+  ol <- data.frame(ol)
+
+  all.equal(names(model),names(tss))
+  #[1] TRUE
+
+  TSS <- tss[unique(ol$subjectHits)]
+  model <- model[unique(ol$subjectHits)]
+
+  ## pick most highly occupied tss
+
+
+  bw1 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-125'
+  bw2 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-095'
+  bw3 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-037'
+  bw4 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-063'
+  bw5 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-078'
+  bw6 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-101'
+  bw7 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-111'
+  bw8 <- '/projects/b1025/tracks/xig/dhu/MOLNG-752'
+  bw9 <- '/projects/b1025/tracks/arw/dhu/dhu.1028'
+  bw10 <- '/projects/b1025/tracks/arw/dhu/dhu.888'
+
+  bws <-  c(list.files(bw1, pattern=".bw$", full.names=TRUE)
+           ,list.files(bw2, pattern="H3K4me2-150408.bw$", full.names=TRUE)
+           ,list.files(bw3, pattern="-150331.bw$", full.names=TRUE)
+           ,list.files(bw4, pattern=".bw$", full.names=TRUE)
+           ,list.files(bw5, pattern="EZH2-150331.bw$", full.names=TRUE)
+           ,list.files(bw6, pattern="H3K4me3-150408.bw$", full.names=TRUE)
+           ,list.files(bw7, pattern="-150408.bw$", full.names=TRUE)
+           ,list.files(bw8, pattern="086A.bw$|_065.bw$", full.names=TRUE)
+           ,list.files(bw9, pattern="H3K27me3_MLL4WT|Input_MLL4WT", full.names=TRUE)
+           ,list.files(bw10, pattern="H3K27me3|Input", full.names=TRUE)          
+            )
+  #bws <- bws[grep('Input|H3K4me3',bws,invert=TRUE)]
+  bws
+
+  report <- data.frame(sample.name=sub(".bw","",basename(bws))
+                      ,bw=as.character(bws)
+                       )
+  report$order <- sub('.*\\-|.*\\.',"",dirname(as.character(report$bw)))
+  report$order <- sub("/bam","",report$order)
+  report$rename <- paste(gsub("\\-","_",report$sample),report$order,sep="_")
+
+  Dir <- "./heat_tss"
+  if(!(file.exists(Dir))) {
+      dir.create(Dir,FALSE,TRUE)  
+  } 
+
+  Dir <- "./heat_non"
+  if(!(file.exists(Dir))) {
+      dir.create(Dir,FALSE,TRUE)  
+  } 
+
+  ### get the most highly occupied tss
+  Bin <- function(bw,model){
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")
+      mean.cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              sum(bw.peak.cov[[seqname]][start:end])
+          }
+                  ,mc.cores=8
+                  ,as.character(seqnames),start,end)
+      })
+      mean.cov <- data.frame(mean.cov)
+      rownames(mean.cov) <- model$tx_name
+      mean.cov
+  }
+
+  names(TSS) <- NULL
+
+  peakCov <- do.call(cbind,mclapply(bws[[5]],model=TSS,Bin,mc.cores=1))
+
+  ## pick most occupied and remove duplicates
+  model$tssTotalCovMe2 <- peakCov$mean.cov
+  or <- order(elementMetadata(model)$tssTotalCovMe2,decreasing=TRUE)
+  model$gene <- names(model)
+  model.or <- model[or]
+  model.or
+  reps <- duplicated(model.or$gene)
+  model <- model.or[!reps]
+
+  me2_oltss_model <- model
+  save(me2_oltss_model,file="me2_oltss_model.rda")
+
+  tss <- promoters(model,upstream=5000,downstream=5000)
+  ranges(tss)
+
+  peakModelme2 <- resize(H3K4me2_non,width=10000,fix='center')
+  names(peakModelme2) <- paste("me2_peak", rep(seq(length(peakModelme2)),each=1,len=length(peakModelme2)),sep="_")
+  ranges(peakModelme2)
+
+  matBin <-function(peakdf,model,Dir){
+  ### read in and filter peaks
+      sapply(unique(peakdf$rename),function(x,peakdf=report){
+          NCores=20
+          fname <- paste(Dir,x,".rda", sep="")
+          cat("importing:", x, sep="\n")
+          bw <- as.character(peakdf$bw[peakdf$rename %in% x])
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")
+          cov <- with(as.data.frame(model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  return(r)
+              }
+                      ,mc.cores=NCores
+                      ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cat("convert list to matrix\n")
+          mat <- do.call(rbind, mclapply(cov, as.numeric,mc.cores=NCores))
+          cov <- data.frame(mat)
+          cat("bin the matrix\n")
+          window.cov <- function(row){
+              window <- as.integer(ncol(cov)/25)
+              window.coverage <- lapply(0:(window-1), function(jump)
+                  rowMeans(row[(jump*24+1):(jump*24+1)+24])
+                                        )
+              t(as.matrix(unlist(window.coverage)))
+          }
+          win <- mclapply(1:nrow(cov), function(i)
+              window.cov(cov[i,]),mc.cores=NCores) 
+          bin.mat <- do.call(rbind, mclapply(win, as.numeric, mc.cores=NCores))
+          df <- data.frame(bin.mat)
+          rownames(df) <- model$name
+          save(df,file=fname)
+          assign(x, df,envir=.GlobalEnv)
+      })
+  }
+
+  tss$name <- tss$tx_name
+  peakModelme2$name <- names(peakModelme2)
+
+  matBin(peakdf=report,model=tss,Dir="./heat_tss/")
+  matBin(peakdf=report,model=peakModelme2,Dir="./heat_non/")
+
+#+END_SRC
+* edgeR
+#+BEGIN_SRC R :exports results :colnames yes
+  library(GenomicFeatures)
+  library(Rsamtools)
+  library(GenomicAlignments)
+  library(rtracklayer)
+  library(edgeR)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+  library(biomaRt)
+
+  load("./H3K4me2_non.rda")
+  names(H3K4me2_non) <- paste("me2_peak", rep(seq(length(H3K4me2_non)),each=1,len=length(H3K4me2_non)),sep="_")
+  save(H3K4me2_non,file="./H3K4me2_non.rda")
+
+  H3K4me2_counts <- as.data.frame(mcols(H3K4me2_non))
+  rownames(H3K4me2_counts) <- names(H3K4me2_non)
+
+  shMLL1 <- H3K4me2_counts[,c(1,3,2,4)]
+
+  txdbfile <- "/projects/b1025/arw/stowers_projects/fec/fec.673/gene_express/hsapiens_gene_ensembl_Ens72.txdb"
+  txdb <- loadDb(txdbfile)
+  seqlevels(txdb,force=TRUE) <- seqlevels(txdb)[grep("_|\\d+.1$",seqlevels(txdb), invert=TRUE)]
+  seqlevels(txdb) <- sub("","chr", seqlevels(txdb))
+  seqlevels(txdb) <- sub("MT","M", seqlevels(txdb))
+
+  allTx <- transcriptsBy(txdb, 'gene')
+  seqinfo(allTx) <- seqinfo(Hsapiens)[seqlevels(allTx)]
+  ##unlist transcripts
+  model <- unlist(allTx)
+
+  bm <- useMart("ensembl")
+  ds <- listDatasets(bm)
+
+  dataset <- ds[grep('Homo',ds$description),]$dataset
+  dataset
+  ##"hsapiens_gene_ensembl"
+
+  bm <- useDataset(as.character(dataset), mart=bm)
+            
+  ## Get GO terms
+  anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','external_gene_name','description'))
+
+  runEdgeR <- function(data,exp,peaks,allTx){
+      cat("creating experimental design\n")
+      grp <- factor(c("wt","wt",exp,exp)) 
+      grp <- relevel(grp,ref="wt")
+      batch <- factor(rep(c(1,2),2))
+                                          #design <- model.matrix(~grp)
+                                          #colnames(design) <- levels(grp)
+                                          #dge <- DGEList(data[rowSums(cpm(data)>1)>=2,], group=grp) #filter low counts & calc lib.sizes
+      dge <- DGEList(data, group=grp)
+      dge <- calcNormFactors(dge)                                 #calcs normalization factors based on lib.size
+      design <- model.matrix(~grp+batch)
+      colnames(design) <- c(levels(grp),"batch2")#levels(grp)
+      dge <- estimateGLMCommonDisp(dge,design)  #Estimates a common negative binomial dispersion
+      dge <- estimateGLMTrendedDisp(dge,design) #Estimates the abundance-dispersion trend by Cox-Reid approximate profile likelihood
+      dge <- estimateGLMTagwiseDisp(dge,design) #Compute an empirical Bayes estimate of the negative binomial dispersion parameter for each transcript, with expre
+      fit <- glmFit(dge,design)                 #Fit a negative binomial generalized log-linear model to counts
+      lrt <- glmLRT(fit,coef=exp)
+      cat("making annotated dataframe\n")
+      RPKM <- rpkm(data,gene.length=width(peaks))
+      df <- cbind(as.data.frame(peaks)[1:3],RPKM,lrt$table,adj.p=p.adjust(lrt$table$PValue,method="BH"))
+      up <- df$PValue < 0.05 & df$logFC > 0
+      cat("adding flags\n")
+      flag <- rep(0, nrow(df))
+      flag[up] <- 1
+      df$up <- flag
+      dn <- df$PValue < 0.05 & df$logFC < 0
+      flag1 <- rep(0, nrow(df))    
+      flag1[dn] <- 1
+      df$dn <- flag1    
+      gr <- as(df,"GRanges")
+      cat("add nearest gene\n")
+      boo <- nearest(gr,allTx)    
+      gr$nearestGene <- names(allTx[boo])
+      cat("add nearest gene annotaion\n")
+      iv <- match(gr$nearestGene,anno$ensembl_gene_id)
+      gr$geneName <- anno[iv,'external_gene_name']
+      gr$geneDescription <- anno[iv,'description']
+      as.data.frame(gr)
+  }
+
+  ## get library sizes from align for each 
+
+  MLL1_nonTss.df <- runEdgeR(data=shMLL1,exp='MLL1',peaks=H3K4me2_non,allTx=model)
+  save(MLL1_nonTss.df,file="MLL1_nonTss.df.rda")
+  write.table(MLL1_nonTss.df, file="MLL1_nonTss.df.txt", sep="\t", col.names=NA)
+
+  ############ tss analysis
+  load("./H3K4me2_tss.rda")
+  names(H3K4me2_tss) <- paste("me2_peak", rep(seq(length(H3K4me2_tss)),each=1,len=length(H3K4me2_tss)),sep="_")
+  save(H3K4me2_tss,file="./H3K4me2_tss.rda")
+
+  H3K4me2_counts <- as.data.frame(mcols(H3K4me2_tss))
+  rownames(H3K4me2_counts) <- names(H3K4me2_tss)
+
+  tss <- H3K4me2_counts[,c(1,3,2,4)]
+
+  MLL1_Tss.df <- runEdgeR(data=tss,exp='MLL1',peaks=H3K4me2_tss,allTx=model)
+  save(MLL1_Tss.df,file="MLL1_Tss.df.rda")
+  write.table(MLL1_Tss.df, file="MLL1_Tss.df.txt", sep="\t", col.names=NA)
+
+#+END_SRC
+
+** MA plots
+*** tss 
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/MLL4KO.MA.2.png :width 500 :height 500
+  library(edgeR)
+  library(grDevices)
+  deg <- get(load("MLL1_Tss.df.rda"))
+
+  pval <- 0.05
+  comparison <- 'shMLL1_TSS'
+  up <- deg$up==1
+  sum(up)
+
+  down <- deg$dn==1
+  sum(down)
+
+  png(paste(comparison,".png",sep=""),height=500,width=500)
+  smoothScatter(deg$logCPM,deg$logFC
+               ,colramp=colorRampPalette(c("white",blues9), space = "Lab")
+               ,nbin=250
+               ,main=comparison,xlab="log2(CPM)",ylab="log2FC"
+               ,cex.lab=1.6, cex.axis=1.6, cex.main=1.6, cex.sub=1.6)
+  points(deg[up,"logCPM"],deg[up,"logFC"], col="purple3", pch=19,cex=1)
+  points(deg[down,"logCPM"],deg[down,"logFC"], col="#FF5800", pch=19,cex=1)
+  legend("bottomright", c(paste(sum(up),"p-val < ",pval),paste(sum(down),"p-val < ",pval)),
+         pch=c(19,19,1), col=c("purple3","#FF5800","black"),cex=0.9,)
+  abline(h=0, lty="dashed", col="black")
+  dev.off()
+#+END_SRC
+
+*** nontss 
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/MLL4KO.MA.2.png :width 500 :height 500
+  library(edgeR)
+  library(grDevices)
+  deg <- get(load("MLL1_nonTss.df.rda"))
+
+  pval <- 0.05
+  comparison <- 'shMLL1_nonTSS'
+  up <- deg$up==1
+  sum(up)
+
+  down <- deg$dn==1
+  sum(down)
+
+  png(paste(comparison,".png",sep=""),height=500,width=500)
+  smoothScatter(deg$logCPM,deg$logFC
+               ,colramp=colorRampPalette(c("white",blues9), space = "Lab")
+               ,nbin=250
+               ,main=comparison,xlab="log2(CPM)",ylab="log2FC"
+               ,cex.lab=1.6, cex.axis=1.6, cex.main=1.6, cex.sub=1.6)
+  points(deg[up,"logCPM"],deg[up,"logFC"], col="purple3", pch=19,cex=1)
+  points(deg[down,"logCPM"],deg[down,"logFC"], col="#FF5800", pch=19,cex=1)
+  legend("bottomright", c(paste(sum(up),"p-val < ",pval),paste(sum(down),"p-val < ",pval)),
+         pch=c(19,19,1), col=c("purple3","#FF5800","black"),cex=0.9,)
+  abline(h=0, lty="dashed", col="black")
+  dev.off()
+#+END_SRC
+
+* make cdt sig peaks
+** intergenic decreased by shMLL1
+*** TANGO-125
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  non <- get(load("MLL1_nonTss.df.rda"))
+
+  boo <- sub("^","./heat_non/",list.files("heat_non",pattern="125.rda"))
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  down <- rownames(non[non$dn==1,])
+  nc <- rownames(non[!non$dn==1,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  H3K4.me123.k27me23.input.GFP.MLL.125Nontss.cdt <- cbind(UID=Order
+                                                         ,NAME=Order
+                                                         ,shGFP_H3K4me1_150727_125[Order,]
+                                                         ,shMLL_H3K4me1_150727_125[Order,]
+                                                         ,shGFP_H3K4me2_150727_125[Order,]
+                                                         ,shMLL_H3K4me2_150727_125[Order,]
+                                                         ,shGFP_H3K4me3_150727_125[Order,]
+                                                         ,shMLL_H3K4me3_150727_125[Order,]
+                                                         ,shGFP_H3K27me2_150727_125[Order,]
+                                                         ,shMLL_H3K27me2_150727_125[Order,]
+                                                         ,shGFP_H3K27me3_150729_125[Order,]
+                                                         ,shMLL_H3K27me3_150729_125[Order,]
+                                                         ,shGFP_Input_150729_125[Order,]
+                                                         ,shMLL_Input_150729_125[Order,]
+                                                          )
+
+  write.table(H3K4.me123.k27me23.input.GFP.MLL.125Nontss.cdt, file="./cdt/H3K4.me123.k27me23.input.GFP.MLL.125Nontss.cdt", sep="\t",row.names=FALSE)
+
+  tss <- get(load("MLL1_Tss.df.rda"))
+  boo <- sub("^","./heat_tss/",list.files("heat_tss",pattern="125.rda"))
+
+  hmm <- get(load("me2_oltss_model.rda"))
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  library(biomaRt)
+  hostMart <- ""
+
+  assembly='hg19'
+  if (assembly == "hg19") {
+      organismStr <- "hsapiens"
+      hostMart <- "feb2014.archive.ensembl.org"#"ensembl"
+  }
+  organismStr
+
+  listMarts(host=hostMart)
+
+  bm <- useMart(biomart="ENSEMBL_MART_ENSEMBL",host=hostMart)
+  ds <- listDatasets(bm)
+  dataset <- ds[grep(organismStr,ds$description),]$dataset
+  dataset
+
+  print("Loading biomart")
+  bm <- useDataset(paste(organismStr,"_gene_ensembl",sep=""), mart=bm)
+
+  anno <- getBM(mart=bm, attributes=c('ensembl_gene_id','ensembl_transcript_id'))
+
+  iv <- match(tss$nearestGene,anno$ensembl_gene_id)
+  tss$tx_name <- anno[iv,'ensembl_transcript_id']
+
+  gr <- as(tss,"GRanges")
+  ol <- findOverlaps(hmm,gr)
+  ol <- as.data.frame(ol)
+
+  #### get the 
+  df <- data.frame(tx_name=hmm[ol$queryHits]$tx_name
+                  ,peak_name=names(gr[ol$subjectHits,])
+                  ,up=gr[ol$subjectHits]$up
+                  ,dn=gr[ol$subjectHits]$dn
+                  )
+
+
+  down <- as.character(unique(df[df$dn==1,'tx_name']))
+  nc <- rownames(shGFP_H3K27me3_150727_125[!rownames(shGFP_H3K27me3_150727_125)%in%down,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  H3K4.me123.k27me23.input.GFP.MLL.125.tss.cdt <- cbind(UID=Order
+                                                         ,NAME=Order
+                                                         ,shGFP_H3K4me1_150727_125[Order,]
+                                                         ,shMLL_H3K4me1_150727_125[Order,]
+                                                         ,shGFP_H3K4me2_150727_125[Order,]
+                                                         ,shMLL_H3K4me2_150727_125[Order,]
+                                                         ,shGFP_H3K4me3_150727_125[Order,]
+                                                         ,shMLL_H3K4me3_150727_125[Order,]
+                                                         ,shGFP_H3K27me2_150727_125[Order,]
+                                                         ,shMLL_H3K27me2_150727_125[Order,]
+                                                         ,shGFP_H3K27me3_150729_125[Order,]
+                                                         ,shMLL_H3K27me3_150729_125[Order,]
+                                                         ,shGFP_Input_150729_125[Order,]
+                                                         ,shMLL_Input_150729_125[Order,]
+                                                          )
+
+  write.table(H3K4.me123.k27me23.input.GFP.MLL.125.tss.cdt, file="./cdt/H3K4.me123.k27me23.input.GFP.MLL.125.tss.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+*** TANGO-111 095 037 101
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  non <- get(load("MLL1_nonTss.df.rda"))
+
+  boo <- sub("^","./heat_non/",list.files("heat_non",pattern="shGFP_H3K4me2_150727_125.rda|_095.rda|_111.rda|_101.rda|Iinput_150331_037.rda|Input_150331_037.rda|H3K27me3_150331_037.rda"))
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  down <- rownames(non[non$dn==1,])
+  nc <- rownames(non[!non$dn==1,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  H3K4.me123.k27me23.input.GFP.MLL.111.095.101.111.037.Nontss.cdt <- cbind(UID=Order
+                                                         ,NAME=Order
+                                                         ,shGFP_H3K4me1_150408_111[Order,]
+                                                         ,shMLL_H3K4me1_150408_111[Order,]
+                                                         ,shGFP_H3K4me2_150408_095[Order,]
+                                                         ,shMLL_H3K4me2_150408_095[Order,]
+                                                         ,shGFP_H3K4me3_150408_101[Order,]
+                                                         ,shMLL_H3K4me3_150408_101[Order,]
+                                                         ,shGFP_H3K27me2_150408_111[Order,]
+                                                         ,shMLL_H3K27me2_150408_111[Order,]
+                                                         ,shGFP_H3K27me3_150331_037[Order,]
+                                                         ,shMLL_H3K27me3_150331_037[Order,]
+                                                         ,shGFPIinput_150331_037[Order,]
+                                                         ,shMLL_Input_150331_037[Order,]
+                                                          )
+
+  write.table(H3K4.me123.k27me23.input.GFP.MLL.111.095.101.111.037.Nontss.cdt, file="./cdt/H3K4.me123.k27me23.input.GFP.MLL.111.095.101.111.037.Nontss.cdt", sep="\t",row.names=FALSE)
+
+  tss <- get(load("MLL1_Tss.df.rda"))
+  boo <- sub("^","./heat_tss/",list.files("heat_tss",pattern="shGFP_H3K4me2_150727_125.rda|_095.rda|_111.rda|_101.rda|Iinput_150331_037.rda|Input_150331_037.rda|H3K27me3_150331_037.rda"))
+
+  hmm <- get(load("me2_oltss_model.rda"))
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  gr <- as(tss,"GRanges")
+  ol <- findOverlaps(hmm,gr)
+  ol <- as.data.frame(ol)
+
+  #### get the 
+  df <- data.frame(tx_name=hmm[ol$queryHits]$tx_name
+                  ,peak_name=names(gr[ol$subjectHits,])
+                  ,up=gr[ol$subjectHits]$up
+                  ,dn=gr[ol$subjectHits]$dn
+                  )
+
+
+  down <- as.character(unique(df[df$dn==1,'tx_name']))
+  nc <- rownames(shGFP_H3K4me2_150727_125[!rownames(shGFP_H3K4me2_150727_125)%in%down,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  H3K4.me123.k27me23.input.GFP.MLL.111.095.101.111.037.tss.cdt <- cbind(UID=Order
+                                                         ,NAME=Order
+                                                         ,shGFP_H3K4me1_150408_111[Order,]
+                                                         ,shMLL_H3K4me1_150408_111[Order,]
+                                                         ,shGFP_H3K4me2_150408_095[Order,]
+                                                         ,shMLL_H3K4me2_150408_095[Order,]
+                                                         ,shGFP_H3K4me3_150408_101[Order,]
+                                                         ,shMLL_H3K4me3_150408_101[Order,]
+                                                         ,shGFP_H3K27me2_150408_111[Order,]
+                                                         ,shMLL_H3K27me2_150408_111[Order,]
+                                                         ,shGFP_H3K27me3_150331_037[Order,]
+                                                         ,shMLL_H3K27me3_150331_037[Order,]
+                                                         ,shGFPIinput_150331_037[Order,]
+                                                         ,shMLL_Input_150331_037[Order,]
+                                                          )
+
+  write.table(H3K4.me123.k27me23.input.GFP.MLL.111.095.101.111.037.tss.cdt, file="./cdt/H3K4.me123.k27me23.input.GFP.MLL.111.095.101.111.037.tss.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+
+*** MLLNT
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  non <- get(load("MLL1_nonTss.df.rda"))
+
+  boo <- sub("^","./heat_non/",list.files("heat_non",pattern="shGFP_H3K4me2_150727_125.rda|MLLNT|EZH2|nput_150331"))
+  boo
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  down <- rownames(non[non$dn==1,])
+  nc <- rownames(non[!non$dn==1,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  EZH2.063.078.MLLNT.037.063.Input.037.GFP.MLL.Nontss.cdt <- cbind(UID=Order
+                                                         ,NAME=Order
+                                                         ,shGFP_EZH2_150408_063[Order,]
+                                                         ,shMLL_EZH2_150408_063[Order,]
+                                                         ,shGFP_EZH2_150331_078[Order,]
+                                                         ,shMLL_EZH2_150331_078[Order,]
+                                                         ,shGFP_MLLNT_150331_037[Order,]
+                                                         ,shMLL_MLLNT_150331_037[Order,]
+                                                         ,shGFP_MLLNT_150408_063[Order,]
+                                                         ,shMLL_MLLNT_150408_063[Order,]
+                                                         ,shGFPIinput_150331_037[Order,]
+                                                         ,shMLL_Input_150331_037[Order,]
+                                                          )
+
+  write.table(EZH2.063.078.MLLNT.037.063.Input.037.GFP.MLL.Nontss.cdt, file="./cdt/EZH2.063.078.MLLNT.037.063.Input.037.GFP.MLL.Nontss.cdt", sep="\t",row.names=FALSE)
+
+  tss <- get(load("MLL1_Tss.df.rda"))
+  boo <- sub("^","./heat_tss/",list.files("heat_tss",pattern="shGFP_H3K4me2_150727_125.rda|MLLNT|EZH2|nput_150331"))
+  boo
+
+  hmm <- get(load("me2_oltss_model.rda"))
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  gr <- as(tss,"GRanges")
+  ol <- findOverlaps(hmm,gr)
+  ol <- as.data.frame(ol)
+
+  #### get the 
+  df <- data.frame(tx_name=hmm[ol$queryHits]$tx_name
+                  ,peak_name=names(gr[ol$subjectHits,])
+                  ,up=gr[ol$subjectHits]$up
+                  ,dn=gr[ol$subjectHits]$dn
+                  )
+
+
+  down <- as.character(unique(df[df$dn==1,'tx_name']))
+  nc <- rownames(shGFP_H3K4me2_150727_125[!rownames(shGFP_H3K4me2_150727_125)%in%down,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  EZH2.063.078.MLLNT.037.063.Input.037.GFP.MLL.tss.cdt <- cbind(UID=Order
+                                                         ,NAME=Order
+                                                         ,shGFP_EZH2_150408_063[Order,]
+                                                         ,shMLL_EZH2_150408_063[Order,]
+                                                         ,shGFP_EZH2_150331_078[Order,]
+                                                         ,shMLL_EZH2_150331_078[Order,]
+                                                         ,shGFP_MLLNT_150331_037[Order,]
+                                                         ,shMLL_MLLNT_150331_037[Order,]
+                                                         ,shGFP_MLLNT_150408_063[Order,]
+                                                         ,shMLL_MLLNT_150408_063[Order,]
+                                                         ,shGFPIinput_150331_037[Order,]
+                                                         ,shMLL_Input_150331_037[Order,]
+                                                          )
+
+
+  write.table(EZH2.063.078.MLLNT.037.063.Input.037.GFP.MLL.tss.cdt, file="./cdt/EZH2.063.078.MLLNT.037.063.Input.037.GFP.MLL.tss.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+    
+*** Dhu H3K27me3
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  non <- get(load("MLL1_nonTss.df.rda"))
+
+  boo <- sub("^","./heat_non/",list.files("heat_non",pattern="shGFP_H3K4me2_150727_125.rda|_888|1028"))
+  boo
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  down <- rownames(non[non$dn==1,])
+  nc <- rownames(non[!non$dn==1,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  H3K27me3.Input.888.1028.GFP.MLL.Nontss.cdt <- cbind(UID=Order
+                                                         ,NAME=Order
+                                                         ,H3K27me3_shGFP_MLL4_WT_888[Order,]
+                                                         ,H3K27me3_shMLL1_MLL4_WT_888[Order,]
+                                                         ,Input_shGFP_MLL4_WT_888[Order,]
+                                                         ,Input_shMLL1_MLL4_WT_888[Order,]
+                                                         ,H3K27me3_MLL4WT_shGFP_1028[Order,]
+                                                         ,H3K27me3_MLL4WT_shMLL1_1028[Order,]
+                                                         ,Input_MLL4WT_shGFP_1028[Order,]
+                                                         ,Input_MLL4WT_shMLL1_1028[Order,]
+                                                          )
+
+  write.table(H3K27me3.Input.888.1028.GFP.MLL.Nontss.cdt, file="./cdt/H3K27me3.Input.888.1028.GFP.MLL.Nontss.cdt", sep="\t",row.names=FALSE)
+
+  tss <- get(load("MLL1_Tss.df.rda"))
+  boo <- sub("^","./heat_tss/",list.files("heat_tss",pattern="shGFP_H3K4me2_150727_125.rda|MLLNT|EZH2|nput_150331"))
+  boo
+
+  hmm <- get(load("me2_oltss_model.rda"))
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  gr <- as(tss,"GRanges")
+  ol <- findOverlaps(hmm,gr)
+  ol <- as.data.frame(ol)
+
+  #### get the 
+  df <- data.frame(tx_name=hmm[ol$queryHits]$tx_name
+                  ,peak_name=names(gr[ol$subjectHits,])
+                  ,up=gr[ol$subjectHits]$up
+                  ,dn=gr[ol$subjectHits]$dn
+                  )
+
+
+  down <- as.character(unique(df[df$dn==1,'tx_name']))
+  nc <- rownames(shGFP_H3K4me2_150727_125[!rownames(shGFP_H3K4me2_150727_125)%in%down,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  H3K27me3.Input.888.1028.GFP.MLL.tss.cdt <- cbind(UID=Order
+                                                         ,NAME=Order
+                                                         ,H3K27me3_shGFP_MLL4_WT_888[Order,]
+                                                         ,H3K27me3_shMLL1_MLL4_WT_888[Order,]
+                                                         ,Input_shGFP_MLL4_WT_888[Order,]
+                                                         ,Input_shMLL1_MLL4_WT_888[Order,]
+                                                         ,H3K27me3_MLL4WT_shGFP_1028[Order,]
+                                                         ,H3K27me3_MLL4WT_shMLL1_1028[Order,]
+                                                         ,Input_MLL4WT_shGFP_1028[Order,]
+                                                         ,Input_MLL4WT_shMLL1_1028[Order,]
+                                                          )
+
+  write.table(H3K27me3.Input.888.1028.GFP.MLL.tss.cdt, file="./cdt/H3K27me3.Input.888.1028.GFP.MLL.Nontss.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+    
+* box plot for down and nc me2 non-tss regions
+** calc the coverage
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("./H3K4me2_tss.rda")
+  load("./H3K4me2_non.rda")
+
+
+  bw1 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-125'
+  bw2 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-095'
+  bw3 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-037'
+  bw4 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-063'
+  bw5 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-078'
+  bw6 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-101'
+  bw7 <- '/projects/b1025/tracks/TANGO/rar/rar.TANGO-111'
+
+  bws <-  c(list.files(bw1, pattern=".bw$", full.names=TRUE)
+           ,list.files(bw2, pattern="H3K4me2-150408.bw$", full.names=TRUE)
+           ,list.files(bw3, pattern="-150331.bw$", full.names=TRUE)
+           ,list.files(bw4, pattern=".bw$", full.names=TRUE)
+           ,list.files(bw5, pattern="EZH2-150331.bw$", full.names=TRUE)
+           ,list.files(bw6, pattern="H3K4me3-150408.bw$", full.names=TRUE)
+           ,list.files(bw7, pattern="-150408.bw$", full.names=TRUE)
+            )
+  #bws <- bws[grep('Input|H3K4me3',bws,invert=TRUE)]
+  bws
+
+  report <- data.frame(sample.name=sub(".bw","",basename(bws))
+                      ,bw=as.character(bws)
+                       )
+  report$order <- sub('.*\\-|.*\\.',"",dirname(as.character(report$bw)))
+  report$rename <- paste(gsub("\\-","_",report$sample),report$order,sep="_")
+
+
+
+  ############## Function it!
+  geneBin <- function(bw,model){
+      cat("importing:", bw, sep="\n")
+      bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+      cat("calc coverage\n")
+      bw.peak.cov <- coverage(bw.peak,weight='score')
+      cat("get coverage for peak region\n")    
+      mean.cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              mean(bw.peak.cov[[seqname]][start:end])
+          }
+                   ,mc.cores=5
+                   ,as.character(seqnames),start,end)
+      })
+      mean.cov <- data.frame(mean.cov)
+      rownames(mean.cov) <- names(model)
+      mean.cov
+  }
+
+  TSScov <- do.call(cbind,mclapply(bws,model=H3K4me2_tss,geneBin,mc.cores=3))
+
+  names(TSScov) <- report$rename
+
+  me2TssAvgPeakCov <- TSScov
+  save(me2TssAvgPeakCov,file="me2TssAvgPeakCov.rda")
+
+  nonTSScov <- do.call(cbind,mclapply(bws,model=H3K4me2_non,geneBin,mc.cores=5))
+
+  names(nonTSScov) <- report$rename
+
+  me2NonTssAvgPeakCov <- nonTSScov
+  save(me2NonTssAvgPeakCov,file="me2NonTssAvgPeakCov.rda")
+
+#+END_SRC
+
+** non-tss boxplot
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/piFCbox.png :width 300 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  non <- get(load("MLL1_nonTss.df.rda"))
+  down <- rownames(non[non$dn==1,])
+  nc <- rownames(non[!non$dn==1,])
+
+  tss <- get(load("MLL1_Tss.df.rda"))
+
+  df <- get(load("./me2NonTssAvgPeakCov.rda"))
+  df <- df[,grep("H3K4me",names(df))]
+
+  rep1 <- df[,grep("125$",names(df))]
+  names(rep1) <- sub("_150727_125","",names(rep1))
+  names(rep1)
+
+  rep2 <- df[,grep("125$",names(df),invert=TRUE)]
+  names(rep2) <- sub("_150408_111|_150408_095|_150408_101","",names(rep2))
+  names(rep2)
+
+  ##################### Non tss Down rep1
+  library(reshape2)
+  library(ggplot2)
+
+  df.long <- melt(log2(rep1[down,]))
+  df.long <- df.long[is.finite(df.long$value),]
+
+  boxcols <- c("#D64720","#D64720","yellow","yellow","green","green")
+
+  png(filename="./plots/box1934me2DownNonTss.125.png",width=400,height=500)
+  ggplot(df.long,aes(variable,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+          #geom_point(position=position_jitter(width=0.3), alpha=0.1)+
+              #scale_color_manual(values=boxcols)+
+      ylab("log2(peak_cov)") +
+      xlab("")+
+      ggtitle("1934 H3K4me2 shMLL decrease rep1") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=18),
+            axis.text.x = element_text(angle=90, vjust=0.5,color="black",size=18),
+            axis.text.y = element_text(color="black",size=18),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+                                          #ylim(-2,3) #
+                scale_x_discrete(limits=c("shGFP_H3K4me1"
+                        ,"shMLL_H3K4me1"
+                        ,"shGFP_H3K4me2"
+                        ,"shMLL_H3K4me2"
+                        ,"shGFP_H3K4me3"
+                        ,"shMLL_H3K4me3"
+  ))
+  dev.off()
+
+  rep1downNonme1 <- t.test(rep1[down,"shGFP_H3K4me1"],rep1[down,"shMLL_H3K4me1"])
+  rep1downNonme1$p.value
+  #[1] 0.009213978
+
+  rep1downNonme2 <- t.test(rep1[down,"shGFP_H3K4me2"],rep1[down,"shMLL_H3K4me2"])
+  rep1downNonme2$p.value
+  #[1] 0
+
+  rep1downNonme3 <- t.test(rep1[down,"shGFP_H3K4me3"],rep1[down,"shMLL_H3K4me3"])
+  rep1downNonme3$p.value
+  #[1] 2.883213e-75
+
+  ##################### Non tss Down rep2
+  df.long <- melt(log2(rep2[down,]))
+  df.long <- df.long[is.finite(df.long$value),]
+
+  boxcols <- c("#D64720","#D64720","yellow","yellow","green","green")
+
+  png(filename="./plots/box1934me2DownNonTss.111.095.101.png",width=400,height=500)
+  ggplot(df.long,aes(variable,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+          #geom_point(position=position_jitter(width=0.3), alpha=0.1)+
+              #scale_color_manual(values=boxcols)+
+      ylab("log2(peak_cov)") +
+      xlab("")+
+      ggtitle("1934 H3K4me2 shMLL decrease rep2") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=18),
+            axis.text.x = element_text(angle=90, vjust=0.5,color="black",size=18),
+            axis.text.y = element_text(color="black",size=18),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+                                          #ylim(-2,3) #
+                scale_x_discrete(limits=c("shGFP_H3K4me1"
+                        ,"shMLL_H3K4me1"
+                        ,"shGFP_H3K4me2"
+                        ,"shMLL_H3K4me2"
+                        ,"shGFP_H3K4me3"
+                        ,"shMLL_H3K4me3"
+  ))
+  dev.off()
+
+  rep2downNonme1 <- t.test(rep2[down,"shGFP_H3K4me1"],rep2[down,"shMLL_H3K4me1"])
+  rep2downNonme1$p.value
+  #[1] 0.2349093
+
+  rep2downNonme2 <- t.test(rep2[down,"shGFP_H3K4me2"],rep2[down,"shMLL_H3K4me2"])
+  rep2downNonme2$p.value
+  #[1] 0
+
+  rep2downNonme3 <- t.test(rep2[down,"shGFP_H3K4me3"],rep2[down,"shMLL_H3K4me3"])
+  rep2downNonme3$p.value
+  #[1] 2.701816e-59
+
+  ##################### Non tss NC rep1
+  library(reshape2)
+  library(ggplot2)
+
+  df.long <- melt(log2(rep1[nc,]))
+  df.long <- df.long[is.finite(df.long$value),]
+
+  boxcols <- c("#D64720","#D64720","yellow","yellow","green","green")
+
+  png(filename="./plots/box1934me2NcNonTss.125.png",width=400,height=500)
+  ggplot(df.long,aes(variable,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+          #geom_point(position=position_jitter(width=0.3), alpha=0.1)+
+              #scale_color_manual(values=boxcols)+
+      ylab("log2(peak_cov)") +
+      xlab("")+
+      ggtitle("4336 H3K4me2 shMLL no change rep1") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=18),
+            axis.text.x = element_text(angle=90, vjust=0.5,color="black",size=18),
+            axis.text.y = element_text(color="black",size=18),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+                                          #ylim(-2,3) #
+                scale_x_discrete(limits=c("shGFP_H3K4me1"
+                        ,"shMLL_H3K4me1"
+                        ,"shGFP_H3K4me2"
+                        ,"shMLL_H3K4me2"
+                        ,"shGFP_H3K4me3"
+                        ,"shMLL_H3K4me3"
+  ))
+  dev.off()
+
+  rep1ncNonme1 <- t.test(rep1[nc,"shGFP_H3K4me1"],rep1[nc,"shMLL_H3K4me1"])
+  rep1ncNonme1$p.value
+  #[1] 0.2247784
+
+  rep1ncNonme2 <- t.test(rep1[nc,"shGFP_H3K4me2"],rep1[nc,"shMLL_H3K4me2"])
+  rep1ncNonme2$p.value
+  #[1] 3.856738e-79
+
+  rep1ncNonme3 <- t.test(rep1[nc,"shGFP_H3K4me3"],rep1[nc,"shMLL_H3K4me3"])
+  rep1ncNonme3$p.value
+  #[1] 0.0001359626
+
+  ##################### Non tss Down rep2
+  df.long <- melt(log2(rep2[nc,]))
+  df.long <- df.long[is.finite(df.long$value),]
+
+  boxcols <- c("#D64720","#D64720","yellow","yellow","green","green")
+
+  png(filename="./plots/box1934me2NcNonTss.111.095.101.png",width=400,height=500)
+  ggplot(df.long,aes(variable,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+          #geom_point(position=position_jitter(width=0.3), alpha=0.1)+
+              #scale_color_manual(values=boxcols)+
+      ylab("log2(peak_cov)") +
+      xlab("")+
+      ggtitle("4436 H3K4me2 shMLL no change rep2") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=18),
+            axis.text.x = element_text(angle=90, vjust=0.5,color="black",size=18),
+            axis.text.y = element_text(color="black",size=18),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+                                          #ylim(-2,3) #
+                scale_x_discrete(limits=c("shGFP_H3K4me1"
+                        ,"shMLL_H3K4me1"
+                        ,"shGFP_H3K4me2"
+                        ,"shMLL_H3K4me2"
+                        ,"shGFP_H3K4me3"
+                        ,"shMLL_H3K4me3"
+  ))
+  dev.off()
+
+  rep2ncNonme1 <- t.test(rep2[nc,"shGFP_H3K4me1"],rep2[nc,"shMLL_H3K4me1"])
+  rep2ncNonme1$p.value
+  #[1] 1.951794e-34
+
+  rep2ncNonme2 <- t.test(rep2[nc,"shGFP_H3K4me2"],rep2[nc,"shMLL_H3K4me2"])
+  rep2ncNonme2$p.value
+  #[1] 1.662946e-36
+
+  rep2ncNonme3 <- t.test(rep2[nc,"shGFP_H3K4me3"],rep2[nc,"shMLL_H3K4me3"])
+  rep2ncNonme3$p.value
+  #[1] 0.212396
+#+END_SRC
+
+** tss boxplot
+#+BEGIN_SRC R :exports results :results graphics :file ./plots/piFCbox.png :width 300 :height 500
+  library(RColorBrewer)
+  library(GenomicRanges)
+  library(plyr)
+  library(biomaRt)
+  library(gplots)
+
+  tss <- get(load("MLL1_Tss.df.rda"))
+  down <- rownames(tss[tss$dn==1,])
+  nc <- rownames(tss[!tss$dn==1,])
+
+  df <- get(load("./me2TssAvgPeakCov.rda"))
+  df <- df[,grep("H3K4me",names(df))]
+
+  rep1 <- df[,grep("125$",names(df))]
+  names(rep1) <- sub("_150727_125","",names(rep1))
+  names(rep1)
+
+  rep2 <- df[,grep("125$",names(df),invert=TRUE)]
+  names(rep2) <- sub("_150408_111|_150408_095|_150408_101","",names(rep2))
+  names(rep2)
+
+  ##################### Non tss Down rep1
+  library(reshape2)
+  library(ggplot2)
+
+  df.long <- melt(log2(rep1[down,]))
+  df.long <- df.long[is.finite(df.long$value),]
+
+  boxcols <- c("#D64720","#D64720","yellow","yellow","green","green")
+
+  png(filename="./plots/box2934me2DownTss.125.png",width=400,height=500)
+  ggplot(df.long,aes(variable,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+          #geom_point(position=position_jitter(width=0.3), alpha=0.1)+
+              #scale_color_manual(values=boxcols)+
+      ylab("log2(peak_cov)") +
+      xlab("")+
+      ggtitle("TSS 2934 H3K4me2 shMLL decrease rep1") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=18),
+            axis.text.x = element_text(angle=90, vjust=0.5,color="black",size=18),
+            axis.text.y = element_text(color="black",size=18),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+                                          #ylim(-2,3) #
+                scale_x_discrete(limits=c("shGFP_H3K4me1"
+                        ,"shMLL_H3K4me1"
+                        ,"shGFP_H3K4me2"
+                        ,"shMLL_H3K4me2"
+                        ,"shGFP_H3K4me3"
+                        ,"shMLL_H3K4me3"
+  ))
+  dev.off()
+
+  rep1downTSSme1 <- t.test(rep1[down,"shGFP_H3K4me1"],rep1[down,"shMLL_H3K4me1"])
+  rep1downTSSme1$p.value
+  #[1] 1.873019e-47
+
+  rep1downTSSme2 <- t.test(rep1[down,"shGFP_H3K4me2"],rep1[down,"shMLL_H3K4me2"])
+  rep1downTSSme2$p.value
+  #[1] 0
+
+  rep1downTSSme3 <- t.test(rep1[down,"shGFP_H3K4me3"],rep1[down,"shMLL_H3K4me3"])
+  rep1downTSSme3$p.value
+  #[1] 6.612699e-96
+
+  ##################### Non tss Down rep2
+  df.long <- melt(log2(rep2[down,]))
+  df.long <- df.long[is.finite(df.long$value),]
+
+  boxcols <- c("#D64720","#D64720","yellow","yellow","green","green")
+
+  png(filename="./plots/box2934me2DownTss.111.095.101.png",width=400,height=500)
+  ggplot(df.long,aes(variable,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+          #geom_point(position=position_jitter(width=0.3), alpha=0.1)+
+              #scale_color_manual(values=boxcols)+
+      ylab("log2(peak_cov)") +
+      xlab("")+
+      ggtitle("TSS 2934 H3K4me2 shMLL decrease rep2") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=18),
+            axis.text.x = element_text(angle=90, vjust=0.5,color="black",size=18),
+            axis.text.y = element_text(color="black",size=18),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+                                          #ylim(-2,3) #
+                scale_x_discrete(limits=c("shGFP_H3K4me1"
+                        ,"shMLL_H3K4me1"
+                        ,"shGFP_H3K4me2"
+                        ,"shMLL_H3K4me2"
+                        ,"shGFP_H3K4me3"
+                        ,"shMLL_H3K4me3"
+  ))
+  dev.off()
+
+  rep2downTSSme1 <- t.test(rep2[down,"shGFP_H3K4me1"],rep2[down,"shMLL_H3K4me1"])
+  rep2downTSSme1$p.value
+  #[1] 5.531559e-24
+
+  rep2downTSSme2 <- t.test(rep2[down,"shGFP_H3K4me2"],rep2[down,"shMLL_H3K4me2"])
+  rep2downTSSme2$p.value
+  #[1] 0
+
+  rep2downTSSme3 <- t.test(rep2[down,"shGFP_H3K4me3"],rep2[down,"shMLL_H3K4me3"])
+  rep2downTSSme3$p.value
+  #[1] 2.081921e-70
+
+  ##################### Non tss NC rep1
+  library(reshape2)
+  library(ggplot2)
+
+  df.long <- melt(log2(rep1[nc,]))
+  df.long <- df.long[is.finite(df.long$value),]
+
+  boxcols <- c("#D64720","#D64720","yellow","yellow","green","green")
+
+  png(filename="./plots/box10428me2NcTss.125.png",width=400,height=500)
+  ggplot(df.long,aes(variable,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+          #geom_point(position=position_jitter(width=0.3), alpha=0.1)+
+              #scale_color_manual(values=boxcols)+
+      ylab("log2(peak_cov)") +
+      xlab("")+
+      ggtitle("TSS 10428 H3K4me2 shMLL no change rep1") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=18),
+            axis.text.x = element_text(angle=90, vjust=0.5,color="black",size=18),
+            axis.text.y = element_text(color="black",size=18),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+                                          #ylim(-2,3) #
+                scale_x_discrete(limits=c("shGFP_H3K4me1"
+                        ,"shMLL_H3K4me1"
+                        ,"shGFP_H3K4me2"
+                        ,"shMLL_H3K4me2"
+                        ,"shGFP_H3K4me3"
+                        ,"shMLL_H3K4me3"
+  ))
+  dev.off()
+
+  rep1ncme1 <- t.test(rep1[nc,"shGFP_H3K4me1"],rep1[nc,"shMLL_H3K4me1"])
+  rep1ncme1$p.value
+  #[1] 4.109546e-71
+
+  rep1ncme2 <- t.test(rep1[nc,"shGFP_H3K4me2"],rep1[nc,"shMLL_H3K4me2"])
+  rep1ncme2$p.value
+  #[1] 6.181927e-12
+
+  rep1ncme3 <- t.test(rep1[nc,"shGFP_H3K4me3"],rep1[nc,"shMLL_H3K4me3"])
+  rep1ncme3$p.value
+  #[1] 2.510871e-71
+
+  ##################### Non tss Down rep2
+  df.long <- melt(log2(rep2[nc,]))
+  df.long <- df.long[is.finite(df.long$value),]
+
+  boxcols <- c("#D64720","#D64720","yellow","yellow","green","green")
+
+  png(filename="./plots/box10428me2NcTss.111.095.101.png",width=400,height=500)
+  ggplot(df.long,aes(variable,value)) + stat_boxplot(geom ='errorbar') +
+      geom_boxplot(fill=boxcols,notch=TRUE,outlier.colour=NA) + #xlab("Sample") +
+          #geom_point(position=position_jitter(width=0.3), alpha=0.1)+
+              #scale_color_manual(values=boxcols)+
+      ylab("log2(peak_cov)") +
+      xlab("")+
+      ggtitle("10428 TSS H3K4me2 shMLL no change rep2") +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+            panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+      theme(text = element_text(size=18),
+            axis.text.x = element_text(angle=90, vjust=0.5,color="black",size=18),
+            axis.text.y = element_text(color="black",size=18),
+            plot.title=element_text(size=20))+
+                                          #theme(axis.text=element_text(colour="red"))
+                                          #ylim(-2,3) #
+                scale_x_discrete(limits=c("shGFP_H3K4me1"
+                        ,"shMLL_H3K4me1"
+                        ,"shGFP_H3K4me2"
+                        ,"shMLL_H3K4me2"
+                        ,"shGFP_H3K4me3"
+                        ,"shMLL_H3K4me3"
+  ))
+  dev.off()
+
+  rep2ncme1 <- t.test(rep2[nc,"shGFP_H3K4me1"],rep2[nc,"shMLL_H3K4me1"])
+  rep2ncme1$p.value
+  #[1] 7.469998e-08
+
+  rep2ncme2 <- t.test(rep2[nc,"shGFP_H3K4me2"],rep2[nc,"shMLL_H3K4me2"])
+  rep2ncme2$p.value
+  #[1] 1.101518e-148
+
+  rep2ncme3 <- t.test(rep2[nc,"shGFP_H3K4me3"],rep2[nc,"shMLL_H3K4me3"])
+  rep2ncme3$p.value
+  #[1] 0.001668219
+#+END_SRC
+
+* make a heatmap for cpg
+** change bed format
+#+BEGIN_SRC R
+  Cpg_2 <- read.delim("./bed_filt/Cpg_islands_hg19_2.txt", sep="\t", header=F, as.is=T)
+  library(GenomicRanges)
+
+  Cpg_2$V1 <- sub("^","chr",Cpg_2$V1)
+  Cpg_2$V2 <- as.numeric(gsub(",","", Cpg_2$V2))
+  Cpg_2$V3 <- as.numeric(gsub(",","", Cpg_2$V3))
+
+  write.table(Cpg_2, file=paste("./bed_filt/","Cpg_islands_hg19_2",".bed", sep=""), quote=F, sep="\t", row.names=F, col.names=F)
+
+  Cpg_2<- read.delim("./bed_filt/CpG_hg19_HMM.bed", sep="\t", header=F, as.is=T)
+  Cpg_2 <- Cpg_2[grep("_|\\d+.1$",Cpg_2$V1, invert=TRUE),]
+  Cpg_2 <- Cpg_2[order(Cpg_2$V1,Cpg_2$V2),]
+
+  write.table(Cpg_2, file=paste("./bed_filt/","CpG_hg19_HMM.filt",".bed", sep=""), quote=F, sep="\t", row.names=F, col.names=F)
+#+END_SRC
+** make matrix
+#+BEGIN_SRC R :exports none  
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  load("./me2_oltss_model.rda")
+  load("./H3K4me2_tss.rda")
+  load("./H3K4me2_non.rda")
+
+  bedPath <- "../TRX_HCT116/bed_filt"
+  BEDS <-  list.files(bedPath, pattern="CpG_hg19_HMM.filt.bed$|Cpg_islands_hg19_2.bed$|H3K4me2.bed", full.names=TRUE)
+  BEDS
+    #[1] "./bed_filt/CpG_hg19_HMM.filt.bed"  "./bed_filt/Cpg_islands_hg19_2.bed"
+
+  cpg_evo <- import.bed(BEDS[[1]],asRangedData=FALSE)#63717
+  cpg <- import.bed(BEDS[[2]],asRangedData=FALSE)#
+
+  cpg <- read.delim(BEDS[[3]], sep="\t", header=F, as.is=T)
+  cpg$strand <- '*'
+
+  names(cpg) <- c("seqnames","start","end","strand")
+  cpg <- as(cpg,"GRanges")#60180
+  seqinfo(cpg) <- seqinfo(Hsapiens)[seqlevels(cpg)]
+
+  non <- resize(H3K4me2_non,width=10000,fix='center')
+  seqinfo(non) <- seqinfo(Hsapiens)[seqlevels(non)]
+  non$name <- names(non)
+  seqlevels(non)
+
+  ############## Function it!
+  matBin <- function(bed,model,name,Dir){
+      fname <- paste(Dir,name,".rda", sep="")
+      seqinfo(bed) <- seqinfo(Hsapiens)[seqlevels(bed)]
+      bd.cov <- coverage(bed)
+      cat("calc coverage\n")
+      bd.cov <- coverage(bed)
+      cat("get coverage for peak region\n")
+      cov <- with(as.data.frame(model),{
+          mcmapply(function(seqname,start,end){
+              r <- bd.cov[[seqname]][start:end]
+              r[seq(1,length(r),by=25)]
+          }
+                  ,mc.cores=10
+                  ,as.character(seqnames),start,end
+                     )})                  
+      cat("convert list to matrix\n")
+      mat <- do.call(rbind, mclapply(cov, as.numeric,mc.cores=10))
+      df <- data.frame(mat)
+      rownames(df) <- model$name
+      save(df,file=fname)
+      df
+  }
+
+  CpG_hg19_HMM.non <- matBin(cpg_evo,model=non,name="/CpG_hg19_HMM.non",Dir="./heat_non/")
+  CpG_islands_hg19.non <- matBin(cpg,model=non,name="CpG_islands_hg19.non",Dir="./heat_non/")
+
+
+  tss <- promoters(me2_oltss_model,upstream=5000,downstream=5000)
+  tss$name <- tss$tx_name
+
+  CpG_hg19_HMM.tss <- matBin(cpg_evo,model=tss,name="/CpG_hg19_HMM.tss",Dir="./heat_tss/")
+  CpG_islands_hg19.tss <- matBin(cpg,model=tss,name="CpG_islands_hg19.tss",Dir="./heat_tss/")
+
+
+#+END_SRC
+** make cdt cpg
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  non <- get(load("MLL1_nonTss.df.rda"))
+
+  boo <- sub("^","./heat_non/",list.files("heat_non",pattern="shGFP_H3K4me2_150727_125.rda|CpG"))
+  boo
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  down <- rownames(non[non$dn==1,])
+  nc <- rownames(non[!non$dn==1,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  cpg.Nontss.cdt <- cbind(UID=Order
+                         ,NAME=Order
+                         ,CpG_hg19_HMM.non[Order,]
+                         ,CpG_islands_hg19.non[Order,]
+                          )
+
+  write.table(cpg.Nontss.cdt, file="./cdt/cpg.Nontss.cdt", sep="\t",row.names=FALSE)
+
+  tss <- get(load("MLL1_Tss.df.rda"))
+  boo <- sub("^","./heat_tss/",list.files("heat_tss",pattern="shGFP_H3K4me2_150727_125.rda|CpG"))
+  boo
+
+  hmm <- get(load("me2_oltss_model.rda"))
+
+  for (i in 1:length(boo))
+  {
+      oname = sub(".rda","",basename(boo[i]))
+      load(boo[i])
+      assign(oname, df)
+  }
+
+  gr <- as(tss,"GRanges")
+  ol <- findOverlaps(hmm,gr)
+  ol <- as.data.frame(ol)
+
+  #### get the 
+  df <- data.frame(tx_name=hmm[ol$queryHits]$tx_name
+                  ,peak_name=names(gr[ol$subjectHits,])
+                  ,up=gr[ol$subjectHits]$up
+                  ,dn=gr[ol$subjectHits]$dn
+                  )
+
+
+  down <- as.character(unique(df[df$dn==1,'tx_name']))
+  nc <- rownames(shGFP_H3K4me2_150727_125[!rownames(shGFP_H3K4me2_150727_125)%in%down,])
+
+  down.or <- order(-rowSums(shGFP_H3K4me2_150727_125[down,]))
+  Down <- down[down.or]
+
+  nc.or <- order(-rowSums(shGFP_H3K4me2_150727_125[nc,]))
+  NC <- nc[nc.or]
+
+  Order <- c(NC,Down)
+
+  cpg.tss.cdt <- cbind(UID=Order
+                         ,NAME=Order
+                         ,CpG_hg19_HMM.tss[Order,]
+                         ,CpG_islands_hg19.tss[Order,]
+                          )
+
+  write.table(cpg.tss.cdt, file="./cdt/cpg.tss.cdt", sep="\t",row.names=FALSE)
+
+#+END_SRC
+    
+* make DNAse hyper and CTCF heatmap
+#+BEGIN_SRC R :exports none
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(GenomicFeatures)
+  library(ChIPpeakAnno)
+  library(BSgenome.Hsapiens.UCSC.hg19)
+
+  bw1 <- '/projects/b1025/tracks/TANGO/rar/GSE50610'
+  bw2 <- '/projects/b1025/arw/stowers_projects/fec/fec.ale/bam'
+  bws <-  c(list.files(bw1, pattern=".bw$", full.names=TRUE)
+           ,list.files(bw2, pattern="groseq.bw$", full.names=TRUE)
+            )
+  bws <- bws[grep('PAF1',bws,invert=TRUE)]
+  bws
+
+  report <- data.frame(sample.name=sub(".bw","",basename(bws))
+                      ,bw=as.character(bws)
+                       )
+  report$rename <- report$sample.name
+
+  model <- get(load("me2_oltss_model.rda"))
+
+  tss <- promoters(model,upstream=5000,downstream=5000)
+  ranges(tss)
+
+  Non <- get(load("H3K4me2_non.rda"))
+  non <- resize(Non,width=10000,fix='center')
+
+  matBin <-function(peakdf,model,Dir){
+  ### read in and filter peaks
+      sapply(as.character(unique(peakdf$rename)),function(x,peakdf=report){
+          NCores=20
+          fname <- paste(Dir,x,".rda", sep="")
+          cat("importing:", x, sep="\n")
+          bw <- as.character(peakdf$bw[peakdf$rename %in% x])
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")
+          cov <- with(as.data.frame(model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  return(r)
+              }
+                      ,mc.cores=NCores
+                      ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cat("convert list to matrix\n")
+          mat <- do.call(rbind, mclapply(cov, as.numeric,mc.cores=NCores))
+          cov <- data.frame(mat)
+          cat("bin the matrix\n")
+          window.cov <- function(row){
+              window <- as.integer(ncol(cov)/25)
+              window.coverage <- lapply(0:(window-1), function(jump)
+                  rowMeans(row[(jump*24+1):(jump*24+1)+24])
+                                        )
+              t(as.matrix(unlist(window.coverage)))
+          }
+          win <- mclapply(1:nrow(cov), function(i)
+              window.cov(cov[i,]),mc.cores=NCores) 
+          bin.mat <- do.call(rbind, mclapply(win, as.numeric, mc.cores=NCores))
+          df <- data.frame(bin.mat)
+          rownames(df) <- model$name
+          save(df,file=fname)
+          assign(x, df,envir=.GlobalEnv)
+      })
+  }
+
+  tss$name <- tss$tx_name
+  non$name <- names(non)
+
+  matBin(peakdf=report,model=tss,Dir="./heat_tss/")
+
+  matBin(peakdf=report,model=non,Dir="./heat_non/")
+
+#+END_SRC
+* function for metagene analysis sorry not as softcoded
+#+BEGIN_SRC R
+TSS <- promoters(all,upstream=100,downstream=0)
+  TES <- resize(all,fix='end',width=1)
+  TES <- promoters(TES,upstream=0,downstream=2000)
+  Body <- all
+
+  head(ranges(TSS))
+  head(ranges(Body))
+  head(ranges(TES))
+
+  ############## Function it!
+  metadf <- function(bw,tss.model,body.model,tes.model,name){
+      fname <- paste("./meta_gene/",name,".rda", sep="")
+      tssBin <- function(bw,tss.model){
+          cat("importing:", bw, sep="\n")
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(tss.model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")
+          cov <- with(as.data.frame(tss.model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  r <- approx(r,n=100)$y
+                  return(r)
+              }
+                       ,mc.cores=16
+                       ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cov <- t(cov)
+      }
+      tss <- tssBin(bw,tss.model)    
+      bodyBin <- function(bw,body.model){
+          cat("importing:", bw, sep="\n")
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(body.model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")    
+          cov <- with(as.data.frame(body.model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  r <- approx(r,n=800)$y
+                  return(r)
+              }
+                       ,mc.cores=16
+                       ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cov <- t(cov)
+      }
+      body <- bodyBin(bw,body.model)
+      tesBin <- function(bw,tes.model){
+          cat("importing:", bw, sep="\n")
+          bw.peak <- import.bw(bw,RangedData=FALSE,selection = BigWigSelection(tes.model))
+          cat("calc coverage\n")
+          bw.peak.cov <- coverage(bw.peak,weight='score')
+          cat("get coverage for peak region\n")
+          cov <- with(as.data.frame(tes.model),{
+              mcmapply(function(seqname,start,end,strand){
+                  r <- bw.peak.cov[[seqname]][start:end]
+                  if(strand == '-'){r <- rev(r)}
+                  r <- approx(r,n=100)$y
+                  return(r)
+              }
+               ,mc.cores=16
+                       ,as.character(seqnames),start,end,as.character(strand))
+          })
+          cov <- t(cov)
+      }
+      tes <- tesBin(bw,tes.model)    
+      df <- data.frame(cbind(tss,body,tes))
+      rownames(df) <- tss.model$tx_name
+      save(df,file=fname)
+      df
+  }
+ N20_GFP_959 <- metadf(bws[[1]],tss.model=TSS,body.model=Body,tes.model=TES,name="N20_GFP_959")
+#+END_SRC

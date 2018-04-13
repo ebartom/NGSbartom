@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+import sys
+import argparse
+import math
+import os
+from logbook import Logger, FileHandler
+import numpy as np
+from pkg_resources import get_distribution
+
+log = Logger('edd')
+
+
+def log_parameters(args, argv, config):
+    import datetime
+    log.notice(str(datetime.datetime.now()))
+    log.notice('cwd: %s' % os.getcwd())
+    log.notice('string args: %s' % ' '.join(argv))
+    log.notice('chromosome size file: %s' % args.chrom_size.name)
+    log.notice('IP file: %s' % args.ip_bam)
+    log.notice('Input file: %s' % args.input_bam)
+    log.notice('output dir: %s' % args.output_dir)
+    log.notice('number of monte carlo trials: %d' % args.num_trials)
+    log.notice('number of processes: %d' % args.nprocs)
+    log.notice('fdr lim: %.3f' % args.fdr)
+    if args.gap_penalty is None:
+        log.notice('gap penalty is unspecified, will be auto estimated')
+    else:
+        log.notice('gap penalty: %.2f' % args.gap_penalty)
+    if args.bin_size is None:
+        log.notice('bin size is unspecified, will be auto estimated')
+    else:
+        log.notice('bin_size: %d KB' % args.bin_size)
+    log.notice('unalignable regions file  : %s' % args.unalignable_regions.name)
+    if False: # no replicate atm args.replicate:
+        log.notice('replicate experiment: \n\tip: %s\n\tctrl: %s' % tuple(args.replicate))
+    assert os.path.isfile(args.ip_bam), "IP file not found: %s" % args.ip_bam
+    assert os.path.isfile(args.input_bam), "Input file not found: %s" % args.input_bam
+    log.notice('Writing log ratios: %s' % args.write_log_ratios)
+    log.notice('EDD configuration file parameters:')
+    for k, v in config.items():
+        log.notice('\t%s:%s' % (k, v))
+
+def get_log_df(exp, aggregate_factor):
+    odf = exp.aggregate_bins(times_bin_size=aggregate_factor).as_data_frame()
+    df = odf['chrom start end'.split()].copy()
+    df['log_ratio'] = np.log(odf['ip'] / odf['input'].astype(float))
+    df.log_ratio.replace([np.inf, -np.inf], np.nan, inplace=True)
+    return df
+
+def main(args, config):
+    output_name = os.path.basename(args.output_dir.rstrip('/'))
+    output_file = os.path.join(args.output_dir, output_name + '_peaks.bed')
+    ratio_file = os.path.join(args.output_dir, output_name + '_bin_score.bedgraph')
+    bin_size = args.bin_size * 1000 if args.bin_size is not None else None
+
+    loader = eddlib.experiment.BamLoader(args.chrom_size.name, bin_size, args.gap_penalty,
+                                         ci_method=config['ci_method'], ci_lim=config['ci_lim'],
+                                         nib_lim=1-config['fraq_ibins'],
+                                         number_of_processes=args.nprocs)
+    loader.load_single_experiment(args.ip_bam, args.input_bam)
+    if args.write_log_ratios:
+        exp = loader.exp
+        aggregate_factor = int(math.ceil(config['log_ratio_bin_size'] / float(exp.bin_size)))
+        logdf = get_log_df(exp, aggregate_factor)
+        log_file_postfix = '_log_ratio_%dKB.bedgraph' % ((exp.bin_size * aggregate_factor) / 1000)
+        log_ratio_file = os.path.join(args.output_dir,
+                                      output_name + log_file_postfix)
+        logdf.to_csv(log_ratio_file, sep='\t', index=False, header=False)
+    df = loader.get_df(args.unalignable_regions.name)
+
+    if args.write_bin_scores:
+        eddlib.util.save_bin_score_file(df, ratio_file)
+    gb = GenomeBins.df_as_bins(df, args.unalignable_regions.name)
+    max_bin_score = df.score.max()
+    observed_result = gb.max_segments(filter_trivial=max_bin_score)
+    log.notice('Running %d monte carlo trials' % args.num_trials)
+    mc_res = MonteCarlo.run_simulation(gb.chrom_scores,
+            niter=args.num_trials, nprocs=args.nprocs)
+    tester = IntervalTest(observed_result, mc_res)
+    tester.qvalues(below=args.fdr)
+    tester.as_bed(output_file)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='''\
+Enriched Domain Detector -- for analysis of ChIP-seq data.
+
+See documentation at https://github.com/CollasLab/edd for more info and tips.''')
+    parser.add_argument('chrom_size', type=argparse.FileType('r'), help='''\
+This must be a tab separated file with two columns. \
+The first column contains chromosome names and the second contains the chromosome sizes.\
+''')
+    parser.add_argument('unalignable_regions', type=argparse.FileType('r'), help='''\
+    bed file marking regions to be excluded from the analysis (such as centromeres).''')
+    parser.add_argument('ip_bam', help='ChIP bam file')
+    parser.add_argument('input_bam', help='Input/control bam file')
+    parser.add_argument('output_dir', help='output directory, will be created if not existing.')
+    parser.add_argument('--bin-size', type=int, help='''\
+            An integer specifying the bin size in KB. \
+            Will auto select bin size based on input data \
+            if not specified.''')
+    # parser.add_argument('--replicate', nargs=2,
+    # help='''must be ip.bam and ctrl.bam path for replicate experiment \
+    #         to be merged.''')
+    parser.add_argument('-n', '--num-trials', type=int, default=10000, help='''\
+    Number of trials in monte carlo simulation''')
+    parser.add_argument('-p', '--nprocs', type=int, default=4, help='''\
+    Number of processes to use for the monte carlo simulation.
+    One processes per physical CPU core is recommended.''')
+    parser.add_argument('--fdr', type=float, default=0.05)
+    parser.add_argument('-g', '--gap-penalty', type=float, help='''\
+Leave unspecificed for auto-estimation. \
+Adjusts how sensitive EDD is to heterogeneity within domains. \
+Depends on Signal/Noise ratio of source files and on the interests of the researcher. \
+A "low" value favors large enriched domains with more heterogeneity. \
+A "high" value favors smaller enriched domains devoid of heterogeneity.''')
+    parser.add_argument('--config-file', type=argparse.FileType('r'), help='''\
+Path to user specified EDD configuration file. See EDD manual section about \
+configuration for more information.''')
+    parser.add_argument('--write-log-ratios', action='store_true',
+                        help='Write log ratios to file.')
+    parser.add_argument('--write-bin-scores', action='store_true',
+                        help='Write bin scores to file.')
+    parser.add_argument('-v', '--version',  action='version',
+                        version='%%(prog)s %s' % get_distribution("edd").version,
+                        help="Print version and exit")
+
+    args = parser.parse_args(sys.argv[1:])
+    # these imports take time to load due to rpy2
+    # so we only load these if we actually run the program
+    # (opposed to --help and --version)
+    import eddlib
+    import eddlib.experiment
+    import eddlib.load_params
+    from eddlib.algorithm.max_segments import GenomeBins, IntervalTest
+    from eddlib.algorithm.monte_carlo import MonteCarlo
+
+    if not os.path.isdir(args.output_dir):
+        os.makedirs(args.output_dir)
+    log_file = os.path.join(args.output_dir, 'log.txt')
+    log_handler = FileHandler(log_file, level='NOTICE', bubble=True, mode='w')
+
+    with log_handler.applicationbound():
+        config = eddlib.load_params.load_parameters(non_default_config_file=args.config_file)
+        log_parameters(args, sys.argv, config)
+        main(args, config)

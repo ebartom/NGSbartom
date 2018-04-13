@@ -1,0 +1,256 @@
+			     NOTES
+			     =====
+
+		    JavaMail(TM) API 1.2 release
+		    ----------------------------
+
+Welcome to the 1.2 release of the JavaMail API implementation. 
+
+Please refer to CHANGES.txt for a list of the changes since the 
+previous release.
+
+Please see the FAQ at http://java.sun.com/products/javamail/FAQ.html
+
+Protocol Providers
+------------------
+
+The JavaMail API jar file "mail.jar" includes the full JavaMail API
+implementation and *all* the Sun protocol providers - IMAP, SMTP, and
+POP3.  The simplest way to use the JavaMail API is to just use the
+mail.jar file and ignore the other jar files in this package.
+
+In some cases it may be desirable to minimize the size of the JavaMail
+API code used by an application (e.g., when downloading with an applet).
+In this case you might want to include the "mailapi.jar" file, which
+includes *no* protocol providers, along with just the jar file for the
+protocol provider you need.  For example, an applet that only needs to
+send mail could use the "mailapi.jar" file and the "smtp.jar" file.
+
+A few important notes when using the separate protocol provider jar files:
+
+1. To use more than one protocol provider jar file, you should use J2SE
+   1.2 or newer.  Or simply use "mail.jar".
+
+2. You can't mix and match protocol providers between different releases
+   of the JavaMail API.  The Sun protocol providers depend on
+   implementation-specific utility APIs within the mailapi.jar file.
+   (Third party protocol providers that don't depend on these APIs
+   should work fine.)
+
+
+NOTE: The Sun protocol provider documentation that was previously
+      included in this file is now available in javadoc format, see
+      docs/sundocs/index.html in the directory where you extracted
+      the JavaMail API zip file.
+
+
+How to submit bug reports
+-------------------------
+
+If you've found a bug, or if you just need help figuring out how to use
+the JavaMail API, please try to include the following information in
+your message to us:
+
+    - a program or code snippet that shows the problem
+    - the platform you are using
+    - the mail server (vendor name, version number) you are using
+    - your environment variable settings
+    - a stack trace, if appropriate
+    - a protocol trace, after turning on session debugging, if appropriate
+
+Most of the problems reported to us fail to include enough of the above
+information to allow us to diagnose your problem.  It will save you and
+us time if you include this information in your first message to us.
+
+By far the most common problems we see are:
+
+Your problem:	Something doesn't work right when talking to my mail server.
+Our response:	Turn on session debugging and send us the protocol trace.
+		See the demo program documentation for how to turn on
+		session debugging for the demo programs.  In your own
+		program, call "session.setDebug(true);".
+
+Your problem:	javax.mail or javax.activation classes not found when compiling.
+Our response:	You didn't set CLASSPATH correctly to find mail.jar and
+		activation.jar.  See README.txt.
+
+Your problem:	NoSuchProviderException - No such provider for RFC822.
+Our response:	You unjar'ed mail.jar.  Don't.
+
+Your problem:	How do I create a message with an attachment?
+Our response:	Create a message with a MimeMultipart content.  See the
+		sendfile.html and msgmultisendsample.java demo programs.
+
+Please check the FAQ at http://java.sun.com/products/javamail/FAQ.html
+before submitting bug reports.
+
+Send your bug reports to:
+
+	javamail@sun.com
+
+
+
+
+A list of the known limitations, bugs, issues:
+----------------------------------------------
+
+1. Unsigned applets that use this version of the JavaMail API will not
+   work under the Netscape browser, due to security restrictions 
+   that prevent the "provider" and "mailcap" related files from 
+   being loaded from mail.jar and activation.jar. 
+   	
+   We have not explored yet whether signed applets will work.
+   We are investigating this further and will attempt to make 
+   the appropriate fixes in the next minor release.
+
+   A possible solution is to use the Java(TM) Plug-in that isn't 
+   affected by the restrictions that Netscape places on the 
+   resource files. (http://java.sun.com/products/plugin)
+
+2. Internationalization.  Parameter encoding in MIME headers, as
+   specified by RFC2231, hasn't yet been implemented.  Note that
+   this covers only certain special cases not covered by the MIME
+   specification.  MIME specifies encoding of text in the Subject
+   and address headers, and JavaMail fully supports such encoding.
+
+3. We've received reports of problems using the JavaMail API in servlets
+   driven by Netscape web servers. The error is that the Netscape
+   servlet implementation doesn't support the 
+   java.awt.datatransfer.Transferable class which is used by the JAF. 
+   We recommend that you submit a bug report with Netscape.
+
+4. We've received reports of IMAP authentication failures on the
+   Microsoft Exchange Server 5.5, enterprise edition. This is due to
+   a bug in the Microsoft server and the "Service Pack 1 for Exchange 
+   Server 5.5" apparently fixes this server bug. The service pack can
+   be downloaded from the Microsoft website.
+
+5. Due to a problem in the Microsoft Exchange IMAP server, insufficient
+   number of bytes may be retrieved when reading big messages. There
+   are two ways to workaround this Exchange bug:
+
+   (a) The Exchange IMAP server provides a configuration option called
+       "fast message retrieval" to the UI.  Simply go to the site, server
+       or recipient, click on the "IMAP4" tab, and one of the check boxes
+       is "enable fast message retrieval".  Turn it off and the octet 
+       counts will be exact. 
+
+   (b) Set the "mail.imap.partialfetch" property to false. You'll have 
+       to set this property in the Properties object that you provide to 
+       your Session.
+
+6. Certain IMAP servers do not implement the IMAP Partial FETCH 
+   functionality properly. This problem typically manifests as corrupt
+   email attachments when downloading large messages from the IMAP 
+   server. To workaround this server bug, set the 
+	"mail.imap.partialfetch" 
+   property to false. You'll have to set this property in the Properties
+   object that you provide to your Session.
+
+Servers tested with:
+--------------------
+
+  The IMAP implementation works with IMAP4 and IMAP4rev1 servers.
+  The current release has been tested with:
+	Sun Internet Mail Server version 2.0 and 4.0
+	Netscape Messaging Server version 4.0
+	UW IMAP4 server version 4.7
+	Cyrus IMAP4 server version 1.6.19
+
+  Previous releases have been tested with:
+	Sun Internet Mail Server version 2.0 and 3.2
+	UW IMAP4rev1 server
+	Netscape 3.01 Messaging Server
+	beta version of the Netscape 4.0 Messaging Server
+	Microsoft Exchange
+	Microsoft MCIS Mail Server
+	Lotus Notes
+	Software.com IMAP server
+	Qualcomm Worldmail
+	Cyrus IMAP4 server
+
+  The current release of the SMTP implementation has been tested with:
+	Sendmail version 8.9.1
+	Sun Internet Mail Server version 4.0
+	Netscape Messaging Server version 4.0
+
+  Previous releases have been tested with:
+	Sendmail 8.6
+	Sun Internet Mail Server 3.2
+	Netscape 3.01 Messaging Server
+	Microsoft Exchange
+	Microsoft MCIS Mail Server
+	Qualcomm Worldmail
+
+JavaMail API Y2K compliance
+---------------------------
+
+Summary: JavaMail API is Option-3 compliant.
+
+Sun's JavaMail API implementation uses the java.util.Date class to store
+Date objects internally.
+
+Dates can be introduced into the JavaMail API in the following ways:
+
+1) When reading a MIME message from a MIME input stream.
+
+The MimeMessage constructor parses the MIME stream. One of the RFC822
+headers is the "Date" field. As per the RFC, this date field must
+have 4-digit years.  However, older or non-compliant software may
+generate 2-digit years. The JavaMail API follows the recommendations
+from the IETF-DRUMS draft (http://www.imc.org/draft-ietf-drums-msg-fmt)
+to parse such date strings:
+        00 through 49 represents 2000 through 2049;
+        50 through 99 represents 1950 through 1999
+
+2) The IMAP provider deals with two kinds of dates:
+        Received Date & Sent Date
+   The Recieved Date is an IMAP data item (INTERNALDATE) and can
+   contain only 4-digit years. The Sent Date is actually the "Date"
+   RFC822 header. The IMAP provider follows the logic listed
+   in the previous section to parse this header, thus it is
+   compliant with the IETF-DRUMS draft.
+
+3) Dates can be set externally by the client when creating a MimeMessage
+   using the MimeMessage.setSentDate(java.util.Date) method. The Date
+   class is defined in the java.util package; the JavaMail API has nothing
+   to do with the interpretation of date strings by the Date class.
+   The Y2K compliance of this class is defined by the particular JDK
+   implementation. (Note that JDK1.1.6 is Option-3 compliant)
+
+From (1) and (2), we can conclude that Sun's implementation of
+the JavaMail API is Option-3 compliant.
+
+For more information on compliance levels, refer:
+http://www.sun.com/y2000
+
+
+JavaMail API 100% Pure Java Certification
+-----------------------------------------
+
+Sun's JavaMail API implementation is 100% pure Java. Earlier versions
+have been certified by KeyLabs. (See http://java.sun.com/100percent)
+
+
+How to give feedback
+--------------------
+
+Please send your feedback to this email-address:
+
+	javamail@sun.com
+
+Check out our website at http://java.sun.com/products/javamail
+
+You can subscribe to our open discussion-list: 
+
+	javamail-interest@java.sun.com.
+
+Or you can subscribe to our low-volume mailing-list (where we announce
+product updates and other relevant information):
+
+	javamail-announce@java.sun.com. 
+
+Instructions on how to subscribe are on our website.
+
+
+------------------------------------------------------------------

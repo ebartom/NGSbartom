@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+import sys
+import argparse
+
+def compute_log_ratio(args):
+    import numpy as np
+    import gzip
+    import eddlib
+    import eddlib.experiment
+
+    exp = eddlib.experiment.Experiment.load_experiment(
+        chromsizes_path=args.chrom_size.name,
+        ip_bam_path=args.ip_bam.name,
+        input_bam_path=args.input_bam.name,
+        bin_size=args.bin_size * 1000,
+        use_multiprocessing=True)
+    df = exp.as_data_frame()
+    df['log_ratio'] = np.log(df.ip / df.input.astype(float))
+    df['log_ratio'] = df.log_ratio.replace([np.inf, -np.inf], np.nan)
+    if args.gzip:
+        f = gzip.open(args.output_file.name, 'wb')
+    else:
+        f = args.output_file
+    if args.save_counts:
+        colnames = 'chrom start end log_ratio ip input'.split()
+    else:
+        colnames = 'chrom start end log_ratio'.split()
+    df[colnames].to_csv(
+        f, sep='\t', index=False, header=False)
+    print 'log ratios written to %s.' % args.output_file.name
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser(description='additional tools')
+    sp = p.add_subparsers(help='misc edd tools')
+    lr = sp.add_parser('log-ratio', help=('Compute log ratios between a ' +
+                                     'ChIP and Control experiment.'))
+    lr.add_argument('chrom_size', type=argparse.FileType('r'), help='''\
+This must be a tab separated file with two columns. \
+The first column contains chromosome names and the second contains the chromosome sizes.\
+''')
+    lr.add_argument('ip_bam',  help='ChIP bam file',
+                    type=argparse.FileType('r'))
+    lr.add_argument('input_bam', help='Input/control bam file',
+                    type=argparse.FileType('r'))
+    lr.add_argument('output_file', help='output bedgraph file',
+                    type=argparse.FileType('w'))
+    
+    lr.add_argument('--bin-size', type=int, default=10,
+                    help='Bin size in KB. Default value: 10 (KB)')
+    lr.add_argument('--gzip', action='store_true', help='gzip output')
+    lr.add_argument('--save-counts', action='store_true')
+    lr.set_defaults(func=compute_log_ratio)
+    args = p.parse_args(sys.argv[1:])
+    args.func(args)
+    
