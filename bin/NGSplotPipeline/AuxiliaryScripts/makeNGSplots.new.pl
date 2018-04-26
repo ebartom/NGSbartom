@@ -4,7 +4,7 @@ use List::Util qw(max);
 use strict;
 use utf8;
 use warnings;
-my $ngsPlotFilesScriptsDirectory = "/projects/b1025/NGSplotPipeline/NGSplotFilesScripts";
+my $ngsPlotFilesScriptsDirectory = "/projects/p20742/tools/bin/NGSplotPipeline/NGSplotFilesScripts";
 my $outputShell = "./makeNGSplots.sh";
 my $homerShellScript = "./homerShellScript.sh";
 my $homerShellScript2 = "./homerShellScript2.sh";

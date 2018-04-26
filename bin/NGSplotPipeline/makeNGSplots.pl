@@ -6,7 +6,7 @@ use utf8;
 use warnings;
 
 # Set up the input parameters.
-my $ngsPlotFilesScriptsDirectory = "/projects/p20742/tools/NGSplotPipeline/NGSplotFilesScripts";
+my $ngsPlotFilesScriptsDirectory = "/projects/p20742/tools/bin/NGSplotPipeline/NGSplotFilesScripts";
 my $outputShell = "./makeNGSplots.sh";
 my $homerShellScript = "./homerShellScript.sh";
 my $homerShellScript2 = "./homerShellScript2.sh";
