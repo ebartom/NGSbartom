@@ -62,13 +62,13 @@ RUN git clone https://github.com/shenlab-sinai/ngsplot.git && cd ngsplot && git 
 
 RUN git clone https://github.com/alexdobin/STAR.git && cd STAR && git checkout tags/2.5.2b && cp bin/Linux_x86_64_static/* /usr/local/bin
 
-COPY resources/modulefiles/ /etc/modulefiles/
+COPY docker/resources/modulefiles/ /etc/modulefiles/
 
-COPY resources/rsetup.R . 
+COPY docker/resources/rsetup.R . 
 
 RUN source /etc/profile.d/modules.sh && module load R && Rscript rsetup.R
 
-COPY resources/environment.yml .
+COPY docker/resources/environment.yml .
 
 RUN mkdir -p /software/anaconda2 && curl -L -O https://repo.continuum.io/archive/Anaconda2-2.4.1-Linux-x86_64.sh && \
     chmod 755 Anaconda2-2.4.1-Linux-x86_64.sh && bash Anaconda2-2.4.1-Linux-x86_64.sh -p /software/anaconda2 -f -b && \
@@ -79,12 +79,12 @@ RUN source /etc/profile.d/modules.sh && module load python/anaconda && conda ins
 
 RUN rm -rf *
 
-RUN mkdir -p /projects/p20742/tools
+RUN mkdir -p /projects/p20742/tools/bin
 
-WORKDIR /projects/p20742/tools
+WORKDIR /projects/p20742/tools/bin
 
 # copy all R and perl scripts into image
-COPY *.R *.pl ./
+COPY bin/* ./
 
 # install the stuff that the pipeline runs directly inside /projects/p20742
 RUN curl -O http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/bedToBigBed && chmod 755 bedToBigBed
@@ -96,7 +96,7 @@ RUN mkdir GATK_v3.6 && cd GATK_v3.6 && \
 	bunzip2 GenomeAnalysisTK-3.6-0-g89b7209.tar.bz2 && tar xvf GenomeAnalysisTK-3.6-0-g89b7209.tar && \
 	mv resources/* .
 
-COPY resources/SICER_V1.1.tgz .
+COPY docker/resources/SICER_V1.1.tgz .
 
 RUN tar xvfz SICER_V1.1.tgz && cd SICER_V1.1/SICER && \
 	find . -name '*.sh' -print | xargs sed -i 's|/home/data/SICER1.1|/projects/p20742/tools/SICER_V1.1|g'
@@ -111,8 +111,12 @@ RUN git clone https://github.com/deweylab/RSEM.git RSEM-1.3.0 && cd RSEM-1.3.0 &
 # have to symlink perl executable in order for buildPipelineScripts.pl to run
 RUN mkdir -p /software/activeperl/5.16/bin && ln -s /usr/bin/perl /software/activeperl/5.16/bin/perl
 
-COPY resources/wrapper.sh .
+WORKDIR /projects/p20742/tools
+
+COPY docker/resources/wrapper.sh .
 
 RUN chmod 755 wrapper.sh
+
+RUN ln -s bin/buildPipelineScripts.pl buildPipelineScripts.pl
 
 ENTRYPOINT ["/projects/p20742/tools/wrapper.sh"]
