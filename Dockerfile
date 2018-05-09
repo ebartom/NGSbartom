@@ -108,6 +108,9 @@ RUN git clone https://github.com/taoliu/MACS.git MACS-1.4.2 && cd MACS-1.4.2 && 
 RUN git clone https://github.com/deweylab/RSEM.git RSEM-1.3.0 && cd RSEM-1.3.0 && git checkout tags/v1.3.0 && make && \
     source /etc/profile.d/modules.sh && module load R && make ebseq
 
+RUN curl -O https://www.bioinformatics.babraham.ac.uk/projects/fastq_screen/fastq_screen_v0.11.4.tar.gz && tar -zxf fastq_screen_v0.11.4.tar.gz
+
+COPY docker/resources/fastq_screen.allRefs.conf fastq_screen_v0.11.4/
 # have to symlink perl executable in order for buildPipelineScripts.pl to run
 RUN mkdir -p /software/activeperl/5.16/bin && ln -s /usr/bin/perl /software/activeperl/5.16/bin/perl
 
