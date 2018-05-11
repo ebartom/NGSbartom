@@ -126,6 +126,7 @@ library(GenomicAlignments)
 library(Rsamtools)
 library(rtracklayer)
 library(GenomicRanges)
+library(parallel)
 
 cat(assembly, sep="\n")
 if ((assembly == "hg19") || (assembly == "hg38")) { organismStr <- "Hsapiens" }
@@ -187,7 +188,7 @@ bam2bw <- function(BF,organism){
         mygr                 <- resize(mygr, width=1, fix='start')
         outName              <- sub("$", ".5prime", outName)
     }
-    if (sepStrands > 0){        
+    if (sepStrands > 0 & noStrand == 0){        
         cat("getting coverage for separate strands\n")
         ## get plus coverage                                                             
         plus                  <- coverage(mygr[strand(mygr) == "+"])
@@ -224,7 +225,7 @@ bam2bw <- function(BF,organism){
         }
         cat("export complete", sep="\n")
     }else{       
-        cat("getting coverage for both strands\n")
+        cat("getting combined coverage for both strands\n")
         cov                  <- coverage(mygr)
         rpm                  <- cov*(1e6/length(bd))
         seqlengths(rpm)      <- seqlengths(organism)[names(rpm)]
@@ -241,9 +242,9 @@ bam2bw <- function(BF,organism){
             cat(paste("exporting spikeNorm bigwig:", outfile.si, sep="\n"), sep="\n")
             export.bw( cov.si, outfile.si )
         }
-        cat("export complete", sep="\n")          
+        cat("export complete", sep="\n")       
     }    
 }
 
 # for each element of our vector, call the bam2bw function
-mclapply(bamFile,organism=organism,bam2bw,mc.cores=1,mc.preschedule=FALSE)
+mclapply(bamFile, organism=organism, bam2bw, mc.cores=1, mc.preschedule=FALSE)
