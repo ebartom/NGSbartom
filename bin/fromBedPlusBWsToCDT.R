@@ -3,7 +3,7 @@ library(GenomicAlignments)
 library(GenomicFeatures)
 library(Rsamtools)
 library(rtracklayer)
-library(ChIPpeakAnno)
+#library(ChIPpeakAnno)
 
 
 args <- commandArgs()

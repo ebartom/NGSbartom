@@ -5,7 +5,7 @@ library(Rsamtools)
 library(rtracklayer)
 library(biomaRt)
 #library(BSgenome.Hsapiens.UCSC.hg19)
-library(ChIPpeakAnno)
+#library(ChIPpeakAnno)
 
 args <- commandArgs()
 

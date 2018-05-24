@@ -4,7 +4,7 @@ library(GenomicFeatures)
 library(Rsamtools)
 library(rtracklayer)
 library(biomaRt)
-library(ChIPpeakAnno)
+#library(ChIPpeakAnno)
 
 
 args <- commandArgs()
