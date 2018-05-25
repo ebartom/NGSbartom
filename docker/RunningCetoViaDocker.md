@@ -18,7 +18,7 @@ If you haven't already, clone this repository and `cd` into it:
 Assuming you are working on a host with Docker already installed and running,
 you can build the image with this command:
 
-	$ docker build -t ceto:1.0 .
+	$ docker build -t ceto:1.1 .
 
 
 ## Downloading the reference data
@@ -71,12 +71,12 @@ another 50GB of scratch space is recommended.
 
 	### RNA Example:
 
-		$ docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.0 \
+		$ docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.1 \
 		  -t RNA -o /output -g mm10 -f /data -c /data/comparisons.csv -buildAlign 1 -buildEdgeR 1
 
 	### ChIPseq example:
 
-		$ docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.0 \
+		$ docker run -it --rm -v /anno:/projects/p20742/anno -v /data:/data -v /output:/output ceto:1.1 \
 		  -t chipseq -o /output -g sacCer3 -f /data \
 		  -chip /data/<sample.csv> -buildAlign 1 -buildPeakCaller 1
 
@@ -107,3 +107,21 @@ This is probably because you either don't have your AWS CLI credentials set up
 properly, or if you're running the pipeline on an EC2 instance, the instance's
 IAM profile may not have the AmazonS3ReadOnlyAccess policy attached.
 
+
+## Singularity Support
+
+A Docker image of Ceto can be imported and run as a Singularity container.
+
+For example:
+
+```sh
+$ docker build -t ngsbartom/ceto:1.1 . # Build Ceto docker image
+$ docker run -d -p 5000:5000 --restart=always --name registry registry:2 # start local docker registry server
+$ docker tag ngsbartom/ceto:1.1 localhost:5000/ceto:1.1 # tag ceto image for local registry
+$ docker push localhost:5000/ceto:1.1 # push ceto image to local registry
+$ sudo SINGULARITY_NOHTTPS=1 singularity pull docker://localhost:5000/ceto:1.1 # pull ceto image from local docker registry into singularity image
+$ singularity run --pwd /projects/p20742/tools -B /anno:/projects/p20742/anno,/data:/data,/output:/output ceto-1.1.simg -t chipseq -o /output -g sacCer3 -f /data -chip /data/<sample>.csv -buildAlign 1 -buildPeakCaller 1
+```
+
+Note the `-B` flag to bind-mount the reference, sample, and output directories
+and the `--pwd` flag to make sure the runscript runs in the proper directory.
