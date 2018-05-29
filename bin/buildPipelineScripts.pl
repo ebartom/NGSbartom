@@ -1416,7 +1416,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	# Foreach sample within the project:
 	foreach my $sample (@samples){
 	    # Create a shell script to run bowtie on all fastqs for the sample at the same time.
-	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_align.sh";
+	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_$aligner\_align.sh";
 	    &datePrint("Printing $shScript");
 	    open (SH,">$shScript");
 	    print SH "$header";
@@ -1429,36 +1429,80 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
-	    for my $fastq (@fastqs){
-		print SH "\n# Running FastQ_screen to look for contamination.\n";
-		print SH "module load bowtie2/2.2.6\n";
-		print SH "module load perl/5.16\n";
-		print VER "EXEC module load perl/5.16\n";
-		print SH "# Check all reference genomes currently installed\n";
-		print SH "perl $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $fastq\n";
-		print VER "EXEC $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen\n";
-		print VER "EXEC module load bowtie2/2.2.6\n";
-		print VER "EXEC $NGSbartom/tools/bin/FastQC/fastqc (FastQC v0.11.2)\n";
-		print SH "date\n";
-		print SH "\n# Run FastQC on untrimmed sequence.\n";
-		print SH "$NGSbartom/tools/bin/FastQC/fastqc $fastq\ndate\n";
-	    }
+	    my @newFastqs;
 	    if ($runTrim == 1){
 		print SH "module load java/jdk1.8.0_25\n";
-		print VER "EXEC module load java/jdk1.8.0_25\n";
 		foreach my $fastq (@fastqs){
-		    if ($fastq ne ""){
-			print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
-			print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
-			print SH "gzip $fastq.trimmed\n";
-			print VER "EXEC $NGSbartom/tools/bin/FastQC/fastqc (FastQC v0.11.2)\n";
-			print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc $fastq.trimmed.gz\n";
-			#print SH "mv $fastq.trimmed.gz $fastq\n";
-			print SH "date\n";
+		    print SH "\n# Copy fastq files into outputDirectory.\n";
+		    print SH "cp $fastq $outputDirectory/$project/fastq/\n";
+		    if ($fastq =~ /\/?([\d\_\-\w\.\.]+)\.fastq\.gz$/){
+			$fastq = "$outputDirectory/$project/fastq/$1.fastq.gz";
+			push(@newFastqs,$fastq);
 		    }
+		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
+		    print VER "EXEC  $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
+		    print SH "gzip $fastq.trimmed\n";
+		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
+			if (-f "$1\_fastqc.html"){
+			    print SH "\# FastQC file already exists\n";
+			} else {
+			    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
+			    print SH "mv $fastq*fastqc* $outputDirectory/$project/fastqc/\n";
+			}
+		    }
+		    print SH "mv $fastq.trimmed.gz $fastq\n";
+		    print SH "date\n";
+		}
+		@fastqs = @newFastqs;
+	    }
+	    my @bams;
+	    my $prefix = "";
+	    if ($runTrim == 0){
+		foreach my $fastq (@fastqs){
+		    print SH "\n# Copy fastq files into outputDirectory.\n";
+		    print SH "cp $fastq $outputDirectory/$project/fastq/\n";
+		    if ($fastq =~ /\/?([\d\_\-\w\.]+).fastq\.gz$/){
+			$prefix = $1;
+		    } else { $prefix = $fastq;}
+		    $fastq = "$outputDirectory\/$project/fastq/$prefix.fastq.gz";
+		    push(@newFastqs,$fastq);
 		}
 	    }
-	    my $fastqs = $fastqs{$sample};
+	    @fastqs = @newFastqs;
+
+	    # my @fastqs = split(/\,/,$fastqs{$sample});
+	    # for my $fastq (@fastqs){
+	    # 	print SH "\n# Running FastQ_screen to look for contamination.\n";
+	    # 	print SH "module load bowtie2/2.2.6\n";
+	    # 	print SH "module load perl/5.16\n";
+	    # 	print VER "EXEC module load perl/5.16\n";
+	    # 	print SH "# Check all reference genomes currently installed\n";
+	    # 	print SH "perl $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $fastq\n";
+	    # 	print VER "EXEC $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen\n";
+	    # 	print VER "EXEC module load bowtie2/2.2.6\n";
+	    # 	print VER "EXEC $NGSbartom/tools/bin/FastQC/fastqc (FastQC v0.11.2)\n";
+	    # 	print SH "date\n";
+	    # 	print SH "\n# Run FastQC on untrimmed sequence.\n";
+	    # 	print SH "$NGSbartom/tools/bin/FastQC/fastqc $fastq\ndate\n";
+	    # }
+	    # if ($runTrim == 1){
+	    # 	print SH "module load java/jdk1.8.0_25\n";
+	    # 	print VER "EXEC module load java/jdk1.8.0_25\n";
+	    # 	foreach my $fastq (@fastqs){
+	    # 	    if ($fastq ne ""){
+	    # 		print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+	    # 		print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
+	    # 		print SH "gzip $fastq.trimmed\n";
+	    # 		print VER "EXEC $NGSbartom/tools/bin/FastQC/fastqc (FastQC v0.11.2)\n";
+	    # 		print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc $fastq.trimmed.gz\n";
+	    # 		#print SH "mv $fastq.trimmed.gz $fastq\n";
+	    # 		print SH "date\n";
+	    # 	    }
+	    # 	}
+	    # }
+#	    my $fastqs = $fastqs{$sample};
+	    my $fastqs = "@fastqs";
 	    $fastqs =~ s/,/ /g;
 	    if ($runTrim == 1){
 		$fastqs =~ "s/q.gz/q.trimmed.gz/g";
@@ -1583,7 +1627,8 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
     if ($runAlign == 0){
 	# Print tips on running the bowtie shell scripts.
 	print STDERR "To execute all alignment scripts, use the following command:\n";
-	print STDERR "find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;\n";
+#	print STDERR "find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;\n";
+	print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
     }
 }
 
@@ -1841,7 +1886,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
      if ($runAlign == 0){
  	# Print tips on running the bwa shell scripts.
  	print STDERR "To execute all alignment scripts, use the following command:\n";
- 	print STDERR "find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;\n";
+# 	print STDERR "find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;\n";
+	print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
      }
 }
 
@@ -1856,7 +1902,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    $s3path = "ash-tracks/TANGO/$scientist";
 	}
 	&datePrint ("Starting alignment scripts.");
-	my $result = `find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;`;
+	my $result = `find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;`;
 	$result =~ s/\s+/\:/g;
 	$result =~ s/^://;
 	$result =~ s/:$//;
@@ -2371,19 +2417,19 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "\n# Annotate peaks with nearby genes.\n";
 			print SH "module load R/3.2.2\n";
 			print SH "Rscript $NGSbartom/tools/bin/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
-			print SH "\n# Extend peaks from the summit, adding $upstream bp upstream and $downstream bp downstream.\n";
-			print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
-			print SH "\n# Filter out peaks with an maximum input rpm over 1.\n";
-			print SH "Rscript $NGSbartom/tools/bin/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
-			print SH "\n# Take the top peaks (at most 5000) and continue with them.\n";
-			print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.max1.bed | head -n 5000 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.max1.top5k.bed\n";
-			print SH "\n# Make a heatmap and meta plot for expanded peaks.\n";
-			print SH "Rscript $NGSbartom/tools/bin/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.max1.top5k.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			# print SH "\n# Extend peaks from the summit, adding $upstream bp upstream and $downstream bp downstream.\n";
+			# print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
+			# print SH "\n# Filter out peaks with an maximum input rpm over 1.\n";
+			# print SH "Rscript $NGSbartom/tools/bin/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
+			# print SH "\n# Take the top peaks (at most 5000) and continue with them.\n";
+			# print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.max1.bed | head -n 5000 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.max1.top5k.bed\n";
+			# print SH "\n# Make a heatmap and meta plot for expanded peaks.\n";
+			# print SH "Rscript $NGSbartom/tools/bin/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.max1.top5k.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 
-			print SH "\n# Find Top 100 TSS-proximal peaks, find coordinates of regions around associated TSS's  and make a heatmap and meta plot.\n";
-			print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt\n";
-			print SH "Rscript $NGSbartom/tools/bin/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
-			print SH "Rscript $NGSbartom/tools/bin/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			# print SH "\n# Find Top 100 TSS-proximal peaks, find coordinates of regions around associated TSS's  and make a heatmap and meta plot.\n";
+			# print SH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.macsPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt\n";
+			# print SH "Rscript $NGSbartom/tools/bin/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
+			# print SH "Rscript $NGSbartom/tools/bin/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 			if ($buildNGSplot == 1){
 			    print SH "module load ngsplot/2.47\n";
 			    print VER "EXEC module load ngsplot/2.47\n";
@@ -2468,20 +2514,20 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print BSH "\n# Run created NGSplot analysis script.\n";
 			    print BSH ". $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh\n";
 			}			    
-			print BSH "\n# Find summits of peaks.\n";
-			print BSH "Rscript $NGSbartom/tools/bin/fromBedPlusBWtoSummit.R --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
-			print BSH "module load bedtools/2.17.0\n";
-			print BSH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed\n";
-			print BSH "\n# Filter out peaks with an maximum input rpm over 1.\n";
-			print BSH "Rscript $NGSbartom/tools/bin/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
-			print BSH "\n# Make a heatmap and meta plot for top 5000 broad peaks.\n";
-			print BSH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.max1.bed | head -n 5000 > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.max1.top5k.bed\n";
-			print BSH "Rscript $NGSbartom/tools/bin/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.max1.top5k.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
-			print BSH "\n# Find Top 100 TSS-proximal peaks, find coordinates of regions around associated TSS's  and make a heatmap and meta plot.\n";
-			print BSH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.txt\n";
-			print BSH "Rscript $NGSbartom/tools/bin/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
-			print BSH "Rscript $NGSbartom/tools/bin/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
-			print BSH "\nmodule unload R\nmodule unload mpi\nmodule load python/anaconda\n";
+			# print BSH "\n# Find summits of peaks.\n";
+			# print BSH "Rscript $NGSbartom/tools/bin/fromBedPlusBWtoSummit.R --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
+			# print BSH "module load bedtools/2.17.0\n";
+			# print BSH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed\n";
+			# print BSH "\n# Filter out peaks with an maximum input rpm over 1.\n";
+			# print BSH "Rscript $NGSbartom/tools/bin/filterOutHighInputPeaks.R  --inputfile=$outputDirectory\/$project\/tracks\/$input.bw --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.bed --maxInput=1\n";
+			# print BSH "\n# Make a heatmap and meta plot for top 5000 broad peaks.\n";
+			# print BSH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.max1.bed | head -n 5000 > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.max1.top5k.bed\n";
+			# print BSH "Rscript $NGSbartom/tools/bin/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.expanded.$upstream.$downstream.max1.top5k.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			# print BSH "\n# Find Top 100 TSS-proximal peaks, find coordinates of regions around associated TSS's  and make a heatmap and meta plot.\n";
+			# print BSH "sort -nr -k 5 $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.anno.txt | awk \'\$10 < $distToTSS {print \$5,\$10,\$11}\' | awk \'\{print \$3\}\' | sort | uniq | head -n 100 > $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.txt\n";
+			# print BSH "Rscript $NGSbartom/tools/bin/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
+			# print BSH "Rscript $NGSbartom/tools/bin/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
+			# print BSH "\nmodule unload R\nmodule unload mpi\nmodule load python/anaconda\n";
 		    }		
 		}
 	    }
