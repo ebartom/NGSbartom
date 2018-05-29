@@ -55,6 +55,13 @@ echo "BASESPACE_DIR set to $BASESPACE_DIR"
 # have to remove quotes from arguments
 options=$( echo $options | sed "s/'//g" )
 
+# make sure module system is loaded
+if [ "$(type -t module)" != "function" ]
+then
+	MODULEPATH=""
+	. /etc/profile
+fi
+
 echo "calling buildPipelineScripts.pl with arguments: -uploadASHtracks 0 $options"
 
 ./buildPipelineScripts.pl -uploadASHtracks 0 $options

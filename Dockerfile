@@ -18,6 +18,7 @@ RUN yum update -y && yum install -y \
     bzip2 \
     gcc-gfortran \
     perl-List-MoreUtils \
+    perl-IO-Compress \
     libcurl-devel \
     libxml2-devel \
     openssl-devel \
