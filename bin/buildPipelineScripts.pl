@@ -533,13 +533,7 @@ if ($buildBcl2fq == 1){
 	#     if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
 	#     print STDERR "$jobfinished";
 	# }
-	until ($jobfinished eq "C"){
-	    sleep(300);
-	    $jobfinished = `qstat -f $result | grep job_state`;
-	    print STDERR ".";
-	    if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
-	    print STDERR "$jobfinished";
-	}
+	waitForJob($result);
 	print STDERR "\n";
 	&datePrint("Job $result done.  Continuing.");
     }
@@ -792,20 +786,7 @@ if (($type eq "4C") && ($build4C == 1)){
 	    # Wait until the job is Complete.
 	    &datePrint("Waiting for job $result to finish. (each . = 300 seconds)");
 	    # Check qstat every 300 seconds, adding a "." every time you check.
-	    until ($jobfinished eq "C"){
-		sleep(300);
-		$jobfinished = `qstat -f $result | grep job_state`;
-		print STDERR ".";
-		if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
-		print STDERR "$jobfinished";
-	    }
-	    # until ($jobfinished eq "Completed"){
-	    # 	sleep(300);
-	    # 	$jobfinished = `checkjob $result | grep ^State:`;
-	    # 	print STDERR ".";
-	    # 	if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
-	    # 	print STDERR "$jobfinished";
-	    # }
+		waitForJob($result);
 	    print STDERR "\n";
 	    &datePrint("Job $result done.  Continuing.");
 	}
@@ -1950,21 +1931,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	my $jobfinished = "no";
 	# Wait until the job is Complete.
 	&datePrint("Waiting for job $result2 to finish. (each . = 300 seconds)");
-	# Check qstat every 300 seconds, adding a "." every time you acheck.
-	until ($jobfinished eq "C"){
-	    sleep(300);
-	    $jobfinished = `qstat -f $result2 | grep job_state`;
-	    print STDERR ".";
-	    if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
-	    print STDERR "$jobfinished";
-	}
-	# until ($jobfinished eq "Completed"){
-	#     sleep(300);
-	#     $jobfinished = `checkjob $result2 | grep ^State:`;
-	#     print STDERR ".";
-	#     if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
-	#     print STDERR "$jobfinished";
-	# }
+	waitForJob($result2);
 	print STDERR "\n";
 	&datePrint("Job $result2 done.  Continuing.");
     }
@@ -2567,13 +2534,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	    # 	if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
 	    # 	print STDERR "$jobfinished";
 	    # }
-	    until ($jobfinished eq "C"){
-		sleep(300);
-		$jobfinished = `qstat -f $result2 | grep job_state`;
-		print STDERR ".";
-		if ($jobfinished =~ /job_state = (\w+)\s+/){ $jobfinished = $1;}
-		print STDERR "$jobfinished";
-	    }
+		waitForJob($result2);
 	    print STDERR "\n";
 	    &datePrint("Job $result2 done.  Continuing.");
 	}
@@ -2791,4 +2752,15 @@ sub datePrint{
     }
 #    print STDERR "Date = $date\n";
     print STDERR "$date\t$printString\n";
+}
+
+sub waitForJob {
+	my $jobId = $_[0];
+	my $qstat_output = '';
+
+	until ($qstat_output =~ /Unknown Job Id/ || $qstat_output =~ /C/) {
+	    sleep(300);
+	    $qstat_output = `qstat $jobId.qsched03.quest.it.northwestern.edu 2>&1`;
+	    print STDERR ".";
+	}
 }
