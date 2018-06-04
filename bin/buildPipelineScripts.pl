@@ -2758,9 +2758,9 @@ sub waitForJob {
 	my $jobId = $_[0];
 	my $qstat_output = '';
 
-	until ($qstat_output =~ /Unknown Job Id/ || $qstat_output =~ /C/) {
+	until ($qstat_output =~ /Unknown Job Id/ || $qstat_output =~ /job_state = C/) {
 	    sleep(300);
-	    $qstat_output = `qstat $jobId.qsched03.quest.it.northwestern.edu 2>&1`;
+	    $qstat_output = `qstat -f $jobId.qsched03.quest.it.northwestern.edu 2>&1`;
 	    print STDERR ".";
 	}
 }
