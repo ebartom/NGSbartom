@@ -1503,6 +1503,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "mv $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "date\n";
 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
+	    print SH "if [ $outputDirectory\/$project\/bam\/bamlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
+	    print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
 	    print SH "date\n\n";
 	    if ($type eq "chipseq"){
 		if ($makeTracks == 1){
@@ -1765,6 +1768,9 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
  	    print SH "date\n\n";
+	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
+	    print SH "if [ $outputDirectory\/$project\/bam\/bamlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
+	    print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
  	    if ($type eq "chipseq"){
  		if ($makeTracks == 1){
  		    print SH "# Make ChIPseq tracks.\n";
@@ -2377,13 +2383,35 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "echo \"track type=bigBed name=$ip.macsPeaks description=\\\"MACS peaks in $ip relative to $input\\\" graphtype=bar maxHeightPixels=128:60:11 visibility=dense color=0,0,0 itemRGB=on useScore=1 autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$ip.macsPeaks.bb\" | cat > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb.header.txt\n";
 			    print SH "date\n";
 			}
+			print VER "EXEC module load bedtools/2.17.0\n";
 			print SH "module load bedtools/2.17.0\n";
 			print SH "\n# Calculate coverage of reads at peaks.\n";
 			print SH "bedtools coverage -b $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed -abam $outputDirectory\/$project\/bam\/$ip.bam >  $outputDirectory\/$project\/peaks\/$ip.macsPeaks.cov.txt\n";
 			print SH "awk \'{printf \"\%s\\t\%d\\t%d\\t\%s\\t\%f\\n\", \$1,\$2,\$3\,\$4,\$5\/\$7\}\'  $outputDirectory\/$project\/peaks\/$ip.macsPeaks.cov.txt >  $outputDirectory\/$project\/peaks\/$ip.macsPeaks.cpm.bed\n";
 			print SH "\n# Annotate peaks with nearby genes.\n";
+			print VER "EXEC module load R/3.2.2\n";
 			print SH "module load R/3.2.2\n";
 			print SH "Rscript $NGSbartom/tools/bin/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
+			print SH "\n# Center peaks and sort by peak width, from large to small.\n";
+			print SH "perl $NGSbartom/tools/bin/NGSplotPipeline/NGSplotFilesScripts/convertToNGSplotSortedCenteredBED.pl $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed $outputDirectory\/$project\/peaks\/$ip.sorted.centered.bed\n";
+			print SH "\n# Build NGS plot config file.\n";
+			if (-e "$outputDirectory\/$project\/peaks\/$ip.ngsplot.defaultConfig.txt") {
+			    print SH "rm $outputDirectory\/$project\/peaks\/$ip.ngsplot.defaultConfig.txt\n";
+			}
+			print SH "touch $outputDirectory\/$project\/peaks\/$ip.ngsplot.defaultConfig.txt\n";
+			print SH "for bam in \`cat $outputDirectory/$project/bam/bamlist.txt\`\n";
+			print SH "do\n";
+			print SH "\techo \$bam\n";
+			print SH "\tbamsample=\$\(basename \$bam\)\n";
+			print SH "\tprintf \"\%s\\t\%s\\t\%s\\n\" \"\$bam\" \"$outputDirectory\/$project\/peaks\/$ip.sorted.centered.bed\" \"\$bamsample\" \>\> $outputDirectory\/$project\/peaks\/$ip.ngsplot.defaultConfig.txt\n";
+			print SH "done\n";
+			print SH "\nmodule load ngsplot/2.47\n";
+			print VER "EXEC module load ngsplot/2.47\n";
+			print SH "\n# Run default preliminary NGS plot analysis.\n";
+			my $ref = $reference{$ip};
+			print SH "# \( Full set of ngsplot parameters here: https\:\/\/github.com\/shenlab-sinai\/ngsplot\/wiki\/ProgramArguments101 \)\n";
+			print SH "ngs.plot.r -G $ref -FL 150 -L 1000 -R bed -C $outputDirectory\/$project\/peaks\/$ip.ngsplot.defaultConfig.txt -RR 30 -GO none -SC global -VLN 0 -LWD 1 -p 4 -CO blue -O $outputDirectory\/$project\/peaks\/$ip.ngsplot.defaultPlots\n";
+
 			# print SH "\n# Extend peaks from the summit, adding $upstream bp upstream and $downstream bp downstream.\n";
 			# print SH "bedtools slop -i $outputDirectory\/$project\/peaks\/$ip.macsPeaks\_summits.bed -g $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes -l $upstream -r $downstream > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.expanded.$upstream.$downstream.bed\n";
 			# print SH "\n# Filter out peaks with an maximum input rpm over 1.\n";
