@@ -6,6 +6,7 @@ use File::Basename;
 use strict;
 use utf8;
 use warnings;
+no warnings 'uninitialized';
 #use Config::Abstract::Ini;
 
 unless (@ARGV) {
@@ -513,7 +514,7 @@ if ($buildBcl2fq == 1){
     print SH $header;
     print SH "#MSUB -l nodes=1:ppn=$bclFqProcessors\n";
     print SH "#MSUB -N bcl2fastq\n";
-    print SH "module load bcl2fastq/2.17.1.14\n";
+    print SH "\nmodule load bcl2fastq/2.17.1.14\n";
     print VER "module load bcl2fastq/2.17.1.14\n";
     print SH "bcl2fastq -R $baseSpaceDirectory -r $numProcessors -d $numProcessors -p $numProcessors -w $numProcessors\n";
     # If runBcl2fq == 1, then run the shell script (only works if buildBcl2fq == 1)
@@ -761,6 +762,7 @@ if (($type eq "4C") && ($build4C == 1)){
 	$cmd .= "mkdir $outputDirectory\/$sample_project\/fastq\n";
 	system($cmd);
 	open(FCSH,">$outputDirectory\/$sample_project\/scripts\/run_4C_demultiplex.sh");
+	my (%modulesLoaded, $moduleText);
 	print FCSH "$header";
 	print FCSH "#MSUB -N 4Cdemultiplex\n";
 	print FCSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
@@ -878,25 +880,18 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_$aligner\_align.sh";
 	    &datePrint("Printing to $shScript");
 	    open (SH,">$shScript");
+	    my (%modulesLoaded, $moduleText);
 	    print SH "$header";
 	    print SH "#MSUB -N $sample\_$aligner\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "export PATH=\$PATH:$NGSbartom/tools/bin/\n";
-	    if ($aligner eq "tophat"){
-		print SH "module load bowtie2/2.2.6\n";
-		print VER "EXEC module load bowtie2\/2.2.6\n";
-		print SH "module load tophat/2.1.0\n";
-		print VER "EXEC module load tophat\/2.1.0\n";
-	    } elsif ($aligner eq "star"){
-		print SH "module load STAR/2.5.2\n";
-		print VER "EXEC module load STAR\/2.5.2\n";		
-	    }
-	    print SH "module load samtools/1.2\n";
-	    print VER "EXEC module load samtools/1.2\n";
+	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    print SH "module load boost/1.56.0\n";
 	    print VER "EXEC module load boost/1.56.0\n";
 	    print SH "module load gcc/4.8.3\n";
 	    print VER "EXEC module load gcc/4.8.3\n";
+	    
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    my $cmd = "";
 	    if (!(-e "$outputDirectory\/$project\/fastq")){
@@ -926,8 +921,9 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		if ($runTrim == 1){
 		    &datePrint("Setting up trimming for single end reads.");
 		    print SH "# Setting up trimming for single end reads.\n";
-		    print SH "module load java/jdk1.8.0_25\n";
-		    print VER "EXEC module load java/jdk1.8.0_25\n";
+# Pascal says it is not necessary to explicitly load java (2018-07-05)		    
+#		    print SH "module load java/jdk1.8.0_25\n";
+#		    print VER "EXEC module load java/jdk1.8.0_25\n";
 		    my @newfastqs = ();
 		    foreach my $fastq (@fastqs){
 			if ($fastq ne ""){
@@ -958,13 +954,13 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 				    print VER "EXEC $NGSbartom/tools/bin/FastQC/fastqc (FastQC v0.11.2)\n";
 				}
 				print SH "\n# Running FastQ_screen to look for contamination.\n";
-				print SH "module load bowtie2/2.2.6\n";
-				print SH "module load perl/5.16\n";
-				print VER "EXEC module load perl/5.16\n";
+				$moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
+				if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
+				$moduleText = &checkLoad("perl/5.16",\%modulesLoaded);
+				if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"perl/5.16"} = 1;}
 				print SH "# Check all reference genomes currently installed\n";
 				print SH "perl $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $fastq\n";
 				print VER "EXEC $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen\n";
-				print VER "EXEC module load bowtie2/2.2.6\n";
 			    }
 			    #		    print SH "mv $newfastq.trimmed.gz $newfastq\n";
 			    print SH "date\n\n";
@@ -978,23 +974,26 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		if ($genomeBAM == 1){
 		    if ($aligner eq "tophat"){
 			print SH "\n# Run Tophat to align data for single end data.\n";
-			#		    if ($buildGenotyping == 1){
-			#			# If genotyping, add read groups.  These could be made more accurate.
+			# Add read groups.  These could be made more accurate, by linking into actual metadata rather than an estimate.
 			if ($rgString eq ""){
 			    $rgString = "--rg-sample $sample --rg-id $sample --rg-library $sample --rg-description $sample --rg-platform-unit nextseq --rg-center ASH --rg-platform nextseq";
 			}
 			print SH "# Adding Readgroups from rgstring $rgString\n";
 			my $libraryType = "";
 			if ($stranded == 0) { $libraryType = "--library-type fr-unstranded";}
+			$moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
+			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
+			$moduleText = &checkLoad("tophat/2.1.0",\%modulesLoaded);
+			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"tophat/2.1.0"} = 1;}
 			if ($reference{$sample} =~ /\.mp/){
 			    print SH "\ntophat -G $gff{$reference{$sample}} --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors $rgString $libraryType -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
 			}else {
 			    print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $fastqs{$sample} >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
 			}
 		    } elsif ($aligner eq "star"){
-			# ADD STAR Alignment commands
 			print SH "# Align reads with STAR\n";
-			print SH "module load STAR\n\n";
+			$moduleText = &checkLoad("STAR/2.5.2",\%modulesLoaded);
+			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"STAR/2.5.2"} = 1;}
 			if ($rgString eq ""){
 			    my $date = $timestamp;
 			    if ($sample =~ /\_(\d+)/){
@@ -1004,8 +1003,10 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			}
 			print SH "# Adding Readgroups from rgstring $rgString\n";
 			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $fastqs{$sample} --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
+			# Load Samtools if it is not already loaded.
+			$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 			print SH "# Sort the output of STAR (outputting sorted BAMs from STAR took too much memory)\n";
-			print SH "module load samtools\n";
 			print SH "samtools sort $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam\n";
 		    }
 		}
@@ -1048,19 +1049,20 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		$read1fastqs =~ s/\ /,/g;
 		$read2fastqs =~ s/\ /,/g;
 		print SH "\n# Running FastQ_screen to look for contamination.\n";
-		print SH "module load bowtie2/2.2.6\n";
-		print SH "module load perl/5.16\n";
-		print VER "EXEC module load perl/5.16\n";
+		$moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
+		$moduleText = &checkLoad("perl/5.16",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"perl/5.16"} = 1;}
 		print SH "# Check all reference genomes currently installed\n";
 		print SH "perl $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $read1fastqs\n";
 		print VER "EXEC $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen\n";
-		print VER "EXEC module load bowtie2/2.2.6\n";
 
 		if ($runTrim == 1){
 		    &datePrint("Setting up trimming for paired end reads.");
 		    print SH "# Setting up trimming for paired end reads.\n";
-		    print SH "module load java/jdk1.8.0_25\n";
-		    print VER "EXEC module load java/jdk1.8.0_25\n";
+		    # Pascal says this is unnecessary as java is loaded by default.  2018-07-05	    
+#		    print SH "module load java/jdk1.8.0_25\n";
+#		    print VER "EXEC module load java/jdk1.8.0_25\n";
 		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar PE -threads $numProcessors -phred33 $read1fastqs $read2fastqs $outputDirectory/$project/fastq/$sample\_R1.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R1U.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R2.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R2U.fastq.trimmed.gz $trimString\n\n";
 		    print VER "EXEC $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
@@ -1089,11 +1091,14 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			if ($rgString eq ""){
 			    $rgString = "--rg-sample $sample --rg-id $sample --rg-library $sample --rg-description $sample --rg-platform-unit nextseq --rg-center ASH --rg-platform nextseq";
 			}
+			$moduleText = &checkLoad("tophat/2.1.0",\%modulesLoaded);
+			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"tophat/2.1.0"} = 1;}
 			print SH "# Adding Readgroups from rgstring $rgString\n";
 			print SH "\ntophat --no-novel-juncs --read-mismatches $tophatReadMismatch --read-edit-dist $tophatReadEditDist --num-threads $numProcessors --max-multihits $tophatMultimap $rgString $libraryType --transcriptome-index $txIndex{$reference{$sample}} -o $outputDirectory\/$project\/Tophat_aln\/$sample $bowtieIndex{$reference{$sample}} $read1fastqs $read2fastqs >& $outputDirectory\/$project\/bam\/$sample.tophat.log\n";
 		    } elsif ($aligner eq "star"){
 			print SH "# Align reads with STAR\n";
-			print SH "module load STAR\n\n";
+			$moduleText = &checkLoad("STAR/2.5.2",\%modulesLoaded);
+			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"STAR/2.5.2"} = 1;}
 			if ($rgString eq ""){
 			    my $date = $timestamp;
 			    if ($sample =~ /\_(\d+)/){
@@ -1104,21 +1109,19 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			print SH "# Adding Readgroups from rgstring $rgString\n";
 			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $read1fastqs $read2fastqs --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
 			print SH "# Sort the output of STAR (outputting sorted BAMs from STAR took too much memory)\n";
-			print SH "module load samtools\n";
+			$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 			print SH "samtools sort $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam\n";
 		    }
 		}
 		if ($rsem == 1){ # AND runpaired = 1
-#		    print SH "module load bowtie/1.1.2 \n";
-		    print SH "module load STAR\n";
-		    print SH "module load perl/5.16\n";
-		    print VER "EXEC module load perl/5.16\n";
+		    $moduleText = &checkLoad("STAR/2.5.2",\%modulesLoaded);
+		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"STAR/2.5.2"} = 1;}
+		    $moduleText = &checkLoad("perl/5.16",\%modulesLoaded);
+		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"perl/5.1.6"} = 1;}
 		    print SH "module load gcc/6.4.0\n";
 		    print VER "EXEC module load gcc/6.4.0\n";
-#		    print SH "export PATH=\$PATH:$NGSbartom/tools/bin/RSEM-1.2.30/\n";
 		    print SH "export PATH=$NGSbartom/tools/bin/RSEM-1.3.0/:\$PATH\n";
-#		    print VER "EXEC module load bowtie/1.1.2\n";
-		    print VER "EXEC module load STAR\n";
 		    print VER "EXEC $NGSbartom/tools/bin/RSEM-1.3.0\n";
 		    print SH "date\n";
 		    my $strandstring = "";
@@ -1167,6 +1170,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    }
 	    print SH "date\n";
 	    # Modifications made so that htseq will work correctly on paired end data.
+	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    if (($runPairedEnd == 1) && ($htseq == 1)) {
 		print SH "cd $outputDirectory\/$project\/bam\n";
 		print SH "samtools sort -n -T $sample -o $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
@@ -1178,12 +1183,12 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    if (($rsem == 1)&& ($runPairedEnd == 0)){ # Single End RSEM analysis
 		print SH "\n# Use RSEM to analyze isoform abundance.\n";
 		print SH "export PATH=$NGSbartom/tools/bin/RSEM-1.3.0/:\$PATH\n";
-		print SH "module load gcc/6.4.0\n";
-		print SH "module load perl/5.16\n";
-		print VER "EXEC module load perl/5.16\n";
 		print VER "EXEC module load gcc/6.4.0\n";
-		print SH "module load STAR\n";
-		print VER "EXEC module load STAR\n";
+		print SH "module load gcc/6.4.0\n";
+		$moduleText = &checkLoad("perl/5.16",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"perl/5.16"} = 1;}
+		$moduleText = &checkLoad("STAR/2.5.2",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"STAR/2.5.2"} = 1;}
 		print VER "EXEC $NGSbartom/tools/bin/RSEM-1.3.0\n";
 		print SH "date\n";
 		my $strandstring = "";
@@ -1200,7 +1205,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		    print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
 		    print SH "gzip $fastqstring &\n";
 		    print SH "\n# Then calculate expression for $sample.\n";
-		    print SH "module load STAR\n";
+		    $moduleText = &checkLoad("STAR/2.5.2",\%modulesLoaded);
+		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"STAR/2.5.2"} = 1;}
 		    print SH "rsem-calculate-expression --star $outputDirectory/$project/fastq/$sample.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring >& $outputDirectory/$project/bam/$sample.rsem.log\n";
 		    print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n";
 		    print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
@@ -1213,8 +1219,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    }
 	    if ($htseq == 1) {
 		print SH "module unload mpi\n";
-		print SH "module load python/anaconda\n";
-		print VER "EXEC module load python/anaconda\n";
+		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 		print VER "EXEC htseq 0.6.1\n";
 		print SH "\n# Run htseq-count for $sample, stranded = $stranded\n";
 		if ($stranded == 1){
@@ -1222,12 +1228,12 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		} elsif ($stranded == 0){
 		    print SH "htseq-count -f bam -q -m intersection-nonempty -s no -t exon -i gene_id $outputDirectory\/$project\/bam\/$sample.bam $gff{$reference{$sample}} > $outputDirectory\/$project\/bam\/$sample.htseq.counts\n";
 		}
-		print SH "\nmodule unload python/anaconda\n";
+		if ($modulesLoaded{"python/anaconda"} == 1){ print SH "module unload python/anaconda\n"; $modulesLoaded{"python/anaconda"} = 0;}
 		print SH "module load gcc/4.8.3\n";
 	    }
 	    if ($bedtools == 1) {
-		print SH "module load bedtools/2.17.0\n";
-		print VER "EXEC module load bedtools/2.17.0\n";
+		$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
+		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
 		print SH "\n# Run bedtools for $sample\n";
 		print SH "bedtools bamtobed -i $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bed\n";
 		if ($stranded == 1){
@@ -1238,10 +1244,9 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		print SH "\n# Clean up bed files.\n";
 		print SH "rm $outputDirectory\/$project\/bam\/$sample.bed\n";
 		print SH "\nmodule unload bedtools/2.17.0\n";
+		$modulesLoaded{"bedtools/2.17.0"} = 0;
 	    }
 	    print SH "date\n\n";
-	    #	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.flagstats.txt\n";
-	    #	    print SH "date\n";
 	    if ($makeTracks == 1){
 		print SH "# Create RNA seq Tracks\n";
 		print SH "module load R/3.2.2\n";
@@ -1291,7 +1296,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			if (($runPairedEnd == 1) && ($htseq == 1)){
 			    print SH "# If files are paired end and htseq is used for gene counting, then BAMs are sorted by name and indices are not created.  This will require an extra re-sorting and indexing step, to be added if this is a common concern.\n";
 			}
-			print SH "module load python/anaconda\n";
+			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
 		    }
@@ -1299,38 +1305,44 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 		    if ($stranded == 1){
 			if ($multiMap == 0){
-			    print SH "module load python/anaconda\n";
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}elsif ($multiMap == 1){
-			    print SH "module load python/anaconda\n";
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.multi.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.multi.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}
 		    } else {
 			if ($multiMap == 0){
-			    print SH "module load python/anaconda\n";
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}elsif ($multiMap == 1){
-			    print SH "module load python/anaconda\n";
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			    print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.multi.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}
 		    }
-		    print SH "\nmodule unload python/anaconda\n";		
-		} elsif ($uploadPulmtracks == 1) {
-		    print SH "\nmodule load python/anaconda\n";	
-		    if ($uploadBAM == 1){
-			print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
-			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
-			print SH "# To load, paste the following url into the custom tracks field:\n";
-			print SH "# http://s3-us-west-2.amazonaws.com/m-328-data/$scientist/$scientist.$project/$sample.bam\n";
-			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://m-328-data/$scientist.$project/ --region us-west-2\n";
-			print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://m-328-data/$scientist.$project/ --region us-west-2\n";
-		    }
-		    print SH "\nmodule load python/anaconda\n";
-		    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
+		if ($modulesLoaded{"python/anaconda"} == 1){ print SH "module unload python/anaconda\n"; $modulesLoaded{"python/anaconda"} = 0;}
+	    } elsif ($uploadPulmtracks == 1) {
+		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+		if ($uploadBAM == 1){
+		    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 		    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
-		    if ($stranded == 1){
+		    print SH "# To load, paste the following url into the custom tracks field:\n";
+		    print SH "# http://s3-us-west-2.amazonaws.com/m-328-data/$scientist/$scientist.$project/$sample.bam\n";
+		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://m-328-data/$scientist.$project/ --region us-west-2\n";
+		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://m-328-data/$scientist.$project/ --region us-west-2\n";
+		}
+		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+		print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
+		print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+		if ($stranded == 1){
 			if ($multiMap == 0){
 						    
 			    print SH "aws s3 cp $outputDirectory/bam/$sample.minus.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
@@ -1352,7 +1364,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
 		}
-		print SH "\nmodule unload python/anaconda\n";
+		if ($modulesLoaded{"python/anaconda"} == 1){ print SH "module unload python/anaconda\n"; $modulesLoaded{"python/anaconda"} = 0;}
 	    }
 	    close(SH);
 	}
@@ -1400,19 +1412,21 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_$aligner\_align.sh";
 	    &datePrint("Printing $shScript");
 	    open (SH,">$shScript");
+	    my (%modulesLoaded, $moduleText);
 	    print SH "$header";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -N $sample\_bowtie\n";
-	    print SH "module load bowtie/1.1.2\n";
-	    print VER "EXEC module load bowtie/1.1.2\n";
-	    print SH "module load samtools/1.2\n";
-	    print VER "EXEC module load samtools/1.2\n";
+	    $moduleText = &checkLoad("bowtie/1.1.2",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie/1.1.2"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    my @newFastqs;
 	    if ($runTrim == 1){
-		print SH "module load java/jdk1.8.0_25\n";
+		# Pascal says this is unnecessary as java is loaded by default.  2018-07-05	    
+#		print SH "module load java/jdk1.8.0_25\n";
 		foreach my $fastq (@fastqs){
 		    print SH "\n# Copy fastq files into outputDirectory.\n";
 		    print SH "cp $fastq $outputDirectory/$project/fastq/\n";
@@ -1451,45 +1465,15 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		}
 	    }
 	    @fastqs = @newFastqs;
-
-	    # my @fastqs = split(/\,/,$fastqs{$sample});
-	    # for my $fastq (@fastqs){
-	    # 	print SH "\n# Running FastQ_screen to look for contamination.\n";
-	    # 	print SH "module load bowtie2/2.2.6\n";
-	    # 	print SH "module load perl/5.16\n";
-	    # 	print VER "EXEC module load perl/5.16\n";
-	    # 	print SH "# Check all reference genomes currently installed\n";
-	    # 	print SH "perl $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $fastq\n";
-	    # 	print VER "EXEC $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen\n";
-	    # 	print VER "EXEC module load bowtie2/2.2.6\n";
-	    # 	print VER "EXEC $NGSbartom/tools/bin/FastQC/fastqc (FastQC v0.11.2)\n";
-	    # 	print SH "date\n";
-	    # 	print SH "\n# Run FastQC on untrimmed sequence.\n";
-	    # 	print SH "$NGSbartom/tools/bin/FastQC/fastqc $fastq\ndate\n";
-	    # }
-	    # if ($runTrim == 1){
-	    # 	print SH "module load java/jdk1.8.0_25\n";
-	    # 	print VER "EXEC module load java/jdk1.8.0_25\n";
-	    # 	foreach my $fastq (@fastqs){
-	    # 	    if ($fastq ne ""){
-	    # 		print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
-	    # 		print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
-	    # 		print SH "gzip $fastq.trimmed\n";
-	    # 		print VER "EXEC $NGSbartom/tools/bin/FastQC/fastqc (FastQC v0.11.2)\n";
-	    # 		print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc $fastq.trimmed.gz\n";
-	    # 		#print SH "mv $fastq.trimmed.gz $fastq\n";
-	    # 		print SH "date\n";
-	    # 	    }
-	    # 	}
-	    # }
-#	    my $fastqs = $fastqs{$sample};
 	    my $fastqs = "@fastqs";
 	    $fastqs =~ s/,/ /g;
 	    if ($runTrim == 1){
 		$fastqs =~ "s/q.gz/q.trimmed.gz/g";
 	    }
 	    print SH "date\n\n";
-#	    print STDERR "$sample\tREF:$reference{$sample}\tINDEX:$bowtieIndex{$reference{$sample}}\n";
+	    #	    print STDERR "$sample\tREF:$reference{$sample}\tINDEX:$bowtieIndex{$reference{$sample}}\n";
+	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    print SH "# Align fastqs with Bowtie\n";
 	    if ($multiMap == 0){
 		print SH "\ngunzip -c $fastqs | bowtie -p $numProcessors -m 1 -v 2 -S $bowtieIndex{$reference{$sample}} 2> $outputDirectory\/$project\/bam\/$sample.bowtie.log - | samtools view -bS - > $outputDirectory\/$project\/bam\/$sample.bam \n";
@@ -1523,7 +1507,8 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
 			print SH "cp $outputDirectory\/$project\/bam\/$sample*.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
 			if ($uploadBAM == 1){
-			    print SH "module load python/anaconda\n";
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			    print SH "cp $bamDirectory\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
 			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
@@ -1534,12 +1519,14 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			}
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
-			print SH "module load python/anaconda\n";
+			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 		    }
 		    if ($uploadPulmtracks == 1){
 			if ($uploadBAM == 1){
-			    print SH "module load python/anaconda\n";
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			    print SH "# To load, paste the following url into the custom tracks field:\n";
@@ -1568,6 +1555,8 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			    $chr = $1;
 			    $start = $2 - 2000;
 			    $stop = $3 + 2000;
+			    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 			    print SH "\n# Remove Viewpoint from Bam files.\n";
 			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n"; 
 			    print SH "\n# Make 4C tracks.\n";
@@ -1594,7 +1583,8 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
 			print SH "cp $bamDirectory\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
-			print SH "module load python/anaconda\n";
+			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
@@ -1637,19 +1627,21 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_align.sh";
 	    &datePrint("Printing $shScript");
 	    open (SH,">$shScript");
+	    my (%modulesLoaded, $moduleText);
 	    print SH "$header";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -N $sample\_bwa\n";
-	    print SH "module load bwa/0.7.12\n";
-	    print VER "EXEC module load bwa/0.7.12\n";
-	    print SH "module load samtools/1.2\n";
-	    print VER "EXEC module load samtools/1.2\n";
+	    $moduleText = &checkLoad("bwa/0.7.12",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bwa/0.7.12"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load picard/1.131\n";
 	    print VER "EXEC module load picard/1.131\n";
-	    print SH "module load java/jdk1.8.0_25\n";
-	    print VER "EXEC module load java/jdk1.8.0_25\n";
+# Pascal says this is unnecessary as java is loaded by default.  2018-07-05	    
+#	    print SH "module load java/jdk1.8.0_25\n";
+#	    print VER "EXEC module load java/jdk1.8.0_25\n";
 	    print SH "\nmkdir $outputDirectory\/$project\/fastq\n";
 	    print SH "\nmkdir $outputDirectory\/$project\/fastqc\n";
 	    my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
@@ -1658,17 +1650,18 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 
 	    foreach my $fastq (@fastqs){
 		print SH "\n# Running FastQ_screen to look for contamination.\n";
-		print SH "module load bowtie2/2.2.6\n";
-		print SH "module load perl/5.16\n";
-		print VER "EXEC module load perl/5.16\n";
+		$moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
+		$moduleText = &checkLoad("perl/5.16",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"perl/5.16"} = 1;}
 		print SH "# Check all reference genomes currently installed\n";
 		print SH "perl $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $fastq\n";
 		print VER "EXEC $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen\n";
-		print VER "EXEC module load bowtie2/2.2.6\n";
 	    }
 	    
 	    if ($runTrim == 1){
-		print SH "module load java/jdk1.8.0_25\n";
+		# Pascal says this is unnecessary as java is loaded by default.  2018-07-05	    
+#		print SH "module load java/jdk1.8.0_25\n";
 		foreach my $fastq (@fastqs){
 		    print SH "\n# Copy fastq files into outputDirectory.\n";
 		    print SH "cp $fastq $outputDirectory/$project/fastq/\n";
@@ -1711,6 +1704,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 			$prefix = $1;
 		    } else { $prefix = $fastq;}
 		    print SH "\n# Align Fastq with BWA\n";
+		    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 		    print SH "bwa mem $bwaIndex{$reference{$sample}} $fastq | samtools view -bS - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
 		    print SH "date\n\n";
 		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
@@ -1747,6 +1742,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    if ($read1fastqs[$i] =~ /\/?([\d\_\-\w\.]+)\_R1\.fastq\.gz$/){
 			$prefix = $1;
 		    } else { $prefix = $read1fastqs[$i];}
+		    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 		    print SH "\n# Align Fastq with BWA\n";
 		    print SH "bwa mem $bwaIndex{$reference{$sample}} $read1fastqs[$i] $read2fastqs[$i] | samtools view -bS - > $outputDirectory\/$project\/bam/$prefix.bam\n";
 		    print SH "date\n\n";
@@ -1765,6 +1762,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  	    print SH "mv $outputDirectory\/$project\/bam\/$sample.mdup.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
  	    print SH "date\n";
 	    print SH "# Index bam file and gather flagstats.\n";
+	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
  	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
  	    print SH "date\n\n";
@@ -1788,21 +1787,24 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			print SH "cp $outputDirectory\/$project\/bam\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
 			if ($uploadBAM == 1){
 			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
-			    print SH "module load python/anaconda\n";
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			    print SH "# To load, paste the following url into the custom tracks field:\n";
 			    print SH "# http://s3-us-west-2.amazonaws.com/ash-tracks/TANGO/$scientist/$scientist.$project/$sample.bam\n";
 			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			}
-			print SH "module load python/anaconda\n";
+			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
  			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
  			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
  			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
  		    }
 		    if ($uploadPulmtracks == 1){
 			if ($uploadBAM == 1){
-			    print SH "module load python/anaconda\n";
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			    print SH "# To load, paste the following url into the custom tracks field:\n";
@@ -1810,7 +1812,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			}
-			print SH "module load python/anaconda\n";
+			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
  			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
  			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
  			print SH "aws s3 cp $outputDirectory\/$project\/bam\/$sample.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
@@ -1833,6 +1836,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			    $start = $2 - 2000;
  			    $stop = $3 + 2000;
  			    print SH "\n# Remove Viewpoint from Bam files.\n";
+			    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
  			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n"; 
  			    print SH "\n# Make 4C tracks.\n";
  			    # The multi mapping argument is not used right now.
@@ -1856,7 +1861,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
  			print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
  			print SH "cp $outputDirectory\/$project\/bam\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project/\n";
-			print SH "module load python/anaconda\n";
+			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
  			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
  			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
  			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
@@ -1896,6 +1902,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	&datePrint( "Need to wait for the following jobs to finish:\n$result");
 	open (SH, ">$outputDirectory/$project/scripts/AlignmentDependentScript.sh");
 	print SH $header;
+	my (%modulesLoaded, $moduleText);
 	print SH "#MSUB -W depend=afterok:$result\n";
 	print SH "#MSUB -N PostAlignmentAnalysis\n";
 	print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
@@ -1903,10 +1910,10 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	if ($aligner eq "tophat"){
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
-	    print SH "module load bowtie2\n";
-	    print VER "EXEC module load bowtie2\n";
-	    print SH "module load samtools/1.2\n";
-	    print VER "EXEC module load samtools/1.2\n";
+	    $moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
+	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    print SH "\n# Make Tophat report summarizing alignment.\n";
 	    print SH "Rscript $NGSbartom/tools/bin/createTophatReport.R --topHatDir=$outputDirectory\/$project\/Tophat_aln --nClus=$numProcessors\n";
 	}elsif ($aligner eq "bowtie"){
@@ -1947,20 +1954,21 @@ if ($runRNAstats == 1){
     if ($type eq "RNA"){
 	foreach my $project (keys(%samples)){
 	    open (SH, ">$outputDirectory/$project/scripts/runRNAstats_summary.sh");
+	    my (%modulesLoaded, $moduleText);
 	    print SH $header;
 	    print SH "#MSUB -N $project\_runRNAstats\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -l walltime=48:00:00\n";
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
-	    print SH "module load bowtie2\n";
-	    print VER "EXEC module load bowtie2\n";
-	    print SH "module load samtools/1.2\n";
-	    print VER "EXEC module load samtools/1.2\n";
+	    $moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
+	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    print SH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
 	    print VER "EXEC module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
-	    print SH "module load python/anaconda\n";
-	    print VER "EXEC module load python/anaconda\n";
+	    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 	    print SH "module load parallel\n";
 	    print VER "EXEC RSeQC\n";
 	    my $strandrule = "";
@@ -1977,13 +1985,17 @@ if ($runRNAstats == 1){
 	    foreach my $sample (@samples){
 		open (SSH, ">$outputDirectory/$project/scripts/runRNAstats.$sample.sh");
 		print SSH $header;
+		my (%modulesLoaded, $moduleText);
 		print SSH "#MSUB -N $project\_runRNAstats.$sample\n";
 		print SSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		print SSH "module load R/3.2.2\n";
-		print SSH "module load bowtie2\n";
-		print SSH "module load samtools/1.2\n";
+		$moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
+		if ($moduleText ne ""){	print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
+		$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+		if ($moduleText ne ""){ print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+		if ($moduleText ne ""){ print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 		print SSH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
-		print SSH "module load python/anaconda\n";
 		print SSH "module load parallel\n";
 		if (!(-e "$outputDirectory\/$project\/bam\/$sample.bam")){
 		    print SSH "\n# When this script was generated, $sample.bam did not exist in the bam directory.  If that is still the case when this script is run, it will fail.  In that case, please align and re-run.\n";
@@ -2028,6 +2040,7 @@ if ($buildGenotyping ==1) {
 	    # Foreach sample within the project:		    
 	    foreach my $sample (@samples){
 		open (SH, ">$outputDirectory/$project/scripts/$sample\_genotype.sh");
+		my (%modulesLoaded, $moduleText);
 		print SH $header;
 		print SH "#MSUB -N $sample\_genotype\n";
 		#print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
@@ -2036,14 +2049,14 @@ if ($buildGenotyping ==1) {
 		# the meantime, I'm setting a flat number of processors of 6
 		# for genotyping purposes.
 		print SH "#MSUB -l nodes=1:ppn=6\n";
-		print SH "module load samtools/1.2\n";
 		print SH "module load picard/1.131\n";
-		print VER "EXEC module load samtools/1.2\n";
 		print VER "EXEC module load picard/1.131\n";
 		print VER "EXEC $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar\n";
 		my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 		print SH "\n\n";
 		print SH "# Sort BAM file.\n";
+		$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 		print SH "samtools sort $outputDirectory\/$project\/bam\/$sample.bam $outputDirectory\/$project\/bam\/$sample.sorted\n";
 		print SH "date\n\n";
 		print SH "# Mark Duplicates with Picard.\n";
@@ -2091,6 +2104,7 @@ if ($buildEdgeR ==1) {
     foreach my $project (keys(%samples)){
 	my @countsfiles;
 	open (SH, ">$outputDirectory/$project/scripts/downstreamRNAanalysis.sh");
+	my (%modulesLoaded, $moduleText);
 	print SH $header;
 	print SH "#MSUB -N downstreamRNAanalysis\n";
 	print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
@@ -2103,8 +2117,8 @@ if ($buildEdgeR ==1) {
 		    # Foreach sample within the project:		    
 		    if ($htseq == 1) {
 		    	print SH "module unload mpi\n";
-	    		print SH "module load python/anaconda\n";
-			print VER "EXEC module load python/anaconda\n";
+			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			print VER "EXEC htseq 0.6.1\n";
 	    		my $htseq_sample_count = 0;
 			print SH "\n# Launch up to $numProcessors htseq jobs\n";
@@ -2122,13 +2136,13 @@ if ($buildEdgeR ==1) {
 	    		}
 	    		if ($htseq_sample_count % $numProcessors > 0) {
 			    print SH "wait\n";
-			}    			
-	    		print SH "module unload python/anaconda\n";
+			}    		
+			if ($modulesLoaded{"python/anaconda"} == 1){ print SH "module unload python/anaconda\n"; $modulesLoaded{"python/anaconda"} = 0;}
 	    		print SH "module load gcc/4.8.3\n";
 		    }
 		    if ($bedtools == 1) {
-	    		print SH "module load bedtools/2.17.0\n";
-	    		print VER "EXEC module load bedtools/2.17.0\n";
+			$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
 	    		my $bedtools_sample_count = 0;
 			print SH "\n# Launch up to $numProcessors bamtobed jobs\n";
 	    		foreach my $sample (@samples){
@@ -2164,6 +2178,7 @@ if ($buildEdgeR ==1) {
 			    print SH "rm $bamDirectory\/$sample.bed\n";
 	    		}
 	    		print SH "\nmodule unload bedtools/2.17.0\n";
+			$modulesLoaded{"bedtools/2.17.0"} = 0;
 		    }
 		}
 		print SH "module load R/3.2.2\n";
@@ -2192,8 +2207,9 @@ if ($buildEdgeR ==1) {
 				print SH "cp $bamDirectory\/$sample.plus.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
 			    } else {
 				print SH "cp $bamDirectory\/$sample.bw /projects/b1025/tracks/TANGO/$scientist\/$scientist.$project\/\n";
-			    }			
-			    print SH "module load python/anaconda\n";
+			    }
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 
 			    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
@@ -2324,18 +2340,19 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	    if ($broadPeakCheck ne ""){
 		&datePrint("Found some broad peaks to call. Creating SICER script.");
 		open (BSH, ">$outputDirectory/$project/scripts/runSICER\_callPeaks.sh");
+		my (%modulesLoaded, $moduleText);
 		print BSH $header;
 		print BSH "#MSUB -N callSicerPeaks\n";
 		print BSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		print BSH "\nmodule unload R\n";
 		print BSH "module unload mpi\n";
-		print BSH "module load python/anaconda\n";
-		print BSH "module load bedtools/2.17.0\n";
-		print BSH "module load samtools/1.2\n";
+		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+		if ($moduleText ne ""){ print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+		$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+		if ($moduleText ne ""){	print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+		$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
+		if ($moduleText ne ""){ print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
 		print BSH "export PATH=$NGSbartom/tools/bin/SICER_V1.1/SICER/:\$PATH\n";
-		print VER "EXEC module load python/anaconda\n";
-		print VER "EXEC module load bedtools/2.17.0\n";
-		print VER "EXEC module load samtools/1.2\n";
 		print VER "EXEC $NGSbartom/tools/bin/SICER_V1.1/SICER/\n";
 	    }
 	    open(CHIP,$chipDescription);
@@ -2348,6 +2365,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		    if ($peakType eq "narrow"){
 			open (SH, ">$outputDirectory/$project/scripts/run\_$ip\_callPeaks.sh");
 			print SH $header;
+			my (%modulesLoaded, $moduleText);
 			print SH "#MSUB -N $ip\_NarrowPeaks\n";
 			print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 			#print SH "module load R/3.2.2\n";
@@ -2372,19 +2390,20 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "$NGSbartom/tools/bin/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.macsPeaks.capped.bed $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb\n";
 			    print SH "date\n";
 			    if ($uploadASHtracks == 1){
-				print SH "\nmodule load python/anaconda\n\n";
+				$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+				if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 				print SH "\n# Copy bigBed to Amazon S3, for UCSC genome browser to access.\n";
 				print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 				print SH "aws s3 cp $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb s3://$s3path/$scientist.$project/ --region us-west-2\n";
 				print SH "date\n";
-				print SH "\nmodule unload python/anaconda\n";
+				if ($modulesLoaded{"python/anaconda"} == 1){ print SH "module unload python/anaconda\n"; $modulesLoaded{"python/anaconda"} = 0;}
 			    }
 			    print SH "\n# Create track description for bigBed file.\n";
 			    print SH "echo \"track type=bigBed name=$ip.macsPeaks description=\\\"MACS peaks in $ip relative to $input\\\" graphtype=bar maxHeightPixels=128:60:11 visibility=dense color=0,0,0 itemRGB=on useScore=1 autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$ip.macsPeaks.bb\" | cat > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bb.header.txt\n";
 			    print SH "date\n";
 			}
-			print VER "EXEC module load bedtools/2.17.0\n";
-			print SH "module load bedtools/2.17.0\n";
+			$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
 			print SH "\n# Calculate coverage of reads at peaks.\n";
 			print SH "bedtools coverage -b $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed -abam $outputDirectory\/$project\/bam\/$ip.bam >  $outputDirectory\/$project\/peaks\/$ip.macsPeaks.cov.txt\n";
 			print SH "awk \'{printf \"\%s\\t\%d\\t%d\\t\%s\\t\%f\\n\", \$1,\$2,\$3\,\$4,\$5\/\$7\}\'  $outputDirectory\/$project\/peaks\/$ip.macsPeaks.cov.txt >  $outputDirectory\/$project\/peaks\/$ip.macsPeaks.cpm.bed\n";
@@ -2445,7 +2464,9 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			close SH;
 		       
 		    } elsif ($peakType eq "broad"){
-			print BSH "module load bedtools/2.17.0\n";
+			my (%modulesLoaded, $moduleText);
+			$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
+			if ($moduleText ne ""){ print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
 			print BSH "\n# Convert bam files to bed files, as needed.\n";
 			print BSH "if \[ ! -s \"$bamDirectory\/$ip.bed\" ]; then\n";
 			print BSH "\tbedtools bamtobed -i $bamDirectory\/$ip.bam > $bamDirectory\/$ip.bed\n";
@@ -2456,6 +2477,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "\tdate\n";
 			print BSH "fi\n";
 			print BSH "module unload bedtools\n";
+			$modulesLoaded{"bedtools/2.17.0"} = 0;
 			print BSH "\n# Call $peakType peaks for ip file $ip, input $input\n";
 			print BSH "mkdir $outputDirectory\/$project\/peaks\/$ip.sicer\n";
 			print BSH "SICER.sh $bamDirectory $ip.bed $input.bed $outputDirectory\/$project\/peaks\/$ip.sicer $reference{$project} 1 200 150 0.8 600 1e-8 >& $outputDirectory\/$project\/peaks\/$ip.sicer.log\n";
@@ -2475,11 +2497,12 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print BSH "$NGSbartom/tools/bin/bedToBigBed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.capped.bed $NGSbartom/anno/chromSizes/$reference{$project}\.chrom.sizes $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb\n";
 			    print BSH "date\n";
 			    if ($uploadASHtracks == 1){
-				print BSH "\nmodule load python/anaconda\n";
+				$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+				if ($moduleText ne ""){ print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 				print BSH "\n# Copy bigBed to Amazon S3, for UCSC genome browser to access.\n";
 				print BSH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 				print BSH "aws s3 cp $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bb s3://$s3path/$scientist.$project/ --region us-west-2\n";
-				print BSH "\nmodule unload python/anaconda\n";
+				if ($modulesLoaded{"python/anaconda"} == 1){ print BSH "module unload python/anaconda\n"; $modulesLoaded{"python/anaconda"} = 0;}
 				print BSH "date\n";
 			    }
 			    print BSH "\n# Create track description for bigBed file.\n";
@@ -2491,7 +2514,8 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "mv $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.named.bed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed\n";
 			print BSH "date\n";
 			print BSH "\n# Annotate peaks with nearby genes.\n";
-			print BSH "\nmodule unload python/anaconda\nmodule load mpi/openmpi-1.6.3-gcc-4.6.3\nmodule load R/3.2.2\n";
+			if ($modulesLoaded{"python/anaconda"} == 1){ print BSH "module unload python/anaconda\n"; $modulesLoaded{"python/anaconda"} = 0;}
+			print BSH "\nmodule load mpi/openmpi-1.6.3-gcc-4.6.3\nmodule load R/3.2.2\n";
 			print BSH "Rscript $NGSbartom/tools/bin/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print BSH "date\n";
 			if ($buildNGSplot == 1){
@@ -2542,6 +2566,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	    $result =~ s/:$//;
 	    &datePrint( "Need to wait for the following jobs to finish:\n$result");
 	    open (SH, ">$outputDirectory/$project/scripts/PeakCallingDependentScript.sh");
+	    my (%modulesLoaded, $moduleText);
 	    print SH $header;
 	    print SH "#MSUB -W depend=afterok:$result\n";
 	    print SH "#MSUB -N CheckingPeakCallerProgress\n";
@@ -2623,14 +2648,15 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 	    foreach my $peakset (keys(%peaksets)){
 		&datePrint("Set up differential peak analysis script for peakset $peakset.");
 		open (SH, ">$outputDirectory/$project/scripts/$peakset\_diffPeaks.sh");
+		my (%modulesLoaded, $moduleText);
 		print SH $header;
 		print SH "#MSUB -N $peakset\_diffPeak\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-		print SH "module load bedtools/2.17.0\n";
-		print SH "module load samtools/1.2\n";
+		$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
+		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
+		$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 		print SH "module load R/3.2.2\n";
-		print VER "EXEC module load bedtools/2.17.0\n";
-		print VER "EXEC module load samtools/1.2\n";
 		print VER "EXEC module load R/3.2.2\n";
 		my @samples = uniq(split(/\,/,$peaksets{$peakset}));
 		print SH "\n# Samples for this peakset $peakset are @samples\n";
@@ -2792,3 +2818,20 @@ sub waitForJob {
 	    print STDERR ".";
 	}
 }
+
+sub checkLoad {
+    my $module = $_[0];
+    my $hashref = $_[1];
+    my %modulehash = %$hashref;
+#    print STDERR "# Check load!\n";
+#    print STDERR "$module\n";
+#    print STDERR "$modulehash{$module}\n";
+    if ($modulehash{$module} == 1){
+	# Skip these module loads.
+	print STDERR "skip load\n";
+	return ("");
+    } elsif ((!exists($modulehash{$module})) || ($modulehash{$module} == 0)){
+	print STDERR "must load\n";
+	return ("module load $module\n");
+    } 
+}   
