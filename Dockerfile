@@ -55,7 +55,7 @@ RUN mkdir -p /software/R/3.2.2 && \
     make && touch doc/NEWS.pdf && make install
 
 RUN mkdir -p /software/openmpi/1.6.3 && \
-    curl -O https://www.open-mpi.org/software/ompi/v1.6/downloads/openmpi-1.6.3.tar.gz && \
+    curl -L -O https://www.open-mpi.org/software/ompi/v1.6/downloads/openmpi-1.6.3.tar.gz && \
     tar -xzf openmpi-1.6.3.tar.gz && cd openmpi-1.6.3 && ./configure --prefix=/software/openmpi/1.6.3 && \
     make && make install
 
