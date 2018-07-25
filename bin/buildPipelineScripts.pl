@@ -43,7 +43,7 @@ my $numProcessors = 4;
 my $multiMap = 0;
 my $aligner = "";
 my $stranded = 1;
-my $id = ""; 
+my $id = "";
 my $assembly = "";
 my $runBcl2fq = 0;
 my $runAlign = 0;
@@ -164,10 +164,10 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 #     if (exists($PARAMETERS{'type'})){$type = $PARAMETERS{'type'};}
 #     if (exists($PARAMETERS{'numProcessors'})){$numProcessors = $PARAMETERS{'numProcessors'};}
 #     if (exists($PARAMETERS{'stranded'})){$stranded = $PARAMETERS{'stranded'};}
-    
+
 #     #my $multiMap = 0;
 #     #my $aligner = "";
-#     #my $id = ""; 
+#     #my $id = "";
 #     #my $assembly = "";
 #     #my $runBcl2fq = 0;
 #     #my $runAlign = 0;
@@ -206,7 +206,7 @@ if ($s3path eq ""){ $s3path = "ash-tracks/TANGO/$scientist";}
 if (($outputDirectory eq "")|| ($type eq "")){
     die "\nERR:  Output Directory and Type must be specified. If Output Directory cannot be found, it will be created.\nPaths should be absolute, NOT relative.\n\n";
 }
-# If samplesheet is not specified, assume it's inside base space directory 
+# If samplesheet is not specified, assume it's inside base space directory
 # with standard name.
 if (($sampleSheet eq "") && ($baseSpaceDirectory ne "")){
     $sampleSheet = "$baseSpaceDirectory/SampleSheet.csv";
@@ -284,7 +284,7 @@ my $header = "#!/bin/bash\n";
 #$header .= "#MSUB -l nodes=1:ppn=$numProcessors\n"; This is now specified within specific scripts, so bcl2fq can have 8 ppn
 $header .= "#MSUB -A $account\n";
 # Currently I think it only makes sense to specify queue if you are planning on either genomics or genomicsburst, in which case, account should be b1042.
-# If you disagree, let me know at ebartom@northwestern.edu 
+# If you disagree, let me know at ebartom@northwestern.edu
 if ($account eq "b1042"){
     $header .= "#MSUB -q $queue\n";
 } elsif ($account eq "e30258"){
@@ -323,7 +323,7 @@ if ($makeTracks){ print STDERR "Will make tracks appropriate for the UCSC genome
 }
 if ($runRNAstats) { print STDERR "Will launch a script to assess RNAseq quality based on BAM files.\n";}
 if ($buildEdgeR){ print STDERR "Will build scripts for finding differentially expressed genes from RNAseq data.\n";}
-if ($runEdgeR){ print STDERR "Will run scripts for finding differentially expressed genes from RNAseq data.\n";}		  
+if ($runEdgeR){ print STDERR "Will run scripts for finding differentially expressed genes from RNAseq data.\n";}
 if ($buildDiffPeaks) { print STDERR "Will build scripts to find differentially expressed peaks based on $chipDescription and $comparisons.\n";}
 if ($runDiffPeaks) { print STDERR "Will run scripts to find differentially expressed peaks.\n";}
 if ($build4C){ print STDERR "Will build scripts for analyzing 4C data, starting with mock-demultiplexed fastq files.\n";}
@@ -356,7 +356,7 @@ $starIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/STARind
 $txIndex{"hg38.mp"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
 $txdbfile{"hg38.mp"} = "$NGSbartom/anno/Txdb/UCSC.hg38.mp.txdb";
 $exonbed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf.bed";
-$genebed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf.bed"; 
+$genebed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf.bed";
 $samplegenebed{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.r1k.gtf.bed"; # 1000 genes picked at random from gene bed.
 $gff{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf";
 $rsemTx{"hg38.mp"} = "NEEDS TO BE UPDATED $NGSbartom/anno/rsemTx/hg38.Ens_78";
@@ -460,7 +460,7 @@ if ($sampleSheet ne ""){
     if ($wrongCarriageReturn ne ""){
 	&datePrint("Sample sheet contained windows or mac carriage returns.  Cleaning it.");
 	$cmd = "mv $sampleSheet $sampleSheet.old\nperl -pe \"s\/\\r\\n\/\\n\/g\" $sampleSheet.old | perl -pe  \"s\/\\r\/\\n\/g\" > $sampleSheet.fixed.txt\nmv $sampleSheet.fixed.txt $sampleSheet\n";
-	system($cmd); 
+	system($cmd);
     }
 }
 
@@ -471,7 +471,7 @@ if ( $fourCdescription ne ""){
     if ($wrongCarriageReturn ne ""){
 	&datePrint("Sample sheet contained windows or mac carriage returns.  Cleaning it.");
 	$cmd = "mv $fourCdescription $fourCdescription.old\nperl -pe \"s\/\\r\\n\/\\n\/g\" $fourCdescription.old | perl -pe  \"s\/\\r\/\\n\/g\" > $fourCdescription.fixed.txt\nmv $fourCdescription.fixed.txt $fourCdescription\n";
-	system($cmd); 
+	system($cmd);
     }
 }
 
@@ -482,7 +482,7 @@ if ($comparisons ne ""){
     if ($wrongCarriageReturn ne ""){
 	&datePrint("Comparison file contained windows or mac carriage returns.  Cleaning it.");
 	$cmd = "mv $comparisons $comparisons.old\nperl -pe \"s\/\\r\\n\/\\n\/g\" $comparisons.old | perl -pe  \"s\/\\r\/\\n\/g\" | perl -pe \"s/ //g\" > $comparisons.fixed.txt\nmv $comparisons.fixed.txt $comparisons\n";
-	system($cmd); 
+	system($cmd);
     }
 }
 
@@ -493,7 +493,7 @@ if ($chipDescription ne ""){
     if ($wrongCarriageReturn ne ""){
 	&datePrint("Comparison file contained windows or mac carriage returns.  Cleaning it.");
 	$cmd = "mv $chipDescription $chipDescription.old\nperl -pe \"s\/\\r\\n\/\\n\/g\" $chipDescription.old | perl -pe  \"s\/\\r\/\\n\/g\" | perl -pe \"s\/ //g\" > $chipDescription.fixed.txt\nmv $chipDescription.fixed.txt $chipDescription\n";
-	system($cmd); 
+	system($cmd);
     }
 }
 
@@ -606,7 +606,7 @@ if (($sampleSheet ne "")){
 				$cmd .= "rmdir $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\n";
 				system($cmd);
 			    }
-			} 
+			}
 			if (-e "$outputDirectory\/$sample_project\/fastq\/$fastq") {
 			    # Fastq file is in output directory.  All is good.
 			} else {
@@ -694,12 +694,12 @@ if (($sampleSheet ne "")){
 	foreach my $fastq (@fastqlist){
 	    #	    print STDERR "Fastq: \"$fastq\"\n";
 	    if ($fastq ne ""){
-		if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) || 
+		if (($fastq =~ /\/?([\w\-\d\_\.]+)\_S\d/) ||
 		    #		($fastq =~ /\/?([\w\-\d\_\.]+)FastqRd/) ||
 		    ($fastq =~ /\/?([\w\-\d\_\.]+)\_R\d/) ||
 		    ($fastq =~ /\/?([\w\-\d\_\.]+SRR\w+)\_\d.fastq.gz/) ||
 		    ($fastq =~ /\/?([\w\-\d\_\.]+).fastq.t?gz/) ||
-		    ($fastq =~ /\/?([\w\-\d\_\.]+).fq.t?gz/) 
+		    ($fastq =~ /\/?([\w\-\d\_\.]+).fq.t?gz/)
 		    ){
 		    $sample_name = $1;
 		    &datePrint("Sample name is $sample_name");
@@ -712,7 +712,7 @@ if (($sampleSheet ne "")){
 		    if (!exists($samples{$project_name})){
 			$samples{$project_name} = $sample_name;
 		    }else {$samples{$project_name} .= ",$sample_name";}
-		} 
+		}
 	    }
 	}
     } elsif ($startFromBAM == 1){
@@ -747,14 +747,14 @@ if (($sampleSheet ne "")){
 		if (!exists($samples{$project_name})){
 		    $samples{$project_name} = $sample_name;
 		}else {$samples{$project_name} .= ",$sample_name";}
-	    } 
+	    }
 	}
     }
 }
 
- 
+
 if (($type eq "4C") && ($build4C == 1)){
-    my $maxPrimerMismatch = 1;	
+    my $maxPrimerMismatch = 1;
     if ($fourCdescription ne ""){
 	&datePrint("4C experiment described in $fourCdescription");
 	$cmd = "mkdir $outputDirectory\/$sample_project\n";
@@ -821,13 +821,13 @@ if (($type eq "4C") && ($build4C == 1)){
 # Create the directory structure, and move fastq files to a project specific directory (by TANGO/MOLNG) in the top level of the base space directory.
 &datePrint("Setting up directory structure and maybe moving fastq files to project sub-directory within $baseSpaceDirectory");
 foreach my $project (keys(%samples)){
-    if ($scientists{$project} ne ""){ 
+    if ($scientists{$project} ne ""){
 	$scientist = $scientists{$project};
 #	if ($s3path eq "ash-tracks/TANGO/XXX"){ }
 	$s3path = "ash-tracks/TANGO/$scientist";
     }
     my $cmd = "mkdir $outputDirectory\/$project\n";
-    $cmd .= "mkdir $outputDirectory\/$project/scripts\n";    
+    $cmd .= "mkdir $outputDirectory\/$project/scripts\n";
     $cmd .= "mkdir $outputDirectory\/$project\/bam\n";
     $cmd .= "mkdir $outputDirectory\/$project\/fastq\n";
     print STDERR "$cmd\n";
@@ -857,7 +857,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
     my @samples;
     # Foreach project (TANGO/MOLNG):
     foreach my $project (keys(%samples)){
-	if ($scientists{$project} ne ""){ 
+	if ($scientists{$project} ne ""){
 	    $scientist = $scientists{$project};
 	    #if ($s3path eq "ash-tracks/TANGO/XXX"){ }
 	    $s3path = "ash-tracks/TANGO/$scientist";
@@ -873,7 +873,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    system($cmd);
 	}
 	@samples = uniq(split(/\,/,$samples{$project}));
-	
+
 	# Foreach sample within the project:
 	foreach my $sample (@samples){
 	    # Create a shell script to run tophat on all fastqs for the sample at the same time.
@@ -891,7 +891,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    print VER "EXEC module load boost/1.56.0\n";
 	    print SH "module load gcc/4.8.3\n";
 	    print VER "EXEC module load gcc/4.8.3\n";
-	    
+
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    my $cmd = "";
 	    if (!(-e "$outputDirectory\/$project\/fastq")){
@@ -921,7 +921,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		if ($runTrim == 1){
 		    &datePrint("Setting up trimming for single end reads.");
 		    print SH "# Setting up trimming for single end reads.\n";
-# Pascal says it is not necessary to explicitly load java (2018-07-05)		    
+# Pascal says it is not necessary to explicitly load java (2018-07-05)
 #		    print SH "module load java/jdk1.8.0_25\n";
 #		    print VER "EXEC module load java/jdk1.8.0_25\n";
 		    my @newfastqs = ();
@@ -939,7 +939,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 				&datePrint("Copying $fastq to $newfastq\n");
 				`cp $fastq $newfastq`;
 				$fastq = $newfastq;
-			    }			    
+			    }
 			    print STDERR "Fastq: $fastq\nNewFastq: $newfastq\nFastqname = $fastqname\n";
 			    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 			    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed $trimString\n";
@@ -1060,7 +1060,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		if ($runTrim == 1){
 		    &datePrint("Setting up trimming for paired end reads.");
 		    print SH "# Setting up trimming for paired end reads.\n";
-		    # Pascal says this is unnecessary as java is loaded by default.  2018-07-05	    
+		    # Pascal says this is unnecessary as java is loaded by default.  2018-07-05
 #		    print SH "module load java/jdk1.8.0_25\n";
 #		    print VER "EXEC module load java/jdk1.8.0_25\n";
 		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
@@ -1142,7 +1142,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			#		    print SH "echo $read2fastqs\n";
 			print SH "cat $read1fastqs > $outputDirectory/$project/fastq/$sample.read1.fastq\n";
 			print SH "cat $read2fastqs > $outputDirectory/$project/fastq/$sample.read2.fastq\n";
-			print SH "gzip $read1fastqs &\n";		    
+			print SH "gzip $read1fastqs &\n";
 			print SH "gzip $read2fastqs &\n";
 			print SH "\n# Then calculate expression for $sample.\n";
 			print SH "which rsem-calculate-expression\n";
@@ -1179,7 +1179,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    } else {
 		print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
-	    }	    
+	    }
 	    if (($rsem == 1)&& ($runPairedEnd == 0)){ # Single End RSEM analysis
 		print SH "\n# Use RSEM to analyze isoform abundance.\n";
 		print SH "export PATH=$NGSbartom/tools/bin/RSEM-1.3.0/:\$PATH\n";
@@ -1215,7 +1215,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		    print SH "\n# Use STAR alignment to transcriptome and RSEM to estimate isoform expression levels.\n";
 			print SH "rsem-calculate-expression --alignments $outputDirectory/$project/STAR_aln/$sample"."Aligned.toTranscriptome.out.bam $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring  >& $outputDirectory/$project/bam/$sample.rsem.log\n";
 		    print SH "rsem-plot-model $outputDirectory/$project/bam/$sample $outputDirectory/$project/bam/$sample.rsemPlot.pdf\n\n";
-		}		
+		}
 	    }
 	    if ($htseq == 1) {
 		print SH "module unload mpi\n";
@@ -1283,7 +1283,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    print SH "date\n";
 	    if ($uploadASHtracks == 1){
 #		print SH "\nmodule load python/anaconda\n";
-		
+
 		print SH "# Move tracks into Shilatifard directory structure.\n";
 		print SH "mkdir /projects/b1025/tracks/TANGO/$scientist\n";
 		    print SH "mkdir /projects/b1025/tracks/TANGO/$scientist/$scientist.$project\n";
@@ -1344,7 +1344,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 		if ($stranded == 1){
 			if ($multiMap == 0){
-						    
+
 			    print SH "aws s3 cp $outputDirectory/bam/$sample.minus.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			    print SH "aws s3 cp $outputDirectory/bam/$sample.plus.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			}elsif ($multiMap == 1){
@@ -1356,7 +1356,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			    print SH "aws s3 cp $outputDirectory/bam/$sample.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 			}elsif ($multiMap == 1){
 			    print SH "aws s3 cp $outputDirectory/bam/$sample.multi.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
-			}			    
+			}
 		    }
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.minus.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "mv $outputDirectory\/$project\/bam\/$sample.plus.bw $outputDirectory\/$project\/tracks\/\n";
@@ -1396,7 +1396,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
     # Foreach project (TANGO/MOLNG):
     foreach my $project (keys(%samples)){
 	if ($startFromBAM == 0){ $bamDirectory= "$outputDirectory\/$project\/bam";}
-	if ($scientists{$project} ne ""){ 
+	if ($scientists{$project} ne ""){
 	    $scientist = $scientists{$project};
 #	    if ($s3path eq "ash-tracks/TANGO/XXX"){ }
 	    $s3path = "ash-tracks/TANGO/$scientist";
@@ -1425,7 +1425,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    my @newFastqs;
 	    if ($runTrim == 1){
-		# Pascal says this is unnecessary as java is loaded by default.  2018-07-05	    
+		# Pascal says this is unnecessary as java is loaded by default.  2018-07-05
 #		print SH "module load java/jdk1.8.0_25\n";
 		foreach my $fastq (@fastqs){
 		    print SH "\n# Copy fastq files into outputDirectory.\n";
@@ -1537,7 +1537,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "cp $bamDirectory\/$sample.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
-		    }		
+		    }
 		    print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
 		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
@@ -1558,7 +1558,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 			    print SH "\n# Remove Viewpoint from Bam files.\n";
-			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n"; 
+			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n";
 			    print SH "\n# Make 4C tracks.\n";
 			    # The multi mapping argument is not used right now.
 			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
@@ -1588,7 +1588,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
-		    }		
+		    }
 		    print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Make header files for tracks.\n";
 		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
@@ -1614,7 +1614,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
     # Foreach project (TANGO/MOLNG):
     foreach my $project (keys(%samples)){
 	if ($startFromBAM == 0){ $bamDirectory= "$outputDirectory\/$project\/bam";}
-	if ($scientists{$project} ne ""){ 
+	if ($scientists{$project} ne ""){
 	    $scientist = $scientists{$project};
 #	    if ($s3path eq "ash-tracks/TANGO/XXX"){ }
 	    $s3path = "ash-tracks/TANGO/$scientist";
@@ -1639,7 +1639,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load picard/1.131\n";
 	    print VER "EXEC module load picard/1.131\n";
-# Pascal says this is unnecessary as java is loaded by default.  2018-07-05	    
+# Pascal says this is unnecessary as java is loaded by default.  2018-07-05
 #	    print SH "module load java/jdk1.8.0_25\n";
 #	    print VER "EXEC module load java/jdk1.8.0_25\n";
 	    print SH "\nmkdir $outputDirectory\/$project\/fastq\n";
@@ -1658,9 +1658,9 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		print SH "perl $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen --threads $numProcessors --aligner bowtie2 --conf $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen.allRefs.conf --outdir $outputDirectory\/$project\/fastqc $fastq\n";
 		print VER "EXEC $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen\n";
 	    }
-	    
+
 	    if ($runTrim == 1){
-		# Pascal says this is unnecessary as java is loaded by default.  2018-07-05	    
+		# Pascal says this is unnecessary as java is loaded by default.  2018-07-05
 #		print SH "module load java/jdk1.8.0_25\n";
 		foreach my $fastq (@fastqs){
 		    print SH "\n# Copy fastq files into outputDirectory.\n";
@@ -1817,7 +1817,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
  			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
  			print SH "aws s3 cp $outputDirectory\/$project\/bam\/$sample.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
- 		    }		
+ 		    }
  		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
  		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
  		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
@@ -1838,7 +1838,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			    print SH "\n# Remove Viewpoint from Bam files.\n";
 			    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
- 			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n"; 
+ 			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n";
  			    print SH "\n# Make 4C tracks.\n";
  			    # The multi mapping argument is not used right now.
  			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
@@ -1866,7 +1866,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
  			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
  			print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
- 		    }		
+ 		    }
  		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
  		    print SH "\n# Make header files for tracks.\n";
  		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
@@ -1889,7 +1889,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
     # Submit the alignment jobs, saving the job id.
     # This will finish each project (TANGO) before starting the next.  Is this what we want?
     foreach my $project (keys(%samples)){
-	if ($scientists{$project} ne ""){ 
+	if ($scientists{$project} ne ""){
 	    $scientist = $scientists{$project};
 #	    if ($s3path eq "ash-tracks/TANGO/XXX"){ }
 	    $s3path = "ash-tracks/TANGO/$scientist";
@@ -1906,6 +1906,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	print SH "#MSUB -W depend=afterok:$result\n";
 	print SH "#MSUB -N PostAlignmentAnalysis\n";
 	print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+  print SH "module load python/anaconda3.6\n";
 	print SH "\necho \"Alignment jobs $result have finished.\"\n";
 	if ($aligner eq "tophat"){
 	    print SH "module load R/3.2.2\n";
@@ -1937,6 +1938,10 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    print SH "echo \"=========================================================================\" | cat >> $outputDirectory\/$project\/alignlog.txt\n";
 	    print SH "done\n";
 	}
+  if ($type eq "chipseq"){
+    print SH "\n# Plot ChIP fingerprint\n";
+    print SH "if [ ! -f $outputDirectory\/$project\/scripts\/plot_fingerprint.sh ];\nthen\npython3 /projects\/p20742\/tools\/bin\/getFingerprint.py -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/scripts\/\nsh $outputDirectory\/$project\/bam\/plot_fingerprint.sh\nfi\n\n";
+  }
 	close SH;
 	&datePrint("Creating dependent job that will only run after alignments finish.");
 	my $result2 = `msub $outputDirectory/$project/scripts/AlignmentDependentScript.sh`;
@@ -2037,7 +2042,7 @@ if ($buildGenotyping ==1) {
 	    if (-d "$outputDirectory\/$project\/genotype/") {
 		print STDERR "Genotype Directory found.\n";
 	    }else {system("mkdir $outputDirectory\/$project\/genotype");print STDERR "Genotype directory created.\n";}
-	    # Foreach sample within the project:		    
+	    # Foreach sample within the project:
 	    foreach my $sample (@samples){
 		open (SH, ">$outputDirectory/$project/scripts/$sample\_genotype.sh");
 		my (%modulesLoaded, $moduleText);
@@ -2114,7 +2119,7 @@ if ($buildEdgeR ==1) {
 		# If the bam directory was specified in the input (no base space directory or fastq directory)
 		if ($htseq == 1 || $bedtools == 1) {
 		    my @samples = uniq(split(/\,/,$samples{$project}));
-		    # Foreach sample within the project:		    
+		    # Foreach sample within the project:
 		    if ($htseq == 1) {
 		    	print SH "module unload mpi\n";
 			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
@@ -2136,7 +2141,7 @@ if ($buildEdgeR ==1) {
 	    		}
 	    		if ($htseq_sample_count % $numProcessors > 0) {
 			    print SH "wait\n";
-			}    		
+			}
 			if ($modulesLoaded{"python/anaconda"} == 1){ print SH "module unload python/anaconda\n"; $modulesLoaded{"python/anaconda"} = 0;}
 	    		print SH "module load gcc/4.8.3\n";
 		    }
@@ -2182,7 +2187,7 @@ if ($buildEdgeR ==1) {
 		    }
 		}
 		print SH "module load R/3.2.2\n";
-		print VER "EXEC module load R/3.2.2\n";	       				
+		print VER "EXEC module load R/3.2.2\n";
 		if ($makeTracks == 1){
 		    my @samples = uniq(split(/\,/,$samples{$project}));
 		    # Foreach sample within the project:
@@ -2213,7 +2218,7 @@ if ($buildEdgeR ==1) {
 
 			    print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
-			    if ($stranded == 1){				
+			    if ($stranded == 1){
 				print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.minus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 				print SH "aws s3 cp /projects/b1025/tracks/TANGO/$scientist/$scientist.$project/$sample.plus.bw s3://$s3path/$scientist.$project/ --region us-west-2\n";
 			    } else {
@@ -2309,7 +2314,7 @@ if ($buildEdgeR ==1) {
 		foreach my $method (@methods){
 		    print SH "\n# Create MDS plot for samples, with count method $method.\n";
 		    print SH "Rscript $NGSbartom/tools/bin/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --countFile=$bamDirectory\/$method.all.counts.txt --numCores=$numProcessors --outputDirectory=$outputDirectory\/$project\/analysis\n";
-		}		
+		}
 	    }
 	    if ($runEdgeR == 1){
 		&datePrint("Submitting job for downstream RNA-seq analysis.");
@@ -2447,7 +2452,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			if ($buildNGSplot == 1){
 			    print SH "module load ngsplot/2.47\n";
 			    print VER "EXEC module load ngsplot/2.47\n";
-			    print SH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";	
+			    print SH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";
 			    print SH "# For full description of options see https://github.com/ebartom/NGSbartom/blob/master/NGSplotPipeline/NGSplotPipeline.presentation.pdf\n";
 			    print SH "# Heatmaps will be calculated for each bed file in the $outputDirectory/$project/analysis/$ip.bedList.txt file ; default is to do each bed file separately.\n";
 			    print SH "echo \"$ip\t$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed\" | cat \>  $outputDirectory/$project/analysis/$ip.bedList.txt\n";
@@ -2460,9 +2465,9 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "\t-cb $outputDirectory/$project/analysis/$ip.bedList.txt \n";
 			    print SH "\n# Run created NGSplot analysis script.\n";
 			    print SH ". $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh\n";
-			}			    
+			}
 			close SH;
-		       
+
 		    } elsif ($peakType eq "broad"){
 			my (%modulesLoaded, $moduleText);
 			$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
@@ -2481,7 +2486,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "\n# Call $peakType peaks for ip file $ip, input $input\n";
 			print BSH "mkdir $outputDirectory\/$project\/peaks\/$ip.sicer\n";
 			print BSH "SICER.sh $bamDirectory $ip.bed $input.bed $outputDirectory\/$project\/peaks\/$ip.sicer $reference{$project} 1 200 150 0.8 600 1e-8 >& $outputDirectory\/$project\/peaks\/$ip.sicer.log\n";
-			# $ sh DIR/SICER.sh ["InputDir"] ["bed file"] ["control file"] ["OutputDir"] ["Species"] ["redundancy threshold"] ["window size (bp)"] ["fragment size"] ["effective genome fraction"] ["gap size (bp)"] ["FDR"]			
+			# $ sh DIR/SICER.sh ["InputDir"] ["bed file"] ["control file"] ["OutputDir"] ["Species"] ["redundancy threshold"] ["window size (bp)"] ["fragment size"] ["effective genome fraction"] ["gap size (bp)"] ["FDR"]
 			print BSH "date\n";
 			print BSH "ln -s $outputDirectory\/$project\/peaks\/$ip.sicer\/$ip-W200-G600-FDR1e-8-island.bed $outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed\n";
 			if ($makeTracks){
@@ -2519,7 +2524,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "Rscript $NGSbartom/tools/bin/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print BSH "date\n";
 			if ($buildNGSplot == 1){
-			    print BSH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";	
+			    print BSH "\n# Setting up NGS plot pipeline to run logFC clustered metaPeakPlot.\n";
 			    print BSH "# For full description of options see https://github.com/ebartom/NGSbartom/blob/master/NGSplotPipeline/NGSplotPipeline.presentation.pdf\n";
 			    print BSH "# Heatmaps will be calculated for each bed file in the $outputDirectory/$project/analysis/$ip.bedList.txt file ; default is to do each bed file separately.\n";
 			    print BSH "echo \"$ip\t$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed\n\" | cat \>  $outputDirectory/$project/analysis/$ip.bedList.txt\n";
@@ -2532,7 +2537,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print BSH "\t-cb $outputDirectory/$project/analysis/$ip.bedList.txt \\\n";
 			    print BSH "\n# Run created NGSplot analysis script.\n";
 			    print BSH ". $outputDirectory/$project/scripts/$ip.analysis.logFC.metaPeakPlot.clustered.sh\n";
-			}			    
+			}
 			# print BSH "\n# Find summits of peaks.\n";
 			# print BSH "Rscript $NGSbartom/tools/bin/fromBedPlusBWtoSummit.R --bedfile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.bed --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
 			# print BSH "module load bedtools/2.17.0\n";
@@ -2547,7 +2552,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			# print BSH "Rscript $NGSbartom/tools/bin/fromGeneListToTSSbed.R --txdbfile=$txdbfile{$reference{$project}} --assembly=$reference{$project} --geneList=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.txt --up=$upstream --down=$downstream --bwfile=$outputDirectory\/$project\/tracks\/$ip.bw\n";
 			# print BSH "Rscript $NGSbartom/tools/bin/fromBedPlusBWsToCDTnPlot.R --bedFile=$outputDirectory\/$project\/peaks\/$ip.sicerPeaks.100mostOccTSS.$upstream.$downstream.tss.bed --bwlist=$outputDirectory\/$project\/tracks\/bwlist.txt\n";
 			# print BSH "\nmodule unload R\nmodule unload mpi\nmodule load python/anaconda\n";
-		    }		
+		    }
 		}
 	    }
 	    close(CHIP);
@@ -2625,10 +2630,10 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 			    $replicates{$sample} .= ",$bedfile";
 			}else {  $replicates{$sample} = $bedfile;}
 			my @peaksets = split(/\;/,$peakset);
-			foreach my $peakset (@peaksets){			
+			foreach my $peakset (@peaksets){
 			    if (exists($peaksets{$peakset})){
 				$peaksets{$peakset} .= ",$samplefile";
-			    }else {  
+			    }else {
 				$peaksets{$peakset} = $samplefile;
 			    }
 			    my $peaksetfile =  "$bamDirectory\/$ip.bam";
@@ -2640,7 +2645,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 			    $filename{$bedfile} = $ip;
 			    $filename{$samplefile} = $sample;
 			    $filename{$peaksetfile} = $ip;
-			}		    
+			}
 		    }
 		}
 	    }
@@ -2694,7 +2699,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 #		    &datePrint("Merging peak files for all samples in the same experimental peak set $peakset: @samples");
 		    print SH "\n# Merging peak files for all samples in the same experimental peak set $peakset\n";
 		    print SH "cat @samples | \\\n\tbedtools sort -i - | bedtools merge -i - | \\\n\t";
-		    print SH "awk \'{printf \"\%s\\t\%d\\t\%d\\t\%s\_\%d\\t\%d\\n\", \$1,\$2,\$3,\"$peakset\",NR,1000}\' \\\n\t";		    
+		    print SH "awk \'{printf \"\%s\\t\%d\\t\%d\\t\%s\_\%d\\t\%d\\n\", \$1,\$2,\$3,\"$peakset\",NR,1000}\' \\\n\t";
 		    print SH "> $outputDirectory\/$project\/peaks\/$peakset.bed\n";
 		    print SH "date\n";
 		} else {
@@ -2703,7 +2708,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		}
 		my @bamfiles = split(/\,/,$bamfiles{$peakset});
 		print SH "\n# Calculate coverage for all samples corresponding to the peakset $peakset.\n";
-#		&datePrint("Calculate coverage for all samples corresponding to the peakset $peakset.");		
+#		&datePrint("Calculate coverage for all samples corresponding to the peakset $peakset.");
 		my @coveragefiles;
 		my @coveragefiles2;
 		my $tableHeader = "chr\tstart\tstop\tname";
@@ -2752,7 +2757,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 	    }
 	} else {
 	    die "ERR:  ChipDescription file must be provided which specifies which samples are replicates and which are in the same peakset.\n";
-	}   
+	}
     }
     # if ($runDiffPeaks ==1){
     # 	# Submit the diffPeak jobs, saving the job id.
@@ -2833,5 +2838,5 @@ sub checkLoad {
     } elsif ((!exists($modulehash{$module})) || ($modulehash{$module} == 0)){
 	print STDERR "must load\n";
 	return ("module load $module\n");
-    } 
-}   
+    }
+}
