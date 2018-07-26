@@ -1488,7 +1488,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "date\n";
 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
-	    print SH "if [ $outputDirectory\/$project\/bam\/bamlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
+	    print SH "if [ ! -f $outputDirectory\/$project\/bam\/bamlist.txt ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
 	    print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
 	    print SH "date\n\n";
 	    if ($type eq "chipseq"){
@@ -1540,7 +1540,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    }
 		    print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
-		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
+		    print SH "if [ ! -f $outputDirectory\/$project\/tracks\/bwlist.txt ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
 		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
 		    print SH "\n# Make header files for tracks.\n";
 		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
@@ -1768,7 +1768,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
  	    print SH "date\n\n";
 	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
-	    print SH "if [ $outputDirectory\/$project\/bam\/bamlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
+	    print SH "if [ ! -f $outputDirectory\/$project\/bam\/bamlist.txt ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
 	    print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
  	    if ($type eq "chipseq"){
  		if ($makeTracks == 1){
@@ -1820,7 +1820,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  		    }
  		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
  		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
- 		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
+ 		    print SH "if [ ! -f $outputDirectory\/$project\/tracks\/bwlist.txt ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
  		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
  		    print SH "\n# Make header files for tracks.\n";
  		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
@@ -2016,7 +2016,7 @@ if ($runRNAstats == 1){
 		print SSH "\n# Check splice site saturation for $sample.\n";
 		print SSH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $samplegenebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
 		print SSH "\n# If sorted bam doesn't exist, create it.\n";
-		print SSH "if \[ $outputDirectory\/$project\/bam\/$sample.sorted.bam does not exist ]; then\n";
+		print SSH "if \[ ! -f $outputDirectory\/$project\/bam\/$sample.sorted.bam ]; then\n";
 		print SSH "\tsamtools sort $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
 		print SSH "\tsamtools index $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
 		print SSH "fi\n";
