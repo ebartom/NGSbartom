@@ -885,8 +885,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    print SH "#MSUB -N $sample\_$aligner\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "export PATH=\$PATH:$NGSbartom/tools/bin/\n";
-	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	    print SH "module load boost/1.56.0\n";
 	    print VER "EXEC module load boost/1.56.0\n";
 	    print SH "module load gcc/4.8.3\n";
@@ -1004,10 +1004,10 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			print SH "# Adding Readgroups from rgstring $rgString\n";
 			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $fastqs{$sample} --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
 			# Load Samtools if it is not already loaded.
-			$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+			$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 			print SH "# Sort the output of STAR (outputting sorted BAMs from STAR took too much memory)\n";
-			print SH "samtools sort $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam\n";
+			print SH "samtools sort -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam\n";
 		    }
 		}
 	    } elsif ($runPairedEnd == 1){
@@ -1109,8 +1109,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			print SH "# Adding Readgroups from rgstring $rgString\n";
 			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $read1fastqs $read2fastqs --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
 			print SH "# Sort the output of STAR (outputting sorted BAMs from STAR took too much memory)\n";
-			$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+			$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 			print SH "samtools sort $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam\n";
 		    }
 		}
@@ -1170,8 +1170,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    }
 	    print SH "date\n";
 	    # Modifications made so that htseq will work correctly on paired end data.
-	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	    if (($runPairedEnd == 1) && ($htseq == 1)) {
 		print SH "cd $outputDirectory\/$project\/bam\n";
 		print SH "samtools sort -n -T $sample -o $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
@@ -1418,8 +1418,8 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "#MSUB -N $sample\_bowtie\n";
 	    $moduleText = &checkLoad("bowtie/1.1.2",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie/1.1.2"} = 1;}
-	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
@@ -1472,8 +1472,8 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    }
 	    print SH "date\n\n";
 	    #	    print STDERR "$sample\tREF:$reference{$sample}\tINDEX:$bowtieIndex{$reference{$sample}}\n";
-	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	    print SH "# Align fastqs with Bowtie\n";
 	    if ($multiMap == 0){
 		print SH "\ngunzip -c $fastqs | bowtie -p $numProcessors -m 1 -v 2 -S $bowtieIndex{$reference{$sample}} 2> $outputDirectory\/$project\/bam\/$sample.bowtie.log - | samtools view -bS - > $outputDirectory\/$project\/bam\/$sample.bam \n";
@@ -1555,8 +1555,8 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			    $chr = $1;
 			    $start = $2 - 2000;
 			    $stop = $3 + 2000;
-			    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+			    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 			    print SH "\n# Remove Viewpoint from Bam files.\n";
 			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n";
 			    print SH "\n# Make 4C tracks.\n";
@@ -1633,8 +1633,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    print SH "#MSUB -N $sample\_bwa\n";
 	    $moduleText = &checkLoad("bwa/0.7.12",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bwa/0.7.12"} = 1;}
-	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load picard/1.131\n";
@@ -1704,8 +1704,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 			$prefix = $1;
 		    } else { $prefix = $fastq;}
 		    print SH "\n# Align Fastq with BWA\n";
-		    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+		    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		    print SH "bwa mem $bwaIndex{$reference{$sample}} $fastq | samtools view -bS - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
 		    print SH "date\n\n";
 		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
@@ -1742,8 +1742,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    if ($read1fastqs[$i] =~ /\/?([\d\_\-\w\.]+)\_R1\.fastq\.gz$/){
 			$prefix = $1;
 		    } else { $prefix = $read1fastqs[$i];}
-		    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+		    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		    print SH "\n# Align Fastq with BWA\n";
 		    print SH "bwa mem $bwaIndex{$reference{$sample}} $read1fastqs[$i] $read2fastqs[$i] | samtools view -bS - > $outputDirectory\/$project\/bam/$prefix.bam\n";
 		    print SH "date\n\n";
@@ -1762,8 +1762,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  	    print SH "mv $outputDirectory\/$project\/bam\/$sample.mdup.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
  	    print SH "date\n";
 	    print SH "# Index bam file and gather flagstats.\n";
-	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
  	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
  	    print SH "date\n\n";
@@ -1836,8 +1836,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			    $start = $2 - 2000;
  			    $stop = $3 + 2000;
  			    print SH "\n# Remove Viewpoint from Bam files.\n";
-			    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+			    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
  			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n";
  			    print SH "\n# Make 4C tracks.\n";
  			    # The multi mapping argument is not used right now.
@@ -1913,8 +1913,8 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    print VER "EXEC module load R/3.2.2\n";
 	    $moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
 	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
-	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	    print SH "\n# Make Tophat report summarizing alignment.\n";
 	    print SH "Rscript $NGSbartom/tools/bin/createTophatReport.R --topHatDir=$outputDirectory\/$project\/Tophat_aln --nClus=$numProcessors\n";
 	}elsif ($aligner eq "bowtie"){
@@ -1968,8 +1968,8 @@ if ($runRNAstats == 1){
 	    print VER "EXEC module load R/3.2.2\n";
 	    $moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
 	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
-	    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	    print SH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
 	    print VER "EXEC module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
 	    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
@@ -1996,8 +1996,8 @@ if ($runRNAstats == 1){
 		print SSH "module load R/3.2.2\n";
 		$moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
 		if ($moduleText ne ""){	print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
-		$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-		if ($moduleText ne ""){ print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+		$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+		if ($moduleText ne ""){ print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
 		if ($moduleText ne ""){ print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 		print SSH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
@@ -2060,8 +2060,8 @@ if ($buildGenotyping ==1) {
 		my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 		print SH "\n\n";
 		print SH "# Sort BAM file.\n";
-		$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+		$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		print SH "samtools sort $outputDirectory\/$project\/bam\/$sample.bam $outputDirectory\/$project\/bam\/$sample.sorted\n";
 		print SH "date\n\n";
 		print SH "# Mark Duplicates with Picard.\n";
@@ -2353,8 +2353,8 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH "module unload mpi\n";
 		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
 		if ($moduleText ne ""){ print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
-		$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-		if ($moduleText ne ""){	print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+		$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+		if ($moduleText ne ""){	print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
 		if ($moduleText ne ""){ print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
 		print BSH "export PATH=$NGSbartom/tools/bin/SICER_V1.1/SICER/:\$PATH\n";
@@ -2659,8 +2659,8 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
 		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
-		$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+		$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		print SH "module load R/3.2.2\n";
 		print VER "EXEC module load R/3.2.2\n";
 		my @samples = uniq(split(/\,/,$peaksets{$peakset}));
