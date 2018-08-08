@@ -2483,6 +2483,8 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print BSH "fi\n";
 			print BSH "module unload bedtools\n";
 			$modulesLoaded{"bedtools/2.17.0"} = 0;
+			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			if ($moduleText ne ""){ print BSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 			print BSH "\n# Call $peakType peaks for ip file $ip, input $input\n";
 			print BSH "mkdir $outputDirectory\/$project\/peaks\/$ip.sicer\n";
 			print BSH "SICER.sh $bamDirectory $ip.bed $input.bed $outputDirectory\/$project\/peaks\/$ip.sicer $reference{$project} 1 200 150 0.8 600 1e-8 >& $outputDirectory\/$project\/peaks\/$ip.sicer.log\n";
