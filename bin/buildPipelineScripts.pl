@@ -1930,7 +1930,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	print SH "#MSUB -W depend=afterok:$result\n";
 	print SH "#MSUB -N PostAlignmentAnalysis\n";
 	print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-  print SH "module load python/anaconda3.6\n";
+  print SH "module load deeptools/3.1.1\n";
 	print SH "\necho \"Alignment jobs $result have finished.\"\n";
 	if ($aligner eq "tophat"){
 	    print SH "module load R/3.2.2\n";
@@ -1966,7 +1966,8 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	}
   if ($type eq "chipseq"){
     print SH "\n# Plot ChIP fingerprint\n";
-    print SH "if [ ! -f $outputDirectory\/$project\/scripts\/plot_fingerprint.sh ];\nthen\npython3 /projects\/p20742\/tools\/bin\/getFingerprint.py -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/scripts\/\nsh $outputDirectory\/$project\/bam\/plot_fingerprint.sh\nfi\n\n";
+    print SH "if [ ! -f $outputDirectory\/$project\/scripts\/plot_fingerprint.sh ];\nthen\npython3 /projects\/p20742\/tools\/bin\/getFingerprint.py -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/scripts\/\nsh $outputDirectory\/$project\/scripts\/plot_fingerprint.sh\n";
+    print SH "wait\nmv $outputDirectory\/$project\/scripts\/fingerprint.pdf $outputDirectory\/$project\/bam\/\nfi\n";
   }
 	close SH;
 	&datePrint("Creating dependent job that will only run after alignments finish.");
