@@ -35,7 +35,7 @@ def main():
     output.write("#MOAB -W umask=0113\n")
     output.write("#MSUB -N ChIPfingerprint\n")
     output.write("#MSUB -l nodes=1:ppn=4\n")
-    output.write("module load python/anaconda3.6\n")
+    output.write("module load deeptools/3.1.1\n")
     output.write("\n")
     output.write("plotFingerprint -b ")
     for file in os.listdir(bam_path):
