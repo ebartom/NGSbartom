@@ -2774,7 +2774,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		    push (@coveragefiles2,$outputfile2);
 		}
 		print SH "\n# Join together counts from all of the bam files for peakset $peakset\n";
-		print SH "perl $NGSbartom\/tools\/makePeakCountsTable.pl $outputDirectory\/$project\/peaks\/ $outputDirectory\/$project\/analysis\/ $peakset\n";
+		print SH "perl $NGSbartom\/tools\/bin\/makePeakCountsTable.pl $outputDirectory\/$project\/peaks\/ $outputDirectory\/$project\/analysis\/ $peakset\n";
 		print SH "\n# Generate MDS plot for peakset $peakset\n";
 		print SH "Rscript $NGSbartom/tools/bin/runEdgeRrnaSeq.2.R --assembly=$reference{$project} --outputDirectory=$outputDirectory\/$project\/analysis/ --countFile=$outputDirectory\/$project\/analysis\/$peakset.all.counts.txt --numCores=$numProcessors --runMDS=1\n";
 		&datePrint("Looking for $outputDirectory\/$project\/$peakset.comparisons.csv");
@@ -2871,10 +2871,10 @@ sub checkLoad {
 #    print STDERR "$modulehash{$module}\n";
     if ($modulehash{$module} == 1){
 	# Skip these module loads.
-	print STDERR "skip load\n";
+#	print STDERR "skip load\n";
 	return ("");
     } elsif ((!exists($modulehash{$module})) || ($modulehash{$module} == 0)){
-	print STDERR "must load\n";
+#	print STDERR "must load\n";
 	return ("module load $module\n");
     }
 }
