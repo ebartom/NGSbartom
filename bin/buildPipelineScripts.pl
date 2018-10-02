@@ -2450,7 +2450,8 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "\n# Annotate peaks with nearby genes.\n";
 			print VER "EXEC module load R/3.2.2\n";
 			print SH "module load R/3.2.2\n";
-			print SH "Rscript $NGSbartom/tools/bin/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
+			print SH "grep -v random $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.nonRandomChr.bed\n";
+			print SH "Rscript $NGSbartom/tools/bin/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.nonRandomChr.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print SH "\n# Center peaks and sort by peak width, from large to small.\n";
 			print SH "perl $NGSbartom/tools/bin/NGSplotPipeline/NGSplotFilesScripts/convertToNGSplotSortedCenteredBED.pl $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed $outputDirectory\/$project\/peaks\/$ip.sorted.centered.bed\n";
 			print SH "\n# Build NGS plot config file.\n";
