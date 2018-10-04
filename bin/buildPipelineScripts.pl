@@ -514,6 +514,7 @@ if ($buildBcl2fq == 1){
     print SH $header;
     print SH "#MSUB -l nodes=1:ppn=$bclFqProcessors\n";
     print SH "#MSUB -N bcl2fastq\n";
+    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
     print SH "\nmodule load bcl2fastq/2.17.1.14\n";
     print VER "module load bcl2fastq/2.17.1.14\n";
     print SH "bcl2fastq -R $baseSpaceDirectory -r $numProcessors -d $numProcessors -p $numProcessors -w $numProcessors\n";
@@ -766,6 +767,7 @@ if (($type eq "4C") && ($build4C == 1)){
 	print FCSH "$header";
 	print FCSH "#MSUB -N 4Cdemultiplex\n";
 	print FCSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	print FCSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";	
 	print FCSH "export PATH=\$PATH:$NGSbartom/tools/bin/\n";
 	print FCSH "date\n";
 	print FCSH "\n# Copy raw reads into fastq directory and de-compress them.\n";
@@ -884,6 +886,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    print SH "$header";
 	    print SH "#MSUB -N $sample\_$aligner\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    print SH "export PATH=\$PATH:$NGSbartom/tools/bin/\n";
 	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
@@ -1424,6 +1427,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "$header";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -N $sample\_bowtie\n";
+	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    $moduleText = &checkLoad("bowtie/1.1.2",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie/1.1.2"} = 1;}
 	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
@@ -1645,6 +1649,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    print SH "$header";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -N $sample\_bwa\n";
+	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    $moduleText = &checkLoad("bwa/0.7.12",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bwa/0.7.12"} = 1;}
 	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
@@ -1930,7 +1935,8 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	print SH "#MSUB -W depend=afterok:$result\n";
 	print SH "#MSUB -N PostAlignmentAnalysis\n";
 	print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-  print SH "module load deeptools/3.1.1\n";
+	print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
+	print SH "module load deeptools/3.1.1\n";
 	print SH "\necho \"Alignment jobs $result have finished.\"\n";
 	if ($aligner eq "tophat"){
 	    print SH "module load R/3.2.2\n";
@@ -1964,11 +1970,13 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    print SH "echo \"=========================================================================\" | cat >> $outputDirectory\/$project\/alignlog.txt\n";
 	    print SH "done\n";
 	}
-  if ($type eq "chipseq"){
-    print SH "\n# Plot ChIP fingerprint\n";
-    print SH "if [ ! -f $outputDirectory\/$project\/scripts\/plot_fingerprint.sh ];\nthen\npython3 /projects\/p20742\/tools\/bin\/getFingerprint.py -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/scripts\/\nsh $outputDirectory\/$project\/scripts\/plot_fingerprint.sh\n";
-    print SH "wait\nmv $outputDirectory\/$project\/scripts\/fingerprint.pdf $outputDirectory\/$project\/bam\/\nfi\n";
-  }
+	if ($type eq "chipseq"){
+	    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+	    print SH "\n# Plot ChIP fingerprint\n";
+	    print SH "if [ ! -f $outputDirectory\/$project\/scripts\/plot_fingerprint.sh ];\nthen\npython3 /projects\/p20742\/tools\/bin\/getFingerprint.py -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/scripts\/\nsh $outputDirectory\/$project\/scripts\/plot_fingerprint.sh\n";
+	    #    print SH "wait\nmv $outputDirectory\/$project\/scripts\/fingerprint.pdf $outputDirectory\/$project\/bam\/\nfi\n";
+	}
 	close SH;
 	&datePrint("Creating dependent job that will only run after alignments finish.");
 	my $result2 = `msub $outputDirectory/$project/scripts/AlignmentDependentScript.sh`;
@@ -1991,6 +1999,7 @@ if ($runRNAstats == 1){
 	    print SH "#MSUB -N $project\_runRNAstats\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -l walltime=48:00:00\n";
+	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    $moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
@@ -2022,6 +2031,7 @@ if ($runRNAstats == 1){
 		my (%modulesLoaded, $moduleText);
 		print SSH "#MSUB -N $project\_runRNAstats.$sample\n";
 		print SSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		print SSH "module load R/3.2.2\n";
 		$moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
 		if ($moduleText ne ""){	print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
@@ -2085,6 +2095,7 @@ if ($buildGenotyping ==1) {
 		# the meantime, I'm setting a flat number of processors of 6
 		# for genotyping purposes.
 		print SH "#MSUB -l nodes=1:ppn=6\n";
+		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		print SH "module load picard/1.131\n";
 		print VER "EXEC module load picard/1.131\n";
 		print VER "EXEC $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar\n";
@@ -2146,6 +2157,7 @@ if ($buildEdgeR ==1) {
 	print SH $header;
 	print SH "#MSUB -N downstreamRNAanalysis\n";
 	print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	print SH "module load R/3.2.2\n";
 	if ($type eq "RNA"){
 	    if ($startFromBAM == 1){
@@ -2382,6 +2394,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print BSH $header;
 		print BSH "#MSUB -N callSicerPeaks\n";
 		print BSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		print BSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		print BSH "\nmodule unload R\n";
 		print BSH "module unload mpi\n";
 		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
@@ -2408,6 +2421,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			my (%modulesLoaded, $moduleText);
 			print SH "#MSUB -N $ip\_NarrowPeaks\n";
 			print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+			print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 			#print SH "module load R/3.2.2\n";
 			print SH "export PATH=\$PATH:$NGSbartom/tools/bin/MACS-1.4.2/bin\n";
 			print VER "EXEC $NGSbartom/tools/bin/MACS-1.4.2\n";
@@ -2614,6 +2628,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	    print SH "#MSUB -W depend=afterok:$result\n";
 	    print SH "#MSUB -N CheckingPeakCallerProgress\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    print SH "\necho \"Peaking calling jobs $result have finished.\"\n";
 	    close SH;
 	    &datePrint("Creating dependent job that will only run after peak callers finish.");
@@ -2695,6 +2710,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		print SH $header;
 		print SH "#MSUB -N $peakset\_diffPeak\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
 		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
 		$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
@@ -2814,6 +2830,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
     # 	    print SH "#MSUB -W depend=afterok:$result\n";
     # 	    print SH "#MSUB -N CheckingDiffPeakProgress\n";
     # 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+    #    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
     # 	    print SH "\necho \"Peaking calling jobs $result have finished.\"\n";
     # 	    close SH;
     # 	    &datePrint("Creating dependent job that will only run after diff peak scripts finish.");
