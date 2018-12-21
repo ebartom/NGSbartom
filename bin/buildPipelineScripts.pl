@@ -589,11 +589,14 @@ if (($sampleSheet ne "")){
 	    print STDERR "$sample_name\tREF:$reference{$sample_name}\t$bowtieIndex{$assembly}\n";
 	    if ($type ne "4C"){
 		my $fastq = "";
+		my $fastq2 = "";
 		foreach my $lane ("L001","L002","L003","L004"){
 		    # Build fastq file names.
-		    # NB:  Right now it assumes single end.
 		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.fastq.gz";
-#		    print STDERR "Looking for $fastq\n";
+		    if ($runPairedEnd == 1){
+			$fastq2 = "$sample_name\_S$sampleNum\_$lane\_R2\_001.fastq.gz";
+		    }
+		    #		    print STDERR "Looking for $fastq\n";
 		    print STDERR "Looking for $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq or $outputDirectory\/$sample_project\/fastq\/$fastq\n";
 		    # Check if fastq exists in new subdirectory or old.
 		    if ((-e "$baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq") || (-e "$outputDirectory\/$sample_project\/fastq\/$fastq")){
@@ -604,6 +607,9 @@ if (($sampleSheet ne "")){
 				print STDERR "$fastq exists in BaseSpace directory but not output directory; moving it over.\n";
 				print STDERR "Deleting sample directory in basespace directory.\n";
 				my $cmd = "mv $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq $outputDirectory\/$sample_project\/fastq\/\n";
+				if ($runPairedEnd == 1){
+				    my $cmd = "mv $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq2 $outputDirectory\/$sample_project\/fastq\/\n";
+				}
 				$cmd .= "rmdir $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\n";
 				system($cmd);
 			    }
@@ -618,7 +624,7 @@ if (($sampleSheet ne "")){
 		    }
 		    # Write the sample report file.
 		    print OUT "$fastq,$sample_name,$assembly\n";
-		    # Create a hash of all fastq files for a given sample_name.
+		    # Create a hash of all read1 fastq files for a given sample_name.
 		    if (!exists($fastqs{$sample_name})){
 			$fastqs{$sample_name} = "$outputDirectory\/$sample_project\/fastq\/$fastq";
 		    }else {$fastqs{$sample_name} .= ",$outputDirectory\/$sample_project\/fastq\/$fastq";}

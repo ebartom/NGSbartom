@@ -95,7 +95,7 @@ foreach my $sample (@oldSamples){
     # Then Tracks.
     $tangoShell{$tango} .= "# Copying tracks for experiment type $type.\n";
     $tangoShell{$tango} .= "cp $tracks $tango/originalTracks/\n";
-    if ($type =~ /RNA/){
+    if (($type =~ /RNA/) || ($type =~ /PRO/)){
 	$tangoShell{$tango} .=  "cp $tango/originalTracks/$oldSample.plus.bw $tango/renamedTracks/$nameChange{$sample}.plus.bw\n";
 	$tangoShell{$tango} .=  "cp $tango/originalTracks/$oldSample.minus.bw $tango/renamedTracks/$nameChange{$sample}.minus.bw\n";
 	$tangoShell{$tango} .= "md5sum $tango/renamedTracks/$nameChange{$sample}.plus.bw\n";
