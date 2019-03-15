@@ -52,8 +52,6 @@ def main():
             line = line.split()
             line[0] = line[0].strip('\"')
             d[line[0]] = line[1:]
-
-        # print(length_counts)
     counts.close()
 
     # Add header to cdt file
@@ -73,6 +71,7 @@ def main():
             _chr, start, end, name, score, distToNearestGene, nearestGene, nearestGeneName, nearestGeneBiotype, distToNearestTSS, nearestTSS, tssGeneName, tssGeneBiotype = line.split()
 
             # Remove quotes from input anno file
+
 #            _chr = _chr.strip('\"')
 #            name = name.strip('\"')
 #            score = score.strip('\"')
@@ -83,15 +82,15 @@ def main():
             tssGeneName = tssGeneName.strip('\"')
 #            tssGeneBiotype = tssGeneBiotype.strip('\"')
 
+            cdt.write(nearestTSS + "\t" + tssGeneName)
+
             if nearestTSS in d.keys():
-                cdt.write(nearestTSS + "\t" + tssGeneName + "\t")
                 for field in d[nearestTSS]:
-                    cdt.write(str(field) + "\t")
+                    cdt.write("\t" + str(field))
                 cdt.write("\n")
             else:
-                cdt.write(nearestTSS + "\t" + tssGeneName + "\t")
                 for i in range(length_counts):
-                    cdt.write(str(0) + "\t")
+                    cdt.write("\t" + str(0))
                 cdt.write("\n")
 
     anno.close()
