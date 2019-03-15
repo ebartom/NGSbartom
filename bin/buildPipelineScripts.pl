@@ -39,6 +39,7 @@ my $fastqDirectory = "";
 my $sampleSheet = "";
 my $comparisons = "";
 my $type = "";
+my $scheduler = "MOAB";
 my $numProcessors = 4;
 my $multiMap = 0;
 my $aligner = "";
@@ -85,6 +86,11 @@ my $ngsFCcomparison = "";
 
 # S3path is not working properly right now for non-standard s3path values.  This needs fixing.
 
+## NB: Below there's an option to specify a read group string, but that would
+## set the read group to be the same for all samples, which doesn't make sense.
+## So for now, zero-ing out readgroup when we start iterating through samples.
+
+
 # Read in the command line arguments.
 GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'config|ini=s' => \$configFile,
@@ -103,6 +109,7 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'scientist|s=s' => \$scientist,
 	   'stranded|str=i' => \$stranded,
 	   'processors|p=i' => \$numProcessors,
+	   'scheduler|sch=s' => \$scheduler,
 	   'walltime|w=s' => \$walltime,
 	   'account|acc=s' => \$account,
 	   'queue|q=s' => \$queue,
@@ -279,28 +286,52 @@ if (($type eq "RNA") && ($granges == 1) && ($bamDirectory eq "")) {
     $genomeBAM = 1;
 }
 
-# Define a header for the shell scripts.
+$scheduler = uc($scheduler);
+print STDERR "Setting up scripts for $scheduler scheduler.\n";
+print STDERR "Account: $account\nQueue/Partition: $queue\n";
+
 my $header = "#!/bin/bash\n";
-#$header .= "#MSUB -l nodes=1:ppn=$numProcessors\n"; This is now specified within specific scripts, so bcl2fq can have 8 ppn
-$header .= "#MSUB -A $account\n";
-# Currently I think it only makes sense to specify queue if you are planning on either genomics or genomicsburst, in which case, account should be b1042.
-# If you disagree, let me know at ebartom@northwestern.edu
-if ($account eq "b1042"){
-    $header .= "#MSUB -q $queue\n";
-} elsif ($account eq "e30258"){
-    $header .= "#MSUB -q $queue\n";
-} elsif ($account eq "b1025"){
-    $header .= "#MSUB -q $queue\n";
+if ($scheduler eq "MOAB"){
+    # Define a header for the shell scripts.
+        $header .= "#MSUB -A $account\n";
+    if ($account eq "b1042"){
+	$header .= "#MSUB -q $queue\n";
+    } elsif ($account eq "e30258"){
+	$header .= "#MSUB -q $queue\n";
+    } elsif ($account eq "b1025"){
+	if ($queue eq ""){ $queue = "buyin";}
+	$header .= "#MSUB -q $queue\n";
+    }
+    $header .= "#MSUB -l walltime=$walltime\n";
+    $header .= "#MSUB -m a\n"; # only email user if job aborts
+    $header .= "#MSUB -j oe\n";
+    $header .= "#MOAB -W umask=0113\n";
+    if ($node ne ""){
+	$header .= "#MSUB -l nodes=$node\n";
+    }
+} elsif ($scheduler eq "SLURM"){
+    $header .= "#SBATCH -A $account\n";
+    if ($account eq "b1042"){
+	$header .= "#SBATCH -p $queue\n";
+    } elsif ($account eq "e30258"){
+	$header .= "#SBATCH -p $queue\n";
+    } elsif ($account eq "b1025"){
+	if ($queue eq ""){ $queue = "buyin";}
+	$header .= "#SBATCH -p $queue\n";
+    }
+    $header .= "#SBATCH -t $walltime\n";
+    $header .= "#SBATCH -m a\n"; # only email user if job aborts
+    # Write STDOUT and STDERR to the $outputDirectory/metadata/ (this is new)
+    $header .= "#SBATCH --output=$outputDirectory/metadata/\n";
+#    $header .= "#MOAB -W umask=0113\n"; #How do I do this in SLURM?
+    if ($node ne ""){
+	$header .= "#SBATCH --nodelist=$node\n";
+    }
+} else {
+    print STDERR "ERR: Unrecognized scheduler $scheduler.\n";
 }
-print STDERR "Account: $account\nQueue: $queue\n";
-$header .= "#MSUB -l walltime=$walltime\n";
-$header .= "#MSUB -m a\n"; # only email user if job aborts
-#$header .= "#MSUB -m abe\n"; # email user if job aborts (a), begins (b) or ends (e)
-$header .= "#MSUB -j oe\n";
-$header .= "#MOAB -W umask=0113\n";
-if ($node ne ""){
-    $header .= "#MSUB -l hostlist=$node\n";
-}
+
+
 print STDERR "=====================================\n";
 print STDERR "Analysis should be initiated either with a base space directory, or a fastq directory, or a bam directory.  Below you can see what was specified in this run.\n";
 print STDERR "BaseSpaceDirectory: $baseSpaceDirectory\n";
@@ -499,6 +530,7 @@ if ($chipDescription ne ""){
 
 my @now = localtime();
 my $timestamp = sprintf("%04d.%02d.%02d.%02d%02d.%02d", $now[5]+1900, $now[4]+1, $now[3],$now[2],$now[1],$now[0]);
+my $timestamp2 = sprintf("%04d-%02d-%02d", $now[5]+1900, $now[4]+1, $now[3]);
 #print STDERR "Timestamp $timestamp\n";
 
 # If buildBcl2fq == 1, then create a shell script for Bcl2fq (if runBcl2fq == 1, then submit the job and wait for it to finish).
@@ -512,8 +544,13 @@ if ($buildBcl2fq == 1){
     open(VER,">$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt");
     open(SH,">$shScript");
     print SH $header;
-    print SH "#MSUB -l nodes=1:ppn=$bclFqProcessors\n";
-    print SH "#MSUB -N bcl2fastq\n";
+    if ($scheduler eq "MOAB"){    
+	print SH "#MSUB -l nodes=1:ppn=$bclFqProcessors\n";
+	print SH "#MSUB -N bcl2fastq\n";
+    } elsif ($scheduler eq "SLURM"){
+	print SH "#SBATCH -n $bclFqProcessors\n";
+	print SH "#SBATCH --job-name=bcl2fastq\n";
+    }
     print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
     print SH "\nmodule load bcl2fastq/2.17.1.14\n";
     print VER "module load bcl2fastq/2.17.1.14\n";
@@ -522,19 +559,18 @@ if ($buildBcl2fq == 1){
     if ($runBcl2fq == 1){
 	&datePrint("Running Bcl2fq job and waiting for it to finish.");
 	# Submit the job, saving the job id.
-	my $result = `msub $shScript`;
-	$result =~ s/\s//g;
+	my $result = "";
+	if ($scheduler eq "MOAB"){
+	    $result = `msub $shScript`;
+	    $result =~ s/\s//g;
+	} elsif ($scheduler eq "SLURM"){
+	    $result = `sbatch $shScript`;
+	    $result =~ s/\s//g;
+	    print STDERR "Predicted SLURM job ID:  $result\n";
+	}
 	my $jobfinished = "no";
-	# Wait until the job is no longer in qstat.
+	# Wait until the job is no longer running.
 	&datePrint("Waiting for job $result to finish.");
-       # Check qstat every 300 seconds, adding a "." every time you check.
-	# until ($jobfinished eq "Completed"){
-	#     sleep(300);
-	#     $jobfinished = `checkjob $result | grep ^State:`;
-	#     print STDERR ".";
-	#     if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
-	#     print STDERR "$jobfinished";
-	# }
 	waitForJob($result);
 	print STDERR "\n";
 	&datePrint("Job $result done.  Continuing.");
@@ -771,8 +807,13 @@ if (($type eq "4C") && ($build4C == 1)){
 	open(FCSH,">$outputDirectory\/$sample_project\/scripts\/run_4C_demultiplex.sh");
 	my (%modulesLoaded, $moduleText);
 	print FCSH "$header";
-	print FCSH "#MSUB -N 4Cdemultiplex\n";
-	print FCSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	if ($scheduler eq "MOAB"){    
+	    print FCSH "#MSUB -N 4Cdemultiplex\n";
+	    print FCSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	} elsif ($scheduler eq "SLURM"){
+	    print FCSH "#SBATCH --job-name=4Cdemultiplex\n";
+	    print FCSH "#SBATCH -n $numProcessors\n";
+	}	
 	print FCSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";	
 	print FCSH "export PATH=\$PATH:$NGSbartom/tools/bin/\n";
 	print FCSH "date\n";
@@ -789,9 +830,16 @@ if (($type eq "4C") && ($build4C == 1)){
 	print FCSH "date\n";
 	close(FCSH);
 	if (($run4C ==1)){
+	    my $result = "";
 	    &datePrint("Submitting job to de-multiplex 4C samples");
-	    my $result = `msub $outputDirectory/$sample_project/scripts/run_4C_demultiplex.sh`;
-	    $result =~ s/\s+//g;
+	    if ($scheduler eq "MOAB"){
+		$result = `msub $outputDirectory/$sample_project/scripts/run_4C_demultiplex.sh`;
+		$result =~ s/\s//g;
+	    } elsif ($scheduler eq "SLURM"){
+		$result = `sbatch $outputDirectory/$sample_project/scripts/run_4C_demultiplex.sh`;
+		$result =~ s/\s//g;
+		print STDERR "Predicted SLURM job ID:  $result\n";
+	    }
 	    my $jobfinished = "no";
 	    # Wait until the job is Complete.
 	    &datePrint("Waiting for job $result to finish. (each . = 300 seconds)");
@@ -890,8 +938,13 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    open (SH,">$shScript");
 	    my (%modulesLoaded, $moduleText);
 	    print SH "$header";
-	    print SH "#MSUB -N $sample\_$aligner\n";
-	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    if ($scheduler eq "MOAB"){    
+		print SH "#MSUB -N $sample\_$aligner\n";
+		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    } elsif ($scheduler eq "SLURM"){
+		print SH "#SBATCH --job-name=$sample\_$aligner\n";
+		print SH "#SBATCH -n $numProcessors\n";
+	    }	
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    print SH "export PATH=\$PATH:$NGSbartom/tools/bin/\n";
 	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
@@ -903,6 +956,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    print SH "module load gcc/4.8.3\n";
 	    print VER "EXEC module load gcc/4.8.3\n";
 
+	    my $rgString = "";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    my $cmd = "";
 	    if (!(-e "$outputDirectory\/$project\/fastq")){
@@ -1006,7 +1060,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			$moduleText = &checkLoad("STAR/2.5.2",\%modulesLoaded);
 			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"STAR/2.5.2"} = 1;}
 			if ($rgString eq ""){
-			    my $date = $timestamp;
+			    my $date = $timestamp2;
 			    if ($sample =~ /\_(\d+)/){
 				$date = $1;
 			    }
@@ -1113,7 +1167,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			$moduleText = &checkLoad("STAR/2.5.2",\%modulesLoaded);
 			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"STAR/2.5.2"} = 1;}
 			if ($rgString eq ""){
-			    my $date = $timestamp;
+			    my $date = $timestamp2;
 			    if ($sample =~ /\_(\d+)/){
 				$date = $1;
 			    }
@@ -1389,7 +1443,11 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    # Print tips on running the tophat shell scripts.
 	    print STDERR "To execute all scripts, use the following command:\n";
 	    #	"$outputDirectory\/$project\/scripts\/run\_$sample\_$aligner\_align.sh";
-	    print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
+	    if ($scheduler eq "MOAB"){
+		print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
+	    } elsif ($scheduler eq "SLURM"){
+		print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec sbatch {} ./ \\\;\n";
+	    }
 	}
     }
 }
@@ -1431,8 +1489,13 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    open (SH,">$shScript");
 	    my (%modulesLoaded, $moduleText);
 	    print SH "$header";
-	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-	    print SH "#MSUB -N $sample\_bowtie\n";
+	    if ($scheduler eq "MOAB"){    
+		print SH "#MSUB -N $sample\_$aligner\n";
+		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    } elsif ($scheduler eq "SLURM"){
+		print SH "#SBATCH --job-name=$sample\_$aligner\n";
+		print SH "#SBATCH -n $numProcessors\n";
+	    }	
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    $moduleText = &checkLoad("bowtie/1.1.2",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie/1.1.2"} = 1;}
@@ -1625,8 +1688,11 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
     if ($runAlign == 0){
 	# Print tips on running the bowtie shell scripts.
 	print STDERR "To execute all alignment scripts, use the following command:\n";
-#	print STDERR "find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;\n";
-	print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
+	if ($scheduler eq "MOAB"){
+	    print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
+	} elsif ($scheduler eq "SLURM"){
+	    print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec sbatch {} ./ \\\;\n";
+	} 
     }
 }
 
@@ -1653,8 +1719,13 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    open (SH,">$shScript");
 	    my (%modulesLoaded, $moduleText);
 	    print SH "$header";
-	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-	    print SH "#MSUB -N $sample\_bwa\n";
+	    if ($scheduler eq "MOAB"){    
+		print SH "#MSUB -N $sample\_$aligner\n";
+		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    } elsif ($scheduler eq "SLURM"){
+		print SH "#SBATCH --job-name=$sample\_$aligner\n";
+		print SH "#SBATCH -n $numProcessors\n";
+	    }	
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    $moduleText = &checkLoad("bwa/0.7.12",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bwa/0.7.12"} = 1;}
@@ -1913,10 +1984,13 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	     }
      if ($runAlign == 0){
  	# Print tips on running the bwa shell scripts.
- 	print STDERR "To execute all alignment scripts, use the following command:\n";
-# 	print STDERR "find $outputDirectory/*/scripts/ -iname \"*align.sh\" -exec msub {} ./ \\\;\n";
-	print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
-     }
+	 print STDERR "To execute all alignment scripts, use the following command:\n";
+	 if ($scheduler eq "MOAB"){
+	     print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n"; 
+	 } elsif ($scheduler eq "SLURM"){
+	     print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
+	 }
+     }     
 }
 
 
@@ -1930,17 +2004,32 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    $s3path = "ash-tracks/TANGO/$scientist";
 	}
 	&datePrint ("Starting alignment scripts.");
-	my $result = `find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;`;
-	$result =~ s/\s+/\:/g;
-	$result =~ s/^://;
-	$result =~ s/:$//;
+	my $result = "";
+	if ($scheduler eq "MOAB"){
+	    $result = `find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;`;
+	    $result =~ s/\s+/\:/g;
+	    $result =~ s/^://;
+	    $result =~ s/:$//;
+	} elsif ($scheduler eq "SLURM"){
+	    $result = `find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec sbatch {} ./ \\\;`;
+	    $result =~ s/\s+/\:/g;
+	    $result =~ s/^://;
+	    $result =~ s/:$//;
+	    print STDERR "Predicted SLURM job IDs:  $result\n";
+	}
 	&datePrint( "Need to wait for the following jobs to finish:\n$result");
 	open (SH, ">$outputDirectory/$project/scripts/AlignmentDependentScript.sh");
 	print SH $header;
 	my (%modulesLoaded, $moduleText);
-	print SH "#MSUB -W depend=afterok:$result\n";
-	print SH "#MSUB -N PostAlignmentAnalysis\n";
-	print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	if ($scheduler eq "MOAB"){    
+	    print SH "#MSUB -N PostAlignmentAnalysis\n";
+	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    print SH "#MSUB -W depend=afterok:$result\n";
+	} elsif ($scheduler eq "SLURM"){
+	    print SH "#SBATCH --job-name=PostAlignmentAnalysis\n";
+	    print SH "#SBATCH -n $numProcessors\n";
+	    print SH "#SBATCH --dependency=afterok:$result\n";
+	}	
 	print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	print SH "module load deeptools/3.1.1\n";
 	print SH "\necho \"Alignment jobs $result have finished.\"\n";
@@ -1985,8 +2074,15 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	}
 	close SH;
 	&datePrint("Creating dependent job that will only run after alignments finish.");
-	my $result2 = `msub $outputDirectory/$project/scripts/AlignmentDependentScript.sh`;
-	$result2 =~ s/\s+//g;
+	my $result2 = "";
+	if ($scheduler eq "MOAB"){
+	    $result2 = `msub $outputDirectory/$project/scripts/AlignmentDependentScript.sh`;
+	    $result2 =~ s/\s+//g;
+	} elsif ($scheduler eq "SLURM"){
+	    $result2 = `sbatch $outputDirectory/$project/scripts/AlignmentDependentScript.sh`;
+	    $result2 =~ s/\s//g;
+	    print STDERR "Predicted SLURM job ID:  $result2\n";
+	}
 	my $jobfinished = "no";
 	# Wait until the job is Complete.
 	&datePrint("Waiting for job $result2 to finish. (each . = 300 seconds)");
@@ -2002,9 +2098,15 @@ if ($runRNAstats == 1){
 	    open (SH, ">$outputDirectory/$project/scripts/runRNAstats_summary.sh");
 	    my (%modulesLoaded, $moduleText);
 	    print SH $header;
-	    print SH "#MSUB -N $project\_runRNAstats\n";
-	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-	    print SH "#MSUB -l walltime=48:00:00\n";
+	    if ($scheduler eq "MOAB"){    
+		print SH "#MSUB -N $project\_runRNAstats\n";
+		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		print SH "#MSUB -l walltime=48:00:00\n";
+	    } elsif ($scheduler eq "SLURM"){
+		print SH "#SBATCH --job-name=$project\_runRNAstats\n";
+		print SH "#SBATCH -n $numProcessors\n";
+		print SH "#SBATCH --time=48:00:00\n";
+	    }	
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
@@ -2035,9 +2137,14 @@ if ($runRNAstats == 1){
 		open (SSH, ">$outputDirectory/$project/scripts/runRNAstats.$sample.sh");
 		print SSH $header;
 		my (%modulesLoaded, $moduleText);
-		print SSH "#MSUB -N $project\_runRNAstats.$sample\n";
-		print SSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
+		if ($scheduler eq "MOAB"){    
+		    print SSH "#MSUB -N $project\_runRNAstats.$sample\n";
+		    print SSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		} elsif ($scheduler eq "SLURM"){
+		    print SSH "#SBATCH --job-name=$project\_runRNAstats.$sample\n";
+		    print SSH "#SBATCH -n $numProcessors\n";
+		}	
+		print SSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		print SSH "module load R/3.2.2\n";
 		$moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
 		if ($moduleText ne ""){	print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie2/2.2.6"} = 1;}
@@ -2070,12 +2177,22 @@ if ($runRNAstats == 1){
 		print SSH "\n# Estimate TIN (transcript integrity number) for each transcript.\n";
 		print SSH "tin.py -i $outputDirectory\/$project\/bam\/$sample.sorted.bam -r $samplegenebed{$reference{$project}} \n";
 		close(SSH);
-		my $result2 = `msub $outputDirectory/$project/scripts/runRNAstats.$sample.sh`;
+		my $result2 = "";
+		if ($scheduler eq "MOAB"){
+		    $result2 = `msub $outputDirectory/$project/scripts/runRNAstats.$sample.sh`;
+		} elsif ($scheduler eq "SLURM"){
+		    $result2 = `sbatch $outputDirectory/$project/scripts/runRNAstats.$sample.sh`;
+		}
 	    }
 	    print SH "\n# Use RSeQC to estimate gene body coverage across all samples.\n";
 	    print SH "geneBody_coverage.py -r $samplegenebed{$reference{$project}} -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/bam\/$project\n";
 	    &datePrint("Launching RNA stats script for project $project");
-	    my $result3 = `msub $outputDirectory/$project/scripts/runRNAstats_summary.sh`;
+	    my $result3 = "";
+	    if ($scheduler eq "MOAB"){
+		$result3 = `msub $outputDirectory/$project/scripts/runRNAstats_summary.sh`;
+	    } elsif ($scheduler eq "SLURM"){
+		$result3 = `sbatch $outputDirectory/$project/scripts/runRNAstats_summary.sh`;
+	    }
 	}
     } else {
 	&datePrint("Skipping runRNAstats for nonRNA project");
@@ -2094,42 +2211,67 @@ if ($buildGenotyping ==1) {
 		open (SH, ">$outputDirectory/$project/scripts/$sample\_genotype.sh");
 		my (%modulesLoaded, $moduleText);
 		print SH $header;
-		print SH "#MSUB -N $sample\_genotype\n";
-		#print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
-		# Some of the steps below can be parallelized, but not all,
-		# and more experimentation is required for optimization.  In
-		# the meantime, I'm setting a flat number of processors of 6
-		# for genotyping purposes.
-		print SH "#MSUB -l nodes=1:ppn=6\n";
+		if ($scheduler eq "MOAB"){    
+		    print SH "#MSUB -N $sample\_genotype\n";
+		    #print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		    # Some of the steps below can be parallelized, but not all,
+		    # and more experimentation is required for optimization.  In
+		    # the meantime, I'm setting a flat number of processors of 6
+		    # for genotyping purposes.
+		    print SH "#MSUB -l nodes=1:ppn=6\n";
+		} elsif ($scheduler eq "SLURM"){
+		    print SH "#SBATCH --job-name=$sample\_genotype\n";
+		    print SH "#SBATCH -n 6\n";
+		}	
 		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
-		print SH "module load picard/1.131\n";
-		print VER "EXEC module load picard/1.131\n";
-		print VER "EXEC $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar\n";
 		my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 		print SH "\n\n";
 		print SH "# Sort BAM file.\n";
 		$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
-#		$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-#		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 		print SH "samtools sort -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 		print SH "date\n\n";
+		$moduleText = &checkLoad("picard/1.131",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"picard/1.131"} = 1;}
 		print SH "# Mark Duplicates with Picard.\n";
-		#print SH "java -jar $NGSbartom/tools/bin/picard.jar MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.sorted.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
-		print SH "java -jar $PICARD MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.sorted.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
+		print SH "java -jar $PICARD MarkDuplicates \\\n";
+		print SH "\tI=$outputDirectory\/$project\/bam\/$sample.sorted.bam \\\n";
+		print SH "\tO=$outputDirectory\/$project\/bam\/$sample.mdup.bam \\\n";
+		print SH "\tM=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
 		print SH "date\n\n";
-#		print SH "# Sort mdup BAM file with Picard.\n";
-#		print SH "java -jar $PICARD SortSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.sorted.bam SORT_ORDER=coordinate CREATE_INDEX=true\n";
-		#		print SH "date\n\n";
 		print SH "# Reorder mdup BAM file with Picard.\n";
-		print SH "java -jar $PICARD ReorderSam I=$outputDirectory\/$project\/bam\/$sample.mdup.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam R=$gatkRef{$reference{$sample}} CREATE_INDEX=true\n";
+		print SH "java -jar $PICARD ReorderSam \\\n";
+		print SH "\tI=$outputDirectory\/$project\/bam\/$sample.mdup.bam \\\n";
+		print SH "\tO=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam \\\n";
+		print SH "\tR=$gatkRef{$reference{$sample}} \\\n";
+		print SH "\tCREATE_INDEX=true\n";
 		print SH "date\n\n";
+		print SH "# Set up path for GATK 4\n";
+		$moduleText = &checkLoad("gatk/4.1.0",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"gatk/4.0.4"} = 1;}
+		print SH "export PATH=\$PATH:/software/gatk/4.1.0/\n\n";
 		print SH "# Split Reads at splicing events (runs of Ns in CIGAR string)\n";
-		print SH "java -jar $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T SplitNCigarReads -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam -o $outputDirectory\/$project\/bam\/$sample.split.bam -U ALLOW_N_CIGAR_READS -fixNDN\n";
+		print SH "# Note that in earlier versions of gatk / aligners there was a problem with low quality scores \n";
+		print SH "# at splice junctions but that is now handled automatically by gatk4.\n";
+		print SH "gatk SplitNCigarReads \\\n";
+		print SH "\t-R=$gatkRef{$reference{$sample}} \\\n";
+		print SH "\t-I=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam \\\n";
+		print SH "\t-O=$outputDirectory\/$project\/bam\/$sample.split.bam\n";
 		print SH "date\n\n";
-		print SH "# Find Target regions for Realignment.\n";
-		print SH "java -jar $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T RealignerTargetCreator -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.bam -o $outputDirectory\/$project\/bam\/$sample.split.intervals.list --known $knownIndelsites{$reference{$sample}}\n";
+		# Print experimenting with RNAseq genotyping here.
+
+		print SH "# Set up path for GATK 3.7\n";
+		$moduleText = &checkLoad("gatk/3.7.0",\%modulesLoaded);
+		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"gatk/3.7.0"} = 1;}
+		print SH "export PATH=\$PATH:/software/gatk/3.7.0/\n\n";
+		print SH "# Find Target regions for Realignment.\n";  # Not available in gatk4, only gatk3.
+		print SH "gatk RealignerTargetCreator \\\n";  
+		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.intervals.list \\\n";
+		print SH "\t--known $knownIndelsites{$reference{$sample}}\n";
 		print SH "date\n\n";
+		
 		print SH "# Realign indels in target regions.\n";
 		print SH "java -jar $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T IndelRealigner -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.bam -targetIntervals $outputDirectory\/$project\/bam\/$sample.split.intervals.list -known $knownIndelsites{$reference{$sample}} -o $outputDirectory\/$project\/bam\/$sample.split.real.bam\n";
 		print SH "date\n\n";
@@ -2139,16 +2281,43 @@ if ($buildGenotyping ==1) {
 		print SH "##Commenting out HaplotypeCaller as Mutect2 is working better.\n";
 		print SH "## Calling SNPs and Indels with HaplotypeCaller.\n";
 		print SH "#java -jar $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
-		print SH "#date\n\n";
+
+
+
+
+		
 		print SH "# Calling SNPs and Indels with Mutect2.\n";
-		print SH "java -jar $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T MuTect2 -R $gatkRef{$reference{$sample}} -I:tumor $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
+		print SH "gatk Mutect2 \\\n";
+		print SH "\t-R=$gatkRef{$reference{$sample}} \\\n";
+		print SH "\t-I=$outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		print SH "\t-O=$outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
+		print SH "\t-tumor=$sample\n";
+		print SH "date\n\n";
+		print SH "# Filter Mutect2 calls.\n";
+		print SH "gatk FilterMutectCalls \\\n";
+		print SH "\t--output-mode EMIT_ALL_CONFIDENT_SITES \\\n";
+		print SH "\t-V=$outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
+		print SH "\t-O=$outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf\n";
+		print SH "date\n\n";
+		print SH "# Sort and remove duplicates from VCF file.\n";
+		print SH "sort $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf | uniq > $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.sorted.vcf\n";
 		close SH;
 	    }
-	    if ($runGenotyping == 1){
-		&datePrint("Submitting jobs for genotype analysis.");
-		my $result = `find $outputDirectory/$project/scripts/ -iname \"*genotype.sh\" -exec msub {} ./ \\\;`;
-	    } else {
-		print STDERR "Not submitting genotype scripts.  To run them use: \`find $outputDirectory/$project/scripts/ -iname \"*genotype.sh\" -exec msub \{\} ./ \\\;\`\n";
+	    my $result = "";
+	    if ($scheduler eq "MOAB"){
+		if ($runGenotyping == 1){
+		    &datePrint("Submitting jobs for genotype analysis.");
+		    $result = `find $outputDirectory/$project/scripts/ -iname \"*genotype.sh\" -exec msub {} ./ \\\;`;
+		} else {
+		    print STDERR "Not submitting genotype scripts.  To run them use: \`find $outputDirectory/$project/scripts/ -iname \"*genotype.sh\" -exec msub \{\} ./ \\\;\`\n";
+		}
+	    } elsif ($scheduler eq "SLURM"){
+		if ($runGenotyping == 1){
+		    &datePrint("Submitting jobs for genotype analysis.");
+		    $result = `find $outputDirectory/$project/scripts/ -iname \"*genotype.sh\" -exec sbatch {} ./ \\\;`;
+		} else {
+		    print STDERR "Not submitting genotype scripts.  To run them use: \`find $outputDirectory/$project/scripts/ -iname \"*genotype.sh\" -exec sbatch \{\} ./ \\\;\`\n";
+		}
 	    }
 	}
     } else { print "ERR: Genotyping not yet implemented for whole genome or exome sequencing.\n";}
@@ -2161,8 +2330,13 @@ if ($buildEdgeR ==1) {
 	open (SH, ">$outputDirectory/$project/scripts/downstreamRNAanalysis.sh");
 	my (%modulesLoaded, $moduleText);
 	print SH $header;
-	print SH "#MSUB -N downstreamRNAanalysis\n";
-	print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	if ($scheduler eq "MOAB"){    
+	    print SH "#MSUB -N downstreamRNAanalysis\n";
+	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	} elsif ($scheduler eq "SLURM"){
+	    print SH "#SBATCH --job-name=downstreamRNAanalysis\n";
+	    print SH "#SBATCH -n $numProcessors\n";
+	}	
 	print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	print SH "module load R/3.2.2\n";
 	if ($type eq "RNA"){
@@ -2369,7 +2543,11 @@ if ($buildEdgeR ==1) {
 	    }
 	    if ($runEdgeR == 1){
 		&datePrint("Submitting job for downstream RNA-seq analysis.");
-		$cmd = "msub $outputDirectory/$project/scripts/downstreamRNAanalysis.sh";
+		if ($scheduler eq "MOAB"){
+		    $cmd = "msub $outputDirectory/$project/scripts/downstreamRNAanalysis.sh";
+		} elsif ($scheduler eq "SLURM"){
+		    $cmd = "sbatch $outputDirectory/$project/scripts/downstreamRNAanalysis.sh";
+		}
 		system($cmd);
 	    }
 	}
@@ -2398,8 +2576,13 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		open (BSH, ">$outputDirectory/$project/scripts/runSICER\_callPeaks.sh");
 		my (%modulesLoaded, $moduleText);
 		print BSH $header;
-		print BSH "#MSUB -N callSicerPeaks\n";
-		print BSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		if ($scheduler eq "MOAB"){
+		    print BSH "#MSUB -N callSicerPeaks\n";
+		    print BSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		} elsif ($scheduler eq "SLURM"){
+		    print BSH "#SBATCH --job-name=callSicerPeaks\n";
+		    print BSH "#SBATCH -n $numProcessors\n";
+		}	
 		print BSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		print BSH "\nmodule unload R\n";
 		print BSH "module unload mpi\n";
@@ -2425,8 +2608,13 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			open (SH, ">$outputDirectory/$project/scripts/run\_$ip\_callPeaks.sh");
 			print SH $header;
 			my (%modulesLoaded, $moduleText);
-			print SH "#MSUB -N $ip\_NarrowPeaks\n";
-			print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+			if ($scheduler eq "MOAB"){
+			    print SH "#MSUB -N $ip\_NarrowPeaks\n";
+			    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+			} elsif ($scheduler eq "SLURM"){
+			    print SH "#SBATCH --job-name=$ip\_NarrowPeaks\n";
+			    print SH "#SBATCH -n $numProcessors\n";
+			}	
 			print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 			#print SH "module load R/3.2.2\n";
 			print SH "export PATH=\$PATH:$NGSbartom/tools/bin/MACS-1.4.2/bin\n";
@@ -2623,35 +2811,47 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	## This will finish each project (TANGO) before starting the next.  Is this what we want?
     	foreach my $project (keys(%samples)){
     	    &datePrint ("Starting peak calling scripts.");
-    	    my $result = `find $outputDirectory/*/scripts/ -iname \"*callPeaks.sh\" -exec msub {} ./ \\\;`;
-	    $result =~ s/\s+/\:/g;
-	    $result =~ s/^://;
-	    $result =~ s/:$//;
+	    my $result = "";
+	    if ($scheduler eq "MOAB"){
+		$result = `find $outputDirectory/*/scripts/ -iname \"*callPeaks.sh\" -exec msub {} ./ \\\;`;
+		$result =~ s/\s+/\:/g;
+		$result =~ s/^://;
+		$result =~ s/:$//;
+	    } elsif ($scheduler eq "SLURM"){
+		$result = `find $outputDirectory/*/scripts/ -iname \"*callPeaks.sh\" -exec sbatch {} ./ \\\;`;
+		$result =~ s/\s+/\:/g;
+		$result =~ s/^://;
+		$result =~ s/:$//;
+	    }
 	    &datePrint( "Need to wait for the following jobs to finish:\n$result");
 	    open (SH, ">$outputDirectory/$project/scripts/PeakCallingDependentScript.sh");
 	    my (%modulesLoaded, $moduleText);
 	    print SH $header;
-	    print SH "#MSUB -W depend=afterok:$result\n";
-	    print SH "#MSUB -N CheckingPeakCallerProgress\n";
-	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    if ($scheduler eq "MOAB"){
+		print SH "#MSUB -W depend=afterok:$result\n";
+		print SH "#MSUB -N CheckingPeakCallerProgress\n";
+		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	    } elsif ($scheduler eq "SLURM"){
+		print SH "#SBATCH --job-name=CheckingPeakCallerProgress\n";
+		print SH "#SBATCH -n $numProcessors\n";
+		print SH "#SBATCH --dependency=afterok:$result\n";
+	    }	
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    print SH "\necho \"Peaking calling jobs $result have finished.\"\n";
 	    close SH;
 	    &datePrint("Creating dependent job that will only run after peak callers finish.");
-	    my $result2 = `msub $outputDirectory/$project/scripts/PeakCallingDependentScript.sh`;
-	    $result2 =~ s/\s+//g;
+	    my $result2 = "";
+	    if ($scheduler eq "MOAB"){
+		$result2 = `msub $outputDirectory/$project/scripts/PeakCallingDependentScript.sh`;
+		$result2 =~ s/\s+//g;
+	    } elsif ($scheduler eq "SLURM"){
+		$result2 = `sbatch $outputDirectory/$project/scripts/PeakCallingDependentScript.sh`;
+		$result2 =~ s/\s+//g;
+	    }
 	    my $jobfinished = "no";
 	    # Wait until the job is Complete.
 	    &datePrint("Waiting for job $result2 to finish. (each . = 300 seconds)");
-	    # Check qstat every 300 seconds, adding a "." every time you check.
-	    # until ($jobfinished eq "Completed"){
-	    # 	sleep(300);
-	    # 	$jobfinished = `checkjob $result2 | grep ^State:`;
-	    # 	print STDERR ".";
-	    # 	if ($jobfinished =~ /State: (\w+)\s+/){ $jobfinished = $1;}
-	    # 	print STDERR "$jobfinished";
-	    # }
-		waitForJob($result2);
+	    waitForJob($result2);
 	    print STDERR "\n";
 	    &datePrint("Job $result2 done.  Continuing.");
 	}
@@ -2714,8 +2914,13 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		open (SH, ">$outputDirectory/$project/scripts/$peakset\_diffPeaks.sh");
 		my (%modulesLoaded, $moduleText);
 		print SH $header;
-		print SH "#MSUB -N $peakset\_diffPeak\n";
-		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		if ($scheduler eq "MOAB"){
+		    print SH "#MSUB -N $peakset\_diffPeak\n";
+		    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+		} elsif ($scheduler eq "SLURM"){
+		    print SH "#SBATCH --job-name=$peakset\_diffPeak\n";
+		    print SH "#SBATCH -n $numProcessors\n";
+		}	
 		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
 		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
@@ -2814,7 +3019,11 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		close(SH);
 		if ($runDiffPeaks == 1){
 		    &datePrint("Starting job $outputDirectory/$project/scripts/$peakset\_diffPeaks.sh");
-		    `msub $outputDirectory/$project/scripts/$peakset\_diffPeaks.sh`;
+		    if ($scheduler eq "MOAB"){
+			`msub $outputDirectory/$project/scripts/$peakset\_diffPeaks.sh`;
+		    }elsif ($scheduler eq "SLURM"){
+			`sbatch $outputDirectory/$project/scripts/$peakset\_diffPeaks.sh`;
+		    }
 		}
 	    }
 	} else {
@@ -2879,11 +3088,19 @@ sub datePrint{
 sub waitForJob {
 	my $jobId = $_[0];
 	my $qstat_output = '';
-
-	until ($qstat_output =~ /Unknown Job Id/ || $qstat_output =~ /job_state = C/) {
-	    sleep(300);
-	    $qstat_output = `qstat -f $jobId.qsched03.quest.it.northwestern.edu 2>&1`;
-	    print STDERR ".";
+	if ($scheduler eq "MOAB"){
+	    until ($qstat_output =~ /Unknown Job Id/ || $qstat_output =~ /job_state = C/) {
+		sleep(300);
+		$qstat_output = `qstat -f $jobId.qsched03.quest.it.northwestern.edu 2>&1`;
+		print STDERR ".";
+	    }
+	} elsif ($scheduler eq "SLURM"){
+	    until ($qstat_output =~ /Unknown Job Id/ || $qstat_output =~ /job_state = C/) {
+		sleep(300);
+		$qstat_output = `squeue -j $jobId`;
+		print STDERR ".";
+		print STDERR "\"SLURM result $qstat_output\"";
+	    }
 	}
 }
 
