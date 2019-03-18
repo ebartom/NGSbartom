@@ -41,6 +41,7 @@ my $comparisons = "";
 my $type = "";
 my $scheduler = "MOAB";
 my $numProcessors = 4;
+my $memory = 50000;
 my $multiMap = 0;
 my $aligner = "";
 my $stranded = 1;
@@ -109,6 +110,7 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'scientist|s=s' => \$scientist,
 	   'stranded|str=i' => \$stranded,
 	   'processors|p=i' => \$numProcessors,
+	   'memory|mem=i' => \$memory,
 	   'scheduler|sch=s' => \$scheduler,
 	   'walltime|w=s' => \$walltime,
 	   'account|acc=s' => \$account,
@@ -321,8 +323,9 @@ if ($scheduler eq "MOAB"){
     }
     $header .= "#SBATCH -t $walltime\n";
     $header .= "#SBATCH -m a\n"; # only email user if job aborts
-    # Write STDOUT and STDERR to the $outputDirectory/metadata/ (this is new)
-    $header .= "#SBATCH --output=$outputDirectory/metadata/\n";
+    $header .= "#SBATCH --mem=$memory\n";
+# Write STDOUT and STDERR to the $outputDirectory/metadata/ (this is new and not working)
+#    $header .= "#SBATCH --output=$outputDirectory/metadata/\n";
 #    $header .= "#MOAB -W umask=0113\n"; #How do I do this in SLURM?
     if ($node ne ""){
 	$header .= "#SBATCH --nodelist=$node\n";
@@ -548,6 +551,7 @@ if ($buildBcl2fq == 1){
 	print SH "#MSUB -l nodes=1:ppn=$bclFqProcessors\n";
 	print SH "#MSUB -N bcl2fastq\n";
     } elsif ($scheduler eq "SLURM"){
+	print SH "#SBATCH --nodes=1\n";
 	print SH "#SBATCH -n $bclFqProcessors\n";
 	print SH "#SBATCH --job-name=bcl2fastq\n";
     }
@@ -565,7 +569,7 @@ if ($buildBcl2fq == 1){
 	    $result =~ s/\s//g;
 	} elsif ($scheduler eq "SLURM"){
 	    $result = `sbatch $shScript`;
-	    $result =~ s/\s//g;
+	    $result =~ s/Submitted batch job //g;
 	    print STDERR "Predicted SLURM job ID:  $result\n";
 	}
 	my $jobfinished = "no";
@@ -589,6 +593,7 @@ if (($sampleSheet ne "")){
     &datePrint("Reading in $sampleSheet and printing Sample_Report");
     open (IN,$sampleSheet);
     my $flag="header";
+    # URGENT:  Rewrite this to use column name instead of column order
     my($sample_ID,$sample_name,$assembly,$I7_Index_ID,$index,$description,$index2,$I5_Index_ID,$stuff);
     my $sampleNum = 0;
     if (!(-e "$outputDirectory\/metadata\/SampleSheet.csv")){
@@ -626,6 +631,7 @@ if (($sampleSheet ne "")){
 	    if ($type ne "4C"){
 		my $fastq = "";
 		my $fastq2 = "";
+		# For Nova-seq, there are only two lanes, L001 and L002
 		foreach my $lane ("L001","L002","L003","L004"){
 		    # Build fastq file names.
 		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.fastq.gz";
@@ -655,7 +661,7 @@ if (($sampleSheet ne "")){
 			} else {
 			    # If you can't find Fastq file anywhere, then die.
 			    # This would indicate an error in the path or filename, or that the bcl2fq job failed.  It could also indicate that the index was wrong in the sample sheet, and that no reads were assigned to a specific sample.
-			    die "ERR:  Cannot find fastq file!\n";
+			    print STDERR "ERR:  Cannot find fastq file!\n";
 			}
 		    }
 		    # Write the sample report file.
@@ -812,6 +818,7 @@ if (($type eq "4C") && ($build4C == 1)){
 	    print FCSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	} elsif ($scheduler eq "SLURM"){
 	    print FCSH "#SBATCH --job-name=4Cdemultiplex\n";
+	    print FCSH "#SBATCH --nodes=1\n";
 	    print FCSH "#SBATCH -n $numProcessors\n";
 	}	
 	print FCSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";	
@@ -837,6 +844,7 @@ if (($type eq "4C") && ($build4C == 1)){
 		$result =~ s/\s//g;
 	    } elsif ($scheduler eq "SLURM"){
 		$result = `sbatch $outputDirectory/$sample_project/scripts/run_4C_demultiplex.sh`;
+		$result =~ s/Submitted batch job //g;
 		$result =~ s/\s//g;
 		print STDERR "Predicted SLURM job ID:  $result\n";
 	    }
@@ -943,6 +951,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    } elsif ($scheduler eq "SLURM"){
 		print SH "#SBATCH --job-name=$sample\_$aligner\n";
+		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
 	    }	
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
@@ -1494,6 +1503,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    } elsif ($scheduler eq "SLURM"){
 		print SH "#SBATCH --job-name=$sample\_$aligner\n";
+		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
 	    }	
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
@@ -1724,6 +1734,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    } elsif ($scheduler eq "SLURM"){
 		print SH "#SBATCH --job-name=$sample\_$aligner\n";
+		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
 	    }	
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
@@ -2012,6 +2023,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    $result =~ s/:$//;
 	} elsif ($scheduler eq "SLURM"){
 	    $result = `find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec sbatch {} ./ \\\;`;
+	    $result =~ s/Submitted batch job //g;
 	    $result =~ s/\s+/\:/g;
 	    $result =~ s/^://;
 	    $result =~ s/:$//;
@@ -2027,12 +2039,14 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    print SH "#MSUB -W depend=afterok:$result\n";
 	} elsif ($scheduler eq "SLURM"){
 	    print SH "#SBATCH --job-name=PostAlignmentAnalysis\n";
+	    print SH "#SBATCH --nodes=1\n";
 	    print SH "#SBATCH -n $numProcessors\n";
 	    print SH "#SBATCH --dependency=afterok:$result\n";
 	}	
 	print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	print SH "module load deeptools/3.1.1\n";
 	print SH "\necho \"Alignment jobs $result have finished.\"\n";
+	my @alignJobs = split(/\:/,$result);
 	if ($aligner eq "tophat"){
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
@@ -2072,6 +2086,9 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    print SH "if [ ! -f $outputDirectory\/$project\/scripts\/plot_fingerprint.sh ];\nthen\npython3 /projects\/p20742\/tools\/bin\/getFingerprint.py -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/scripts\/\nsh $outputDirectory\/$project\/scripts\/plot_fingerprint.sh\n";
 	    #    print SH "wait\nmv $outputDirectory\/$project\/scripts\/fingerprint.pdf $outputDirectory\/$project\/bam\/\nfi\n";
 	}
+	foreach my $job (@alignJobs){
+	    print SH "seff $job > $outputDirectory/metadata/SLURM.$job.seff.txt\n";
+	}
 	close SH;
 	&datePrint("Creating dependent job that will only run after alignments finish.");
 	my $result2 = "";
@@ -2080,6 +2097,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    $result2 =~ s/\s+//g;
 	} elsif ($scheduler eq "SLURM"){
 	    $result2 = `sbatch $outputDirectory/$project/scripts/AlignmentDependentScript.sh`;
+	    $result2 =~ s/Submitted batch job //g;
 	    $result2 =~ s/\s//g;
 	    print STDERR "Predicted SLURM job ID:  $result2\n";
 	}
@@ -2104,6 +2122,7 @@ if ($runRNAstats == 1){
 		print SH "#MSUB -l walltime=48:00:00\n";
 	    } elsif ($scheduler eq "SLURM"){
 		print SH "#SBATCH --job-name=$project\_runRNAstats\n";
+		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
 		print SH "#SBATCH --time=48:00:00\n";
 	    }	
@@ -2142,6 +2161,7 @@ if ($runRNAstats == 1){
 		    print SSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		} elsif ($scheduler eq "SLURM"){
 		    print SSH "#SBATCH --job-name=$project\_runRNAstats.$sample\n";
+		    print SSH "#SBATCH --nodes=1\n";
 		    print SSH "#SBATCH -n $numProcessors\n";
 		}	
 		print SSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
@@ -2182,6 +2202,7 @@ if ($runRNAstats == 1){
 		    $result2 = `msub $outputDirectory/$project/scripts/runRNAstats.$sample.sh`;
 		} elsif ($scheduler eq "SLURM"){
 		    $result2 = `sbatch $outputDirectory/$project/scripts/runRNAstats.$sample.sh`;
+		    $result2 =~ s/Submitted batch job //g;
 		}
 	    }
 	    print SH "\n# Use RSeQC to estimate gene body coverage across all samples.\n";
@@ -2221,6 +2242,7 @@ if ($buildGenotyping ==1) {
 		    print SH "#MSUB -l nodes=1:ppn=6\n";
 		} elsif ($scheduler eq "SLURM"){
 		    print SH "#SBATCH --job-name=$sample\_genotype\n";
+		    print SH "#SBATCH --nodes=1\n";
 		    print SH "#SBATCH -n 6\n";
 		}	
 		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
@@ -2335,6 +2357,7 @@ if ($buildEdgeR ==1) {
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	} elsif ($scheduler eq "SLURM"){
 	    print SH "#SBATCH --job-name=downstreamRNAanalysis\n";
+	    print SH "#SBATCH --nodes=1\n";
 	    print SH "#SBATCH -n $numProcessors\n";
 	}	
 	print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
@@ -2581,6 +2604,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		    print BSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		} elsif ($scheduler eq "SLURM"){
 		    print BSH "#SBATCH --job-name=callSicerPeaks\n";
+		    print SH "#SBATCH --nodes=1\n";
 		    print BSH "#SBATCH -n $numProcessors\n";
 		}	
 		print BSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
@@ -2613,6 +2637,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 			} elsif ($scheduler eq "SLURM"){
 			    print SH "#SBATCH --job-name=$ip\_NarrowPeaks\n";
+			    print SH "#SBATCH --nodes=1\n";
 			    print SH "#SBATCH -n $numProcessors\n";
 			}	
 			print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
@@ -2819,6 +2844,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		$result =~ s/:$//;
 	    } elsif ($scheduler eq "SLURM"){
 		$result = `find $outputDirectory/*/scripts/ -iname \"*callPeaks.sh\" -exec sbatch {} ./ \\\;`;
+		$result =~ s/Submitted batch job //g;
 		$result =~ s/\s+/\:/g;
 		$result =~ s/^://;
 		$result =~ s/:$//;
@@ -2833,6 +2859,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    } elsif ($scheduler eq "SLURM"){
 		print SH "#SBATCH --job-name=CheckingPeakCallerProgress\n";
+		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
 		print SH "#SBATCH --dependency=afterok:$result\n";
 	    }	
@@ -2846,6 +2873,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		$result2 =~ s/\s+//g;
 	    } elsif ($scheduler eq "SLURM"){
 		$result2 = `sbatch $outputDirectory/$project/scripts/PeakCallingDependentScript.sh`;
+		$result =~ s/Submitted batch job //g;
 		$result2 =~ s/\s+//g;
 	    }
 	    my $jobfinished = "no";
@@ -2919,6 +2947,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		} elsif ($scheduler eq "SLURM"){
 		    print SH "#SBATCH --job-name=$peakset\_diffPeak\n";
+		    print SH "#SBATCH --nodes=1\n";
 		    print SH "#SBATCH -n $numProcessors\n";
 		}	
 		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
@@ -3095,12 +3124,15 @@ sub waitForJob {
 		print STDERR ".";
 	    }
 	} elsif ($scheduler eq "SLURM"){
-	    until ($qstat_output =~ /Unknown Job Id/ || $qstat_output =~ /job_state = C/) {
+	    until ($qstat_output =~ /Invalid job id/){
 		sleep(300);
-		$qstat_output = `squeue -j $jobId`;
+		$qstat_output = `squeue -j$jobId --Format=state`;		
 		print STDERR ".";
 		print STDERR "\"SLURM result $qstat_output\"";
 	    }
+	}
+	if ($scheduler eq "SLURM"){
+	    `seff $jobId > $outputDirectory/metadata/SLURM.$jobId.seff.txt`;
 	}
 }
 
