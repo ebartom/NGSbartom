@@ -2878,7 +2878,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		$result2 =~ s/\s+//g;
 	    } elsif ($scheduler eq "SLURM"){
 		$result2 = `sbatch $outputDirectory/$project/scripts/PeakCallingDependentScript.sh`;
-		$result =~ s/Submitted batch job //g;
+		$result2 =~ s/Submitted batch job //g;
 		$result2 =~ s/\s+//g;
 	    }
 	    my $jobfinished = "no";
@@ -3129,15 +3129,14 @@ sub waitForJob {
 		print STDERR ".";
 	    }
 	} elsif ($scheduler eq "SLURM"){
-	    until ($qstat_output =~ /Invalid job id specified/){
+	    until ($qstat_output =~ /COMPLETED/){
 		sleep(300);
-		$qstat_output = `squeue -j$jobId --Format=state`;
-		$qstat_output =~ "s/SLURM result STATE\n//g";
-		$qstat_output =~ "s/STATE\n//g";
+		$qstat_output = `sacct -j $jobId -n -b`;
 		print STDERR ".";
-		print STDERR "$qstat_output";
+#		print STDERR "$qstat_output";
 	    }
 	}
+	print STDERR "Job $jobId is complete, scheduler $scheduler\n";
 	if ($scheduler eq "SLURM"){
 	    `seff $jobId > $outputDirectory/metadata/SLURM.checkJob.$jobId.seff.txt`;
 	}
