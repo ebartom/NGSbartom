@@ -591,43 +591,66 @@ my %scientists;
 my(%fastqs,%reference,%samples,%sampleIDs,$sample_project,$sample_plate);
 $sample_plate = $scientist;
 if (($sampleSheet ne "")){
+    my($sampleIDindex,$sampleNameIndex,$assemblyIndex,$plateIndex,$descriptionIndex,$projectIndex);
 # Read in the sample sheet
     &datePrint("Reading in $sampleSheet and printing Sample_Report");
     open (IN,$sampleSheet);
     my $flag="header";
-    # URGENT:  Rewrite this to use column name instead of column order
     my($sample_ID,$sample_name,$assembly,$I7_Index_ID,$index,$description,$index2,$I5_Index_ID,$stuff);
     my $sampleNum = 0;
     if (!(-e "$outputDirectory\/metadata\/SampleSheet.csv")){
 	my $cmd = "cp $baseSpaceDirectory\/SampleSheet.csv $outputDirectory\/metadata\/";
 	system($cmd);
     }
-# Create output file for Sample_Report.
+    # Create output file for Sample_Report.
     open(OUT,">$outputDirectory/metadata/Sample_Report.csv");
-# Print labels to output file.
+    # Print labels to output file.
     print OUT "Fastq,Sample_Name,Assembly\n";
     # Create run file to print metadata to.
     open(VER,">$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt");
     while(<IN>){
 	chomp $_;
+	if ($_ =~ /^Sample_ID/){
+	    # Check each column header to figure out which to use for what
+	    my @headers = split(/\,/,$_);
+	    for (my $i=0;$i<=$#headers;$i++){
+		if ($headers[$i] eq "Sample_ID"){
+		    $sampleIDindex = $i;
+		    print STDERR "Sample ID index: $sampleIDindex\n";
+		} elsif ($headers[$i] eq "Sample_Name"){
+		    $sampleNameIndex = $i;
+		    print STDERR "Sample Name index: $sampleNameIndex\n";
+		} elsif ($headers[$i] eq "assembly" || $headers[$i] eq "organism"){
+		    $assemblyIndex = $i;
+		} elsif ($headers[$i] eq "Sample_Plate"){
+		    $plateIndex = $i; # We actually use this for scientist.
+		} elsif ($headers[$i] eq "Description"){
+		    $descriptionIndex = $i;
+		} elsif ($headers[$i] eq "Sample_Project"){
+		    $projectIndex = $i;
+		    print STDERR "Sample Project index: $projectIndex\n";
+		}
+	    }
+	}
 	if (($flag eq "data") && ($_ !~ /^Sample_ID/) && ($_ !~ /SampleID/)){
 	    # Read in the metadata from the sample sheet.
-	    ($sample_ID,$sample_name,$sample_plate,$assembly,$I7_Index_ID,$index,$sample_project,$description,$stuff) = split(/\,/,$_);
+	    my @data = split(/\,/,$_);
+	    #	    ($sample_ID,$sample_name,$sample_plate,$assembly,$I7_Index_ID,$index,$sample_project,$description,$stuff) = split(/\,/,$_);
+	    $sample_ID = $data[$sampleIDindex];
+	    $sample_name = $data[$sampleNameIndex];
+	    $assembly = $data[$assemblyIndex];
+	    $sample_plate = $data[$plateIndex];
+	    $description = $data[$descriptionIndex];
+	    print VER "PROJ From Sample sheet this experiment is $description\n";
+	    $sample_project = $data[$projectIndex];
 	    $sampleNum++;
-#	    if ($type ne "4C"){
-#		$sample_name =~ s/\_/\-/g;
-#		$sample_name =~ s/\./\-/g;
-#	    }
 	    $sampleIDs{$sample_name} = $sample_ID;
-	    if ($description =~ /^[ACTG]+$/) { # If description is a nucleotide sequence, this sample has two indices.  The project name will be in the stuff variable.
-		$sample_project = $stuff;
-		&datePrint("This sample has two indices.  Using $stuff as project name.");
-	    }
 	    # Store the assembly for the sample and project.
 	    $reference{$sample_name}=$assembly;
 	    $reference{$sample_project} = $assembly;
 	    $scientists{$sample_project} = $sample_plate;
 	    print VER "PROJ $sample_project\n";
+	    print STDERR "Project: $sample_project\n";
 	    &datePrint("Found the following sample:");
 	    print STDERR "$sample_name\tREF:$reference{$sample_name}\t$bowtieIndex{$assembly}\n";
 	    if ($type ne "4C"){
@@ -663,7 +686,7 @@ if (($sampleSheet ne "")){
 			} else {
 			    # If you can't find Fastq file anywhere, then die.
 			    # This would indicate an error in the path or filename, or that the bcl2fq job failed.  It could also indicate that the index was wrong in the sample sheet, and that no reads were assigned to a specific sample.
-			    print STDERR "ERR:  Cannot find fastq file!\n";
+			    print STDERR "ERR:  Cannot find fastq file! This could be because NovaSeq has fewer lanes than NextSeq.\n";
 			}
 		    }
 		    # Write the sample report file.
@@ -672,7 +695,6 @@ if (($sampleSheet ne "")){
 		    if (!exists($fastqs{$sample_name})){
 			$fastqs{$sample_name} = "$outputDirectory\/$sample_project\/fastq\/$fastq";
 		    }else {$fastqs{$sample_name} .= ",$outputDirectory\/$sample_project\/fastq\/$fastq";}
-		    #		    print STDERR "$sample_name\t$fastqs{$sample_name}\n";
 		}
 	    }
 	    # Create a hash of all samples in a given sample project (TANGO/MOLNG)

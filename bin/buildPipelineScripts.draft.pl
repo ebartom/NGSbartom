@@ -295,7 +295,7 @@ print STDERR "Account: $account\nQueue/Partition: $queue\n";
 my $header = "#!/bin/bash\n";
 if ($scheduler eq "MOAB"){
     # Define a header for the shell scripts.
-        $header .= "#MSUB -A $account\n";
+    $header .= "#MSUB -A $account\n";
     if ($account eq "b1042"){
 	$header .= "#MSUB -q $queue\n";
     } elsif ($account eq "e30258"){
@@ -307,7 +307,8 @@ if ($scheduler eq "MOAB"){
     $header .= "#MSUB -l walltime=$walltime\n";
     $header .= "#MSUB -m a\n"; # only email user if job aborts
     $header .= "#MSUB -j oe\n";
-    $header .= "#MOAB -W umask=0113\n";
+    # This umask parameter doesn't seem to make sense so commenting it out for now.
+    #    $header .= "#MOAB -W umask=0113\n";
     if ($node ne ""){
 	$header .= "#MSUB -l nodes=$node\n";
     }
@@ -324,9 +325,10 @@ if ($scheduler eq "MOAB"){
     $header .= "#SBATCH -t $walltime\n";
     $header .= "#SBATCH -m a\n"; # only email user if job aborts
     $header .= "#SBATCH --mem=$memory\n";
-# Write STDOUT and STDERR to the $outputDirectory/metadata/ (this is new and not working)
-#    $header .= "#SBATCH --output=$outputDirectory/metadata/\n";
-#    $header .= "#MOAB -W umask=0113\n"; #How do I do this in SLURM?
+    # Run the scripts from $outputDirectory/metadata, which will put the stdout / stderr files there for debugging.
+    $header .= "#SBATCH --chdir=$outputDirectory/metadata/\n";
+    #    $header .= "#MOAB -W umask=0113\n"; #How do I do this in SLURM?
+    # Maybe we just shouldn't be doing this.  Leaving it out for now.
     if ($node ne ""){
 	$header .= "#SBATCH --nodelist=$node\n";
     }
@@ -570,7 +572,7 @@ if ($buildBcl2fq == 1){
 	} elsif ($scheduler eq "SLURM"){
 	    $result = `sbatch $shScript`;
 	    $result =~ s/Submitted batch job //g;
-	    print STDERR "Predicted SLURM job ID:  $result\n";
+#	    print STDERR "Predicted SLURM job ID:  $result\n";
 	}
 	my $jobfinished = "no";
 	# Wait until the job is no longer running.
@@ -589,43 +591,66 @@ my %scientists;
 my(%fastqs,%reference,%samples,%sampleIDs,$sample_project,$sample_plate);
 $sample_plate = $scientist;
 if (($sampleSheet ne "")){
+    my($sampleIDindex,$sampleNameIndex,$assemblyIndex,$plateIndex,$descriptionIndex,$projectIndex);
 # Read in the sample sheet
     &datePrint("Reading in $sampleSheet and printing Sample_Report");
     open (IN,$sampleSheet);
     my $flag="header";
-    # URGENT:  Rewrite this to use column name instead of column order
     my($sample_ID,$sample_name,$assembly,$I7_Index_ID,$index,$description,$index2,$I5_Index_ID,$stuff);
     my $sampleNum = 0;
     if (!(-e "$outputDirectory\/metadata\/SampleSheet.csv")){
 	my $cmd = "cp $baseSpaceDirectory\/SampleSheet.csv $outputDirectory\/metadata\/";
 	system($cmd);
     }
-# Create output file for Sample_Report.
+    # Create output file for Sample_Report.
     open(OUT,">$outputDirectory/metadata/Sample_Report.csv");
-# Print labels to output file.
+    # Print labels to output file.
     print OUT "Fastq,Sample_Name,Assembly\n";
     # Create run file to print metadata to.
     open(VER,">$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt");
     while(<IN>){
 	chomp $_;
+	if ($_ =~ /^Sample_ID/){
+	    # Check each column header to figure out which to use for what
+	    my @headers = split(/\,/,$_);
+	    for (my $i=0;$i<=$#headers;$i++){
+		if ($headers[$i] eq "Sample_ID"){
+		    $sampleIDindex = $i;
+		    print STDERR "Sample ID index: $sampleIDindex\n";
+		} elsif ($headers[$i] eq "Sample_Name"){
+		    $sampleNameIndex = $i;
+		    print STDERR "Sample Name index: $sampleNameIndex\n";
+		} elsif ($headers[$i] eq "assembly" || $headers[$i] eq "organism"){
+		    $assemblyIndex = $i;
+		} elsif ($headers[$i] eq "Sample_Plate"){
+		    $plateIndex = $i; # We actually use this for scientist.
+		} elsif ($headers[$i] eq "Description"){
+		    $descriptionIndex = $i;
+		} elsif ($headers[$i] eq "Sample_Project"){
+		    $projectIndex = $i;
+		    print STDERR "Sample Project index: $projectIndex\n";
+		}
+	    }
+	}
 	if (($flag eq "data") && ($_ !~ /^Sample_ID/) && ($_ !~ /SampleID/)){
 	    # Read in the metadata from the sample sheet.
-	    ($sample_ID,$sample_name,$sample_plate,$assembly,$I7_Index_ID,$index,$sample_project,$description,$stuff) = split(/\,/,$_);
+	    my @data = split(/\,/,$_);
+	    #	    ($sample_ID,$sample_name,$sample_plate,$assembly,$I7_Index_ID,$index,$sample_project,$description,$stuff) = split(/\,/,$_);
+	    $sample_ID = $data[$sampleIDindex];
+	    $sample_name = $data[$sampleNameIndex];
+	    $assembly = $data[$assemblyIndex];
+	    $sample_plate = $data[$plateIndex];
+	    $description = $data[$descriptionIndex];
+	    print VER "PROJ From Sample sheet this experiment is $description\n";
+	    $sample_project = $data[$projectIndex];
 	    $sampleNum++;
-#	    if ($type ne "4C"){
-#		$sample_name =~ s/\_/\-/g;
-#		$sample_name =~ s/\./\-/g;
-#	    }
 	    $sampleIDs{$sample_name} = $sample_ID;
-	    if ($description =~ /^[ACTG]+$/) { # If description is a nucleotide sequence, this sample has two indices.  The project name will be in the stuff variable.
-		$sample_project = $stuff;
-		&datePrint("This sample has two indices.  Using $stuff as project name.");
-	    }
 	    # Store the assembly for the sample and project.
 	    $reference{$sample_name}=$assembly;
 	    $reference{$sample_project} = $assembly;
 	    $scientists{$sample_project} = $sample_plate;
 	    print VER "PROJ $sample_project\n";
+	    print STDERR "Project: $sample_project\n";
 	    &datePrint("Found the following sample:");
 	    print STDERR "$sample_name\tREF:$reference{$sample_name}\t$bowtieIndex{$assembly}\n";
 	    if ($type ne "4C"){
@@ -661,7 +686,7 @@ if (($sampleSheet ne "")){
 			} else {
 			    # If you can't find Fastq file anywhere, then die.
 			    # This would indicate an error in the path or filename, or that the bcl2fq job failed.  It could also indicate that the index was wrong in the sample sheet, and that no reads were assigned to a specific sample.
-			    print STDERR "ERR:  Cannot find fastq file!\n";
+			    print STDERR "ERR:  Cannot find fastq file! This could be because NovaSeq has fewer lanes than NextSeq.\n";
 			}
 		    }
 		    # Write the sample report file.
@@ -670,7 +695,6 @@ if (($sampleSheet ne "")){
 		    if (!exists($fastqs{$sample_name})){
 			$fastqs{$sample_name} = "$outputDirectory\/$sample_project\/fastq\/$fastq";
 		    }else {$fastqs{$sample_name} .= ",$outputDirectory\/$sample_project\/fastq\/$fastq";}
-		    #		    print STDERR "$sample_name\t$fastqs{$sample_name}\n";
 		}
 	    }
 	    # Create a hash of all samples in a given sample project (TANGO/MOLNG)
@@ -846,7 +870,7 @@ if (($type eq "4C") && ($build4C == 1)){
 		$result = `sbatch $outputDirectory/$sample_project/scripts/run_4C_demultiplex.sh`;
 		$result =~ s/Submitted batch job //g;
 		$result =~ s/\s//g;
-		print STDERR "Predicted SLURM job ID:  $result\n";
+#		print STDERR "Predicted SLURM job ID:  $result\n";
 	    }
 	    my $jobfinished = "no";
 	    # Wait until the job is Complete.
@@ -994,7 +1018,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    if ($runPairedEnd == 0){
 		if ($runTrim == 1){
 		    &datePrint("Setting up trimming for single end reads.");
-		    print SH "# Setting up trimming for single end reads.\n";
+		    print SH "\n# Setting up trimming for single end reads.\n";
 # Pascal says it is not necessary to explicitly load java (2018-07-05)
 #		    print SH "module load java/jdk1.8.0_25\n";
 #		    print VER "EXEC module load java/jdk1.8.0_25\n";
@@ -2027,7 +2051,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    $result =~ s/\s+/\:/g;
 	    $result =~ s/^://;
 	    $result =~ s/:$//;
-	    print STDERR "Predicted SLURM job IDs:  $result\n";
+#	    print STDERR "Predicted SLURM job IDs:  $result\n";
 	}
 	&datePrint( "Need to wait for the following jobs to finish:\n$result");
 	open (SH, ">$outputDirectory/$project/scripts/AlignmentDependentScript.sh");
@@ -2065,18 +2089,18 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    print SH "touch $outputDirectory\/$project\/alignlog.txt\n";
 	    print SH "for r in $outputDirectory\/$project\/STAR_aln\/*.final.out\n";
 	    print SH "do\n";
-	    print SH "echo \$r | cat >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"Number of input reads\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"Uniquely mapped reads number\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"Uniquely mapped reads \%\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"Number of reads mapped to multiple loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"\% of reads mapped to multiple loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"Number of reads mapped to too many loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"\% of reads mapped to too many loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"\% of reads unmapped:\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"Number of chimeric reads\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "grep \"% of chimeric reads\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
-	    print SH "echo \"=========================================================================\" | cat >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\techo \$r | cat >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"Number of input reads\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"Uniquely mapped reads number\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"Uniquely mapped reads \%\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"Number of reads mapped to multiple loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"\% of reads mapped to multiple loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"Number of reads mapped to too many loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"\% of reads mapped to too many loci\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"\% of reads unmapped:\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"Number of chimeric reads\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\tgrep \"% of chimeric reads\" \$r >> $outputDirectory\/$project\/alignlog.txt\n";
+	    print SH "\techo \"=========================================================================\" | cat >> $outputDirectory\/$project\/alignlog.txt\n";
 	    print SH "done\n";
 	}
 	if ($type eq "chipseq"){
@@ -2086,8 +2110,11 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    print SH "if [ ! -f $outputDirectory\/$project\/scripts\/plot_fingerprint.sh ];\nthen\npython3 /projects\/p20742\/tools\/bin\/getFingerprint.py -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/scripts\/\nsh $outputDirectory\/$project\/scripts\/plot_fingerprint.sh\n";
 	    #    print SH "wait\nmv $outputDirectory\/$project\/scripts\/fingerprint.pdf $outputDirectory\/$project\/bam\/\nfi\n";
 	}
-	foreach my $job (@alignJobs){
-	    print SH "seff $job > $outputDirectory/metadata/SLURM.$job.seff.txt\n";
+	if ($scheduler eq "SLURM"){
+	    print SH "\n # Use Seff to report on job outcome.\n";
+	    foreach my $job (@alignJobs){
+		print SH "seff $job > $outputDirectory/metadata/SLURM.align.$job.seff.txt\n";
+	    }
 	}
 	close SH;
 	&datePrint("Creating dependent job that will only run after alignments finish.");
@@ -2099,7 +2126,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    $result2 = `sbatch $outputDirectory/$project/scripts/AlignmentDependentScript.sh`;
 	    $result2 =~ s/Submitted batch job //g;
 	    $result2 =~ s/\s//g;
-	    print STDERR "Predicted SLURM job ID:  $result2\n";
+#	    print STDERR "Predicted SLURM job ID:  $result2\n";
 	}
 	my $jobfinished = "no";
 	# Wait until the job is Complete.
@@ -2873,7 +2900,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		$result2 =~ s/\s+//g;
 	    } elsif ($scheduler eq "SLURM"){
 		$result2 = `sbatch $outputDirectory/$project/scripts/PeakCallingDependentScript.sh`;
-		$result =~ s/Submitted batch job //g;
+		$result2 =~ s/Submitted batch job //g;
 		$result2 =~ s/\s+//g;
 	    }
 	    my $jobfinished = "no";
@@ -3124,15 +3151,16 @@ sub waitForJob {
 		print STDERR ".";
 	    }
 	} elsif ($scheduler eq "SLURM"){
-	    until ($qstat_output =~ /Invalid job id/){
+	    until ($qstat_output =~ /COMPLETED/){
 		sleep(300);
-		$qstat_output = `squeue -j$jobId --Format=state`;		
+		$qstat_output = `sacct -j $jobId -n -b`;
 		print STDERR ".";
-		print STDERR "\"SLURM result $qstat_output\"";
+#		print STDERR "$qstat_output";
 	    }
 	}
+	print STDERR "Job $jobId is complete, scheduler $scheduler\n";
 	if ($scheduler eq "SLURM"){
-	    `seff $jobId > $outputDirectory/metadata/SLURM.$jobId.seff.txt`;
+	    `seff $jobId > $outputDirectory/metadata/SLURM.checkJob.$jobId.seff.txt`;
 	}
 }
 
