@@ -39,7 +39,7 @@ my $fastqDirectory = "";
 my $sampleSheet = "";
 my $comparisons = "";
 my $type = "";
-my $scheduler = "MOAB";
+my $scheduler = "SLURM";
 my $numProcessors = 4;
 my $memory = 50000;
 my $multiMap = 0;
@@ -2295,58 +2295,69 @@ if ($buildGenotyping ==1) {
 		print SH "\tR=$gatkRef{$reference{$sample}} \\\n";
 		print SH "\tCREATE_INDEX=true\n";
 		print SH "date\n\n";
-		print SH "# Set up path for GATK 4\n";
-		$moduleText = &checkLoad("gatk/4.1.0",\%modulesLoaded);
-		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"gatk/4.0.4"} = 1;}
-		print SH "export PATH=\$PATH:/software/gatk/4.1.0/\n\n";
-		print SH "# Split Reads at splicing events (runs of Ns in CIGAR string)\n";
-		print SH "# Note that in earlier versions of gatk / aligners there was a problem with low quality scores \n";
-		print SH "# at splice junctions but that is now handled automatically by gatk4.\n";
-		print SH "gatk SplitNCigarReads \\\n";
-		print SH "\t-R=$gatkRef{$reference{$sample}} \\\n";
-		print SH "\t-I=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam \\\n";
-		print SH "\t-O=$outputDirectory\/$project\/bam\/$sample.split.bam\n";
-		print SH "date\n\n";
-		# Print experimenting with RNAseq genotyping here.
-
-		print SH "# Set up path for GATK 3.7\n";
+		print SH "# GATK 4 is not working.  Reverting to GATK 3.7\n";
+#		print SH "# Set up path for GATK 3.7\n";
 		$moduleText = &checkLoad("gatk/3.7.0",\%modulesLoaded);
 		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"gatk/3.7.0"} = 1;}
 		print SH "export PATH=\$PATH:/software/gatk/3.7.0/\n\n";
+		print SH "# Split Reads at splicing events (runs of Ns in CIGAR string)\n";
+		#		print SH "# Note that in earlier versions of gatk / aligners there was a problem with low quality scores \n";
+#		print SH "# at splice junctions but that is now handled automatically by gatk4.\n";
+		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		print SH "\t-T SplitNCigarReads \\\n";
+		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam \\\n";
+		print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		print SH "\t-U ALLOW_N_CIGAR_READS -fixNDN\n";
+		print SH "date\n\n";
 		print SH "# Find Target regions for Realignment.\n";  # Not available in gatk4, only gatk3.
-		print SH "gatk RealignerTargetCreator \\\n";  
+		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		print SH "\t-T RealignerTargetCreator \\\n";  
 		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
 		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
 		print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.intervals.list \\\n";
 		print SH "\t--known $knownIndelsites{$reference{$sample}}\n";
-		print SH "date\n\n";
-		
+		print SH "date\n\n";		
 		print SH "# Realign indels in target regions.\n";
-		print SH "java -jar $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T IndelRealigner -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.bam -targetIntervals $outputDirectory\/$project\/bam\/$sample.split.intervals.list -known $knownIndelsites{$reference{$sample}} -o $outputDirectory\/$project\/bam\/$sample.split.real.bam\n";
+		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		print SH "\t-T IndelRealigner \\\n";
+		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		print SH "\t-targetIntervals $outputDirectory\/$project\/bam\/$sample.split.intervals.list \\\n";
+		print SH "\t-known $knownIndelsites{$reference{$sample}} \\\n";
+		print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.real.bam\n";
 		print SH "date\n\n";
 		print SH "# Generating Base Recalibration Table.\n";
-		print SH "java -jar $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T BaseRecalibrator -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.split.real.recal.table -knownSites $knownSNPsites{$reference{$sample}}\n";
+		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		print SH "\t-T BaseRecalibrator \\\n";
+		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.real.bam \\\n";
+		print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.split.real.recal.table \\\n";
+		print SH "\t-knownSites $knownSNPsites{$reference{$sample}}\n";
 		print SH "date\n\n";
-		print SH "##Commenting out HaplotypeCaller as Mutect2 is working better.\n";
-		print SH "## Calling SNPs and Indels with HaplotypeCaller.\n";
-		print SH "#java -jar $NGSbartom/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T HaplotypeCaller -R $gatkRef{$reference{$sample}} -I $outputDirectory\/$project\/bam\/$sample.split.real.bam -o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf --dbsnp $knownSNPsites{$reference{$sample}}\n";
-
-
-
-
-		
+#		print SH "##Commenting out HaplotypeCaller as Mutect2 is working better.\n";
+		print SH "# Calling SNPs and Indels with HaplotypeCaller.\n";
+		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		print SH "\t-T HaplotypeCaller \\\n";
+		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.real.bam \\\n";
+		print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf \\\n";
+		print SH "\t--dbsnp $knownSNPsites{$reference{$sample}}\n";
+		print SH "date\n\n";
 		print SH "# Calling SNPs and Indels with Mutect2.\n";
-		print SH "gatk Mutect2 \\\n";
-		print SH "\t-R=$gatkRef{$reference{$sample}} \\\n";
-		print SH "\t-I=$outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
-		print SH "\t-O=$outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
-		print SH "\t-tumor=$sample\n";
+		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		print SH "\t-T Mutect2 \\\n";
+		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		print SH "\t-O $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
+		print SH "\t-tumor $sample\n";
 		print SH "date\n\n";
 		print SH "# Filter Mutect2 calls.\n";
-		print SH "gatk FilterMutectCalls \\\n";
+		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		print SH "\t-T FilterMutectCalls \\\n";
 		print SH "\t--output-mode EMIT_ALL_CONFIDENT_SITES \\\n";
-		print SH "\t-V=$outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
-		print SH "\t-O=$outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf\n";
+		print SH "\t-V $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
+		print SH "\t-O $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf\n";
 		print SH "date\n\n";
 		print SH "# Sort and remove duplicates from VCF file.\n";
 		print SH "sort $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf | uniq > $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.sorted.vcf\n";
