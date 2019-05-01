@@ -327,6 +327,7 @@ if ($scheduler eq "MOAB"){
     $header .= "#SBATCH --mem=$memory\n";
     # Run the scripts from $outputDirectory/metadata, which will put the stdout / stderr files there for debugging.
     $header .= "#SBATCH --chdir=$outputDirectory/metadata/\n";
+    $header .= "#SBATCH -o \"\%x.o\%j\"\n";
     #    $header .= "#MOAB -W umask=0113\n"; #How do I do this in SLURM?
     # Maybe we just shouldn't be doing this.  Leaving it out for now.
     if ($node ne ""){
