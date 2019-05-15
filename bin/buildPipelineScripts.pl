@@ -326,6 +326,10 @@ if ($scheduler eq "MOAB"){
     $header .= "#SBATCH -m a\n"; # only email user if job aborts
     $header .= "#SBATCH --mem=$memory\n";
     # Run the scripts from $outputDirectory/metadata, which will put the stdout / stderr files there for debugging.
+    # First check for metadata directory existence, and create if absent
+    if (!(-e "$outputDirectory\/metadata")){
+      `mkdir $outputDirectory\/metadata`;
+    }
     $header .= "#SBATCH --chdir=$outputDirectory/metadata/\n";
     $header .= "#SBATCH -o \"\%x.o\%j\"\n";
     #    $header .= "#MOAB -W umask=0113\n"; #How do I do this in SLURM?
@@ -550,7 +554,7 @@ if ($buildBcl2fq == 1){
     open(VER,">$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt");
     open(SH,">$shScript");
     print SH $header;
-    if ($scheduler eq "MOAB"){    
+    if ($scheduler eq "MOAB"){
 	print SH "#MSUB -l nodes=1:ppn=$bclFqProcessors\n";
 	print SH "#MSUB -N bcl2fastq\n";
     } elsif ($scheduler eq "SLURM"){
@@ -838,15 +842,15 @@ if (($type eq "4C") && ($build4C == 1)){
 	open(FCSH,">$outputDirectory\/$sample_project\/scripts\/run_4C_demultiplex.sh");
 	my (%modulesLoaded, $moduleText);
 	print FCSH "$header";
-	if ($scheduler eq "MOAB"){    
+	if ($scheduler eq "MOAB"){
 	    print FCSH "#MSUB -N 4Cdemultiplex\n";
 	    print FCSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	} elsif ($scheduler eq "SLURM"){
 	    print FCSH "#SBATCH --job-name=4Cdemultiplex\n";
 	    print FCSH "#SBATCH --nodes=1\n";
 	    print FCSH "#SBATCH -n $numProcessors\n";
-	}	
-	print FCSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";	
+	}
+	print FCSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	print FCSH "export PATH=\$PATH:$NGSbartom/tools/bin/\n";
 	print FCSH "date\n";
 	print FCSH "\n# Copy raw reads into fastq directory and de-compress them.\n";
@@ -971,14 +975,14 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    open (SH,">$shScript");
 	    my (%modulesLoaded, $moduleText);
 	    print SH "$header";
-	    if ($scheduler eq "MOAB"){    
+	    if ($scheduler eq "MOAB"){
 		print SH "#MSUB -N $sample\_$aligner\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    } elsif ($scheduler eq "SLURM"){
 		print SH "#SBATCH --job-name=$sample\_$aligner\n";
 		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
-	    }	
+	    }
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    print SH "export PATH=\$PATH:$NGSbartom/tools/bin/\n";
 	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
@@ -1523,14 +1527,14 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    open (SH,">$shScript");
 	    my (%modulesLoaded, $moduleText);
 	    print SH "$header";
-	    if ($scheduler eq "MOAB"){    
+	    if ($scheduler eq "MOAB"){
 		print SH "#MSUB -N $sample\_$aligner\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    } elsif ($scheduler eq "SLURM"){
 		print SH "#SBATCH --job-name=$sample\_$aligner\n";
 		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
-	    }	
+	    }
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    $moduleText = &checkLoad("bowtie/1.1.2",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bowtie/1.1.2"} = 1;}
@@ -1727,7 +1731,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
 	} elsif ($scheduler eq "SLURM"){
 	    print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec sbatch {} ./ \\\;\n";
-	} 
+	}
     }
 }
 
@@ -1754,14 +1758,14 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    open (SH,">$shScript");
 	    my (%modulesLoaded, $moduleText);
 	    print SH "$header";
-	    if ($scheduler eq "MOAB"){    
+	    if ($scheduler eq "MOAB"){
 		print SH "#MSUB -N $sample\_$aligner\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    } elsif ($scheduler eq "SLURM"){
 		print SH "#SBATCH --job-name=$sample\_$aligner\n";
 		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
-	    }	
+	    }
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    $moduleText = &checkLoad("bwa/0.7.12",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bwa/0.7.12"} = 1;}
@@ -2022,11 +2026,11 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  	# Print tips on running the bwa shell scripts.
 	 print STDERR "To execute all alignment scripts, use the following command:\n";
 	 if ($scheduler eq "MOAB"){
-	     print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n"; 
+	     print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
 	 } elsif ($scheduler eq "SLURM"){
 	     print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;\n";
 	 }
-     }     
+     }
 }
 
 
@@ -2058,7 +2062,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	open (SH, ">$outputDirectory/$project/scripts/AlignmentDependentScript.sh");
 	print SH $header;
 	my (%modulesLoaded, $moduleText);
-	if ($scheduler eq "MOAB"){    
+	if ($scheduler eq "MOAB"){
 	    print SH "#MSUB -N PostAlignmentAnalysis\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	    print SH "#MSUB -W depend=afterok:$result\n";
@@ -2067,7 +2071,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    print SH "#SBATCH --nodes=1\n";
 	    print SH "#SBATCH -n $numProcessors\n";
 	    print SH "#SBATCH --dependency=afterok:$result\n";
-	}	
+	}
 	print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	print SH "module load deeptools/3.1.1\n";
 	print SH "\necho \"Alignment jobs $result have finished.\"\n";
@@ -2144,7 +2148,7 @@ if ($runRNAstats == 1){
 	    open (SH, ">$outputDirectory/$project/scripts/runRNAstats_summary.sh");
 	    my (%modulesLoaded, $moduleText);
 	    print SH $header;
-	    if ($scheduler eq "MOAB"){    
+	    if ($scheduler eq "MOAB"){
 		print SH "#MSUB -N $project\_runRNAstats\n";
 		print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		print SH "#MSUB -l walltime=48:00:00\n";
@@ -2153,7 +2157,7 @@ if ($runRNAstats == 1){
 		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
 		print SH "#SBATCH --time=48:00:00\n";
-	    }	
+	    }
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
@@ -2184,14 +2188,14 @@ if ($runRNAstats == 1){
 		open (SSH, ">$outputDirectory/$project/scripts/runRNAstats.$sample.sh");
 		print SSH $header;
 		my (%modulesLoaded, $moduleText);
-		if ($scheduler eq "MOAB"){    
+		if ($scheduler eq "MOAB"){
 		    print SSH "#MSUB -N $project\_runRNAstats.$sample\n";
 		    print SSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		} elsif ($scheduler eq "SLURM"){
 		    print SSH "#SBATCH --job-name=$project\_runRNAstats.$sample\n";
 		    print SSH "#SBATCH --nodes=1\n";
 		    print SSH "#SBATCH -n $numProcessors\n";
-		}	
+		}
 		print SSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		print SSH "module load R/3.2.2\n";
 		$moduleText = &checkLoad("bowtie2/2.2.6",\%modulesLoaded);
@@ -2260,7 +2264,7 @@ if ($buildGenotyping ==1) {
 		open (SH, ">$outputDirectory/$project/scripts/$sample\_genotype.sh");
 		my (%modulesLoaded, $moduleText);
 		print SH $header;
-		if ($scheduler eq "MOAB"){    
+		if ($scheduler eq "MOAB"){
 		    print SH "#MSUB -N $sample\_genotype\n";
 		    #print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		    # Some of the steps below can be parallelized, but not all,
@@ -2272,7 +2276,7 @@ if ($buildGenotyping ==1) {
 		    print SH "#SBATCH --job-name=$sample\_genotype\n";
 		    print SH "#SBATCH --nodes=1\n";
 		    print SH "#SBATCH -n 6\n";
-		}	
+		}
 		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 		print SH "\n\n";
@@ -2313,12 +2317,12 @@ if ($buildGenotyping ==1) {
 		print SH "date\n\n";
 		print SH "# Find Target regions for Realignment.\n";  # Not available in gatk4, only gatk3.
 		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
-		print SH "\t-T RealignerTargetCreator \\\n";  
+		print SH "\t-T RealignerTargetCreator \\\n";
 		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
 		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
 		print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.intervals.list \\\n";
 		print SH "\t--known $knownIndelsites{$reference{$sample}}\n";
-		print SH "date\n\n";		
+		print SH "date\n\n";
 		print SH "# Realign indels in target regions.\n";
 		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
 		print SH "\t-T IndelRealigner \\\n";
@@ -2391,14 +2395,14 @@ if ($buildEdgeR ==1) {
 	open (SH, ">$outputDirectory/$project/scripts/downstreamRNAanalysis.sh");
 	my (%modulesLoaded, $moduleText);
 	print SH $header;
-	if ($scheduler eq "MOAB"){    
+	if ($scheduler eq "MOAB"){
 	    print SH "#MSUB -N downstreamRNAanalysis\n";
 	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 	} elsif ($scheduler eq "SLURM"){
 	    print SH "#SBATCH --job-name=downstreamRNAanalysis\n";
 	    print SH "#SBATCH --nodes=1\n";
 	    print SH "#SBATCH -n $numProcessors\n";
-	}	
+	}
 	print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	print SH "module load R/3.2.2\n";
 	if ($type eq "RNA"){
@@ -2643,9 +2647,9 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		    print BSH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		} elsif ($scheduler eq "SLURM"){
 		    print BSH "#SBATCH --job-name=callSicerPeaks\n";
-		    print SH "#SBATCH --nodes=1\n";
+		    print BSH "#SBATCH --nodes=1\n";
 		    print BSH "#SBATCH -n $numProcessors\n";
-		}	
+		}
 		print BSH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		print BSH "\nmodule unload R\n";
 		print BSH "module unload mpi\n";
@@ -2678,7 +2682,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "#SBATCH --job-name=$ip\_NarrowPeaks\n";
 			    print SH "#SBATCH --nodes=1\n";
 			    print SH "#SBATCH -n $numProcessors\n";
-			}	
+			}
 			print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 			#print SH "module load R/3.2.2\n";
 			print SH "export PATH=\$PATH:$NGSbartom/tools/bin/MACS-1.4.2/bin\n";
@@ -2901,7 +2905,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 		print SH "#SBATCH --nodes=1\n";
 		print SH "#SBATCH -n $numProcessors\n";
 		print SH "#SBATCH --dependency=afterok:$result\n";
-	    }	
+	    }
 	    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 	    print SH "\necho \"Peaking calling jobs $result have finished.\"\n";
 	    close SH;
@@ -2988,7 +2992,7 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		    print SH "#SBATCH --job-name=$peakset\_diffPeak\n";
 		    print SH "#SBATCH --nodes=1\n";
 		    print SH "#SBATCH -n $numProcessors\n";
-		}	
+		}
 		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 		$moduleText = &checkLoad("bedtools/2.17.0",\%modulesLoaded);
 		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"bedtools/2.17.0"} = 1;}
