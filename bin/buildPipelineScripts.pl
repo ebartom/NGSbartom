@@ -74,6 +74,7 @@ my $scientist = "XXX";
 my $s3path = "";
 my $fourCdescription = "";
 my $chipDescription = "";
+my $exomeDescription = "";
 my $htseq = 1;
 my $bedtools = 0;
 my $ngsplot = 0;
@@ -102,6 +103,7 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'comparisons|c=s' => \$comparisons,
 	   '4Cfile|4C=s' => \$fourCdescription,
 	   'ChIPfile|chip=s' => \$chipDescription,
+	   'exomePairingFile|pairs=s' => \$exomeDescription,
 	   'type|t=s' => \$type,
 	   'aligner|a=s' => \$aligner,
 	   'trimString|ts=s' => \$trimString,
@@ -350,6 +352,7 @@ print STDERR "Bam Directory: $bamDirectory\n";
 print STDERR "Output Directory: $outputDirectory\n";
 print STDERR "Type of Analysis: $type\n";
 print STDERR "=====================================\nAnalysis plan:\n";
+if ($runPairedEnd){ print STDERR "All fastq files are assumed to be paired, with pairings indicated by _R1, _R2 or _R1, _R3.\n";}
 if ($buildBcl2fq){ print STDERR "Will build scripts for de-multiplexing with Bcl2fq.\n";}
 if ($runBcl2fq){ print STDERR "Will run scripts for de-multiplexing with Bcl2fq.\n";}
 if ($runAlign && $runTrim) { print STDERR "Will trim fastq files according to trailing quality scores with Trimmomatic ($trimString).\n";}
@@ -369,13 +372,13 @@ if ($buildDiffPeaks) { print STDERR "Will build scripts to find differentially e
 if ($runDiffPeaks) { print STDERR "Will run scripts to find differentially expressed peaks.\n";}
 if ($build4C){ print STDERR "Will build scripts for analyzing 4C data, starting with mock-demultiplexed fastq files.\n";}
 if ($run4C){ print STDERR "Will run scripts for analyzing 4C data.\n";}
-if ($buildGenotyping){ print STDERR "Will build scripts for genotyping samples; currently only implemented for RNA.\n";}
+if ($buildGenotyping){ print STDERR "Will build scripts for genotyping samples.\n";}
 if ($runGenotyping){ print STDERR "Will run scripts for genotyping samples.\n";}
 print STDERR "=====================================\n";
 
 # Define references.
 my (%bowtieIndex,%starIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx,%genebed,%samplegenebed);
-my (%gatkRef,%knownSNPsites,%knownIndelsites);
+my (%gatkRef,%knownSNPsites,%knownIndelsites,%cosmicSNPsites);
 
 $bowtieIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38";
 $bwaIndex{"hg38"} = "$NGSbartom/anno/bwa_indexes/hg38.fa";
@@ -389,6 +392,7 @@ $samplegenebed{"hg38"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.r1k.cuff.b
 $rsemTx{"hg38"} = "$NGSbartom/anno/rsemTx/hg38.Ens_78";
 $gatkRef{"hg38"} = "$NGSbartom/anno/picardDict/hg38.fa";
 $knownSNPsites{"hg38"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
+$cosmicSNPsites{"hg38"} = "$NGSbartom/anno/Cosmic/CosmicCodingMuts.vcf.gz";
 $knownIndelsites{"hg38"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_standard.indels.hg38.vcf";
 
 $bowtieIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/Bowtie2Index/genome";
@@ -403,6 +407,7 @@ $gff{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes
 $rsemTx{"hg38.mp"} = "NEEDS TO BE UPDATED $NGSbartom/anno/rsemTx/hg38.Ens_78";
 $gatkRef{"hg38.mp"} = "$NGSbartom/anno/picardDict/hg38.fa";
 $knownSNPsites{"hg38.mp"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
+$cosmicSNPsites{"hg38"} = "$NGSbartom/anno/Cosmic/CosmicCodingMuts.vcf.gz";
 $knownIndelsites{"hg38.mp"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_standard.indels.hg38.vcf";
 
 $bowtieIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19";
@@ -714,12 +719,12 @@ if (($sampleSheet ne "")){
     }
     close OUT;
 } elsif ($sampleSheet eq ""){
-    my ($sample_name);
+    my ($sample_name,$project_name,@fastqlist,@bamlist,$fastqlist,$bamlist);
     if (($assembly eq "") || (($fastqDirectory eq "")&& ($startFromBAM == 0))){
 	die "ERR:  If SampleSheet is not specified, assembly and fastqDirectory or bamDirectory must be\n";
-    } elsif ($fastqDirectory ne ""){
+    } elsif ($fastqDirectory ne "") {
 	&datePrint("Looking for Fastq files in $fastqDirectory.");
-	my $fastqlist = "";
+	$fastqlist = "";
 	#	$fastqlist = system("ls $fastqDirectory\/*.fastq.*gz");
 	$fastqlist = `ls $fastqDirectory\/*.fastq.gz`;
 #	print STDERR $fastqlist;
@@ -735,9 +740,9 @@ if (($sampleSheet ne "")){
 	if ($fastqlist eq ""){
 	    $fastqlist = `ls $fastqDirectory\/*.fq`;
 	}
-	my @fastqlist = split(/\s+/,$fastqlist);
+	@fastqlist = split(/\s+/,$fastqlist);
 	&datePrint("Found @fastqlist");
-	my $project_name = "thisProject";
+#	my $project_name = "thisProject";
 	if ($fastqDirectory =~ /([\w\-\_\.]+)\/fastq\/?$/){
 	    $project_name = $1;
 	} elsif ($fastqDirectory =~ /([\w\-\_\.]+)\/?$/){
@@ -746,6 +751,22 @@ if (($sampleSheet ne "")){
 	    $project_name =~ s/.fastq//g;
 	    $project_name =~ s/.seqfiles//g;
 	}
+	&datePrint("Project name is $project_name");
+    } elsif ($bamDirectory ne "") {
+	&datePrint("Looking for BAM files in $bamDirectory.");
+	$bamlist = `ls $bamDirectory\/*.bam`;
+	@bamlist = split(/\s+/,$bamlist);
+	&datePrint("Found @bamlist");
+	$project_name = basename($bamDirectory);
+	if ($bamDirectory =~ /([\w\-\_\.]+)\/bam\/?$/){
+	    $project_name = $1;
+	}
+	$project_name =~ s/.bams//g;
+	$project_name =~ s/.bam//g;
+	$project_name =~ s/.bamfiles//g;
+	&datePrint("Project name is $project_name");
+    }
+    if (($fastqDirectory ne "") || ($bamDirectory ne "")){
 	$reference{$project_name}=$assembly;
 	my @now = localtime();
 	my $timestamp = sprintf("%04d.%02d.%02d.%02d%02d.%02d", $now[5]+1900, $now[4]+1, $now[3],$now[2],$now[1],$now[0]);
@@ -753,8 +774,11 @@ if (($sampleSheet ne "")){
 	if (!(-e "$outputDirectory\/metadata")){
 	    `mkdir $outputDirectory\/metadata`;
 	}
+	if (!(-e "$outputDirectory\/$project_name")){
+	    `mkdir $outputDirectory\/$project_name`;
+	}
 	open(VER,">$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt");
-	&datePrint("Project name is $project_name");
+	&datePrint("Creating metadata file for project $project_name");
 	print VER "REF $reference{$project_name}\n";
 	print VER "REF Bowtie Index: $bowtieIndex{$reference{$project_name}}\n";
 	print VER "REF BWA Index: $bwaIndex{$reference{$project_name}}\n";
@@ -768,6 +792,8 @@ if (($sampleSheet ne "")){
 	print VER "REF GATK reference: $gatkRef{$reference{$project_name}}\n";
 	print VER "REF Known SNP sites: $knownSNPsites{$reference{$project_name}}\n";
 	print VER "REF Known Indel sites: $knownIndelsites{$reference{$project_name}}\n";
+    } 
+    if ($fastqDirectory ne ""){
 	print VER "INPUT $project_name @fastqlist\n";
 	foreach my $fastq (@fastqlist){
 	    #	    print STDERR "Fastq: \"$fastq\"\n";
@@ -793,25 +819,20 @@ if (($sampleSheet ne "")){
 		}
 	    }
 	}
-    } elsif ($startFromBAM == 1){
-	&datePrint("Looking for bam files in $bamDirectory.");
-	my $bamlist = "";
-#	$bamlist = system("ls $bamDirectory\/*.bam");
-	$bamlist = `ls $bamDirectory\/*.bam`;
-	print STDERR $bamlist;
-	my @bamlist = split(/\n/,$bamlist);
-	&datePrint("Found @bamlist");
-	my $project_name = "thisProject";
-	if ($bamDirectory =~ /\/?([\w\-\.\_]+)\/bam\/?$/){
-	    $project_name = $1;
-	}elsif ($bamDirectory =~ /\/?([\w\-\.\_]+)\/?$/){
-	    $project_name = $1;
-	    $project_name =~ s/.bams//g;
-	    $project_name =~ s/.bam//g;
-	    $project_name =~ s/.bamfiles//g;
+    } elsif ($bamDirectory ne ""){
+	if (!(-e "$outputDirectory\/$project_name\/scripts")){
+	    `mkdir $outputDirectory\/$project_name\/scripts`;
 	}
-	$reference{$project_name}=$assembly;
-	&datePrint("Project name is $project_name");
+	if (!(-e "$outputDirectory\/$project_name\/bam")){
+	    `mkdir $outputDirectory\/$project_name\/bam`;
+	}
+	&datePrint("Copying bam files into $outputDirectory\/$project_name\/bam\/");
+	$cmd .= "cp $bamDirectory\/*.bam $outputDirectory\/$project_name\/bam\/\n";
+	system($cmd);
+	$bamDirectory = "$outputDirectory\/$project_name\/bam\/";
+	$bamlist = `ls $bamDirectory\/*.bam`;
+	@bamlist = split(/\s+/,$bamlist);
+	print VER "INPUT $project_name @bamlist\n";
 #	print STDERR "$project_name @bamlist\n";
 	foreach my $bam (@bamlist){
 #	    print STDERR "Bam: \"$bam\"\n";
@@ -830,6 +851,8 @@ if (($sampleSheet ne "")){
     }
 }
 
+#print STDERR "Samples list\n";
+#print STDERR keys(%samples);
 
 if (($type eq "4C") && ($build4C == 1)){
     my $maxPrimerMismatch = 1;
@@ -912,7 +935,7 @@ if (($type eq "4C") && ($build4C == 1)){
 
 
 # Create the directory structure, and move fastq files to a project specific directory (by TANGO/MOLNG) in the top level of the base space directory.
-&datePrint("Setting up directory structure and maybe moving fastq files to project sub-directory within $baseSpaceDirectory");
+&datePrint("Setting up directory structure and maybe moving fastq or bam files to project sub-directory within $outputDirectory");
 foreach my $project (keys(%samples)){
     if ($scientists{$project} ne ""){
 	$scientist = $scientists{$project};
@@ -1019,6 +1042,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    }
 	    @fastqs = split(/\s+/,$newfastqs);
 	    $newfastqs =~ s/\s+/\,/g;
+	    if ($newfastqs =~ /^\,([\w\-\_\,\/\.]+)$/){ $newfastqs = $1;}
 	    $fastqs{$sample} = $newfastqs;
 	    if ($runPairedEnd == 0){
 		if ($runTrim == 1){
@@ -1044,7 +1068,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 				$fastq = $newfastq;
 			    }
 			    print STDERR "Fastq: $fastq\nNewFastq: $newfastq\nFastqname = $fastqname\n";
-			    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+			    print SH "\n# Trim SE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 			    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed $trimString\n";
 			    print VER "EXEC $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
 			    print SH "gzip $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
@@ -1105,7 +1129,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			    $rgString = "ID:$sample LB:$sample PU:nextseq DT:$date SM:$sample CN:ASH PL:illumina";
 			}
 			print SH "# Adding Readgroups from rgstring $rgString\n";
-			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $fastqs{$sample} --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
+			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $fastqs{$sample} --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMmapqUnique 60 --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
 			# Load Samtools if it is not already loaded.
 			$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
@@ -1163,12 +1187,9 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		print VER "EXEC $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen\n";
 
 		if ($runTrim == 1){
-		    &datePrint("Setting up trimming for paired end reads.");
-		    print SH "# Setting up trimming for paired end reads.\n";
-		    # Pascal says this is unnecessary as java is loaded by default.  2018-07-05
-#		    print SH "module load java/jdk1.8.0_25\n";
-#		    print VER "EXEC module load java/jdk1.8.0_25\n";
-		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+		    &datePrint("Setting up trimming for sample $sample paired end reads.");
+		    print SH "\n# Setting up trimming for sample $sample for paired end reads.\n";
+		    print SH "\n# Trim PE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar PE -threads $numProcessors -phred33 $read1fastqs $read2fastqs $outputDirectory/$project/fastq/$sample\_R1.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R1U.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R2.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R2U.fastq.trimmed.gz $trimString\n\n";
 		    print VER "EXEC $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
 		    print SH "# Running FastQC to assess read quality.\n";
@@ -1212,7 +1233,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			    $rgString = "ID:$sample LB:$sample PU:nextseq DT:$date SM:$sample CN:ASH PL:illumina";
 			}
 			print SH "# Adding Readgroups from rgstring $rgString\n";
-			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $read1fastqs $read2fastqs --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
+			print SH "STAR --runMode alignReads --genomeDir $starIndex{$reference{$sample}} --runThreadN $numProcessors --readFilesIn $read1fastqs $read2fastqs --readFilesCommand zcat -c --outFileNamePrefix $outputDirectory\/$project\/STAR_aln\/$sample --outSAMtype BAM Unsorted --chimSegmentMin 20 --quantMode TranscriptomeSAM --outReadsUnmapped Fastq --outMultimapperOrder Random --outSAMattrRGline $rgString --outSAMmapqUnique 60 --outFilterMultimapNmax $tophatMultimap --outFilterMismatchNmax $tophatReadMismatch\n\n";
 			print SH "# Sort the output of STAR (outputting sorted BAMs from STAR took too much memory)\n";
 			$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
@@ -1556,7 +1577,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			$fastq = "$outputDirectory/$project/fastq/$1.fastq.gz";
 			push(@newFastqs,$fastq);
 		    }
-		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+		    print SH "\n# Trim SE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
 		    print VER "EXEC  $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
 		    print SH "gzip $fastq.trimmed\n";
@@ -1612,7 +1633,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "date\n";
 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
-	    print SH "if [ $outputDirectory\/$project\/bam\/bamlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
+	    print SH "if ! [ -f \"$outputDirectory\/$project\/bam\/bamlist.txt\" ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
 	    print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
 	    print SH "date\n\n";
 	    if ($type eq "chipseq"){
@@ -1664,7 +1685,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    }
 		    print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
-		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
+		    print SH "if ! [ -f \"$outputDirectory\/$project\/tracks\/bwlist.txt\" ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
 		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
 		    print SH "\n# Make header files for tracks.\n";
 		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
@@ -1753,7 +1774,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	# Foreach sample within the project:
 	foreach my $sample (@samples){
 	    # Create a shell script to run bwa on all fastqs for the sample at the same time.
-	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_align.sh";
+	    my $shScript = "$outputDirectory\/$project\/scripts\/run\_$sample\_$aligner\_align.sh";
 	    &datePrint("Printing $shScript");
 	    open (SH,">$shScript");
 	    my (%modulesLoaded, $moduleText);
@@ -1777,9 +1798,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load picard/1.131\n";
 	    print VER "EXEC module load picard/1.131\n";
-# Pascal says this is unnecessary as java is loaded by default.  2018-07-05
-#	    print SH "module load java/jdk1.8.0_25\n";
-#	    print VER "EXEC module load java/jdk1.8.0_25\n";
+	    print SH "module load java/jdk1.8.0_25\n";
+	    print VER "EXEC module load java/jdk1.8.0_25\n";
 	    print SH "\nmkdir $outputDirectory\/$project\/fastq\n";
 	    print SH "\nmkdir $outputDirectory\/$project\/fastqc\n";
 	    my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
@@ -1797,17 +1817,15 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		print VER "EXEC $NGSbartom/tools/bin/fastq_screen_v0.11.4/fastq_screen\n";
 	    }
 
-	    if ($runTrim == 1){
-		# Pascal says this is unnecessary as java is loaded by default.  2018-07-05
-#		print SH "module load java/jdk1.8.0_25\n";
+	    if (($runTrim == 1) && ($runPairedEnd == 0)){
 		foreach my $fastq (@fastqs){
-		    print SH "\n# Copy fastq files into outputDirectory.\n";
+		    print SH "\n# Copy single end fastq files into outputDirectory.\n";
 		    print SH "cp $fastq $outputDirectory/$project/fastq/\n";
 		    if ($fastq =~ /\/?([\d\_\-\w\.\.]+)\.fastq\.gz$/){
 			$fastq = "$outputDirectory/$project/fastq/$1.fastq.gz";
 			push(@newFastqs,$fastq);
 		    }
-		    print SH "\n# Trim poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+		    print SH "\n# Trim SE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
 		    print VER "EXEC  $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
 		    print SH "gzip $fastq.trimmed\n";
@@ -1841,12 +1859,12 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    if ($fastq =~ /\/?([\d\_\-\w\.]+).fastq\.gz$/){
 			$prefix = $1;
 		    } else { $prefix = $fastq;}
-		    print SH "\n# Align Fastq with BWA\n";
+		    print SH "\n# Align Single End Fastq with BWA\n";
 		    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
-#		    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-#		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
-		    print SH "bwa mem $bwaIndex{$reference{$sample}} $fastq | samtools view -bS - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
+		    $rgString = "\@RG\\\tID:$sample\\\tSM:$sample\\\tPU:nextseq\\\tCN:NUSeq\\\tPL:ILLUMINA";
+		    print SH "# Adding Readgroups from rgstring $rgString\n";
+		    print SH "bwa mem -M -t $numProcessors -R \"$rgString\" $bwaIndex{$reference{$sample}} $fastq |  $NGSbartom/tools/bin/samblaster/samblaster | samtools view -bS - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
 		    print SH "date\n\n";
 		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
 		}
@@ -1866,9 +1884,9 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 			print STDERR "ERR: Could not find Read Number!\n";
 		    }
 		}
-		@read1fastqs = sort(@read1fastqs);
-		@read2fastqs = sort(@read2fastqs);
-		@read3fastqs = sort(@read3fastqs);
+		@read1fastqs = uniq(sort(@read1fastqs));
+		@read2fastqs = uniq(sort(@read2fastqs));
+		@read3fastqs = uniq(sort(@read3fastqs));
 		my $read1fastqs = "@read1fastqs";
 		my $read2fastqs = "@read2fastqs";
 		my $read3fastqs = "@read3fastqs";
@@ -1877,42 +1895,133 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		}
 		$read1fastqs =~ s/\ /,/g;
 		$read2fastqs =~ s/\ /,/g;
+#		print SH "\n# R1: $read1fastqs\n";
+		#		print SH "\n# R2: $read2fastqs\n";
+		if ($runTrim == 1){
+		    &datePrint("Setting up trimming for sample $sample for paired end reads.");
+		    print SH "# Setting up trimming for sample $sample for paired end reads.\n";
+		    print SH "\n# Trim PE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar PE -threads $numProcessors -phred33 $read1fastqs $read2fastqs $outputDirectory/$project/fastq/$sample\_R1.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R1U.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R2.fastq.trimmed.gz $outputDirectory/$project/fastq/$sample\_R2U.fastq.trimmed.gz $trimString\n\n";
+		    print VER "EXEC $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
+		    print SH "# Running FastQC to assess read quality before trimming.\n";
+		    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $read1fastqs $read2fastqs\n";
+		    print VER "EXEC $NGSbartom/tools/bin/FastQC/fastqc (FastQC v0.11.2)\n";
+		    my $trimmedUnpaired1 = "$outputDirectory/$project/fastq/$sample\_R1U.fastq.trimmed.gz";
+		    my $trimmedUnpaired2 = "$outputDirectory/$project/fastq/$sample\_R2U.fastq.trimmed.gz";
+		    print SH "\n# Running FastQC to assess read quality of unpaired reads after trimming.\n";
+		    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $trimmedUnpaired1 $trimmedUnpaired2\n";
+		    my $trimmedPaired1 = "$outputDirectory/$project/fastq/$sample\_R1.fastq.trimmed.gz";
+		    my $trimmedPaired2 = "$outputDirectory/$project/fastq/$sample\_R2.fastq.trimmed.gz";
+		    print SH "\n# Running FastQC to assess read quality of paired reads after trimming.\n";
+		    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $trimmedPaired1 $trimmedPaired2\n";
+		    print SH "date\n\n";
+		    $read1fastqs = $trimmedPaired1;
+		    $read2fastqs = $trimmedPaired2;
+		}
+		@read1fastqs = split(/\,/,$read1fastqs);
+		@read2fastqs = split(/\,/,$read2fastqs);
+		# This is somewhat half set up to deal with multiple fastqs for the same sample.  It works if there is only one read1 fastq per sample.  It
+		# would need to be updated for two or more read1 fastqs per sample.  #ebartom 2019-09-03
 		for (my $i=0;$i <= $#read1fastqs;$i++){
 		    my $prefix = "";
 		    if ($read1fastqs[$i] =~ /\/?([\d\_\-\w\.]+)\_R1\.fastq\.gz$/){
+			$prefix = $1;
+		    } elsif ($read1fastqs[$i] =~ /\/?([\d\_\-\w\.]+)\_R1\_001\.fastq\.gz$/){
 			$prefix = $1;
 		    } else { $prefix = $read1fastqs[$i];}
 		    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		    #$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 		    #if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
-		    print SH "\n# Align Fastq with BWA\n";
-		    print SH "bwa mem $bwaIndex{$reference{$sample}} $read1fastqs[$i] $read2fastqs[$i] | samtools view -bS - > $outputDirectory\/$project\/bam/$prefix.bam\n";
+		    print SH "\n# Align Paired End Fastq with BWA\n";
+		    #		    print SH "# Line L1909\n";
+		    $rgString = "\@RG\\tID:$sample\\tSM:$sample\\tPU:nextseq\\tCN:NUSeq\\tPL:ILLUMINA";
+		    print SH "# Adding Readgroups from rgstring $rgString\n";
+		    print SH "bwa mem -M -t $numProcessors -R \"$rgString\" $bwaIndex{$reference{$sample}} $read1fastqs[$i] $read2fastqs[$i] | \\\n";
+		    print SH "\t$NGSbartom/tools/bin/samblaster/samblaster | \\\n";
+		    print SH "\tsamtools view -b -h - | \\\n";
+		    print SH "\tsamtools sort -o $outputDirectory\/$project\/bam/$sample.bam - && \\\n";
+		    print SH "\tsamtools index $outputDirectory\/$project\/bam\/$sample.bam && \\\n";
+		    print SH "\tsamtools flagstat $outputDirectory\/$project\/bam\/$sample.bam && \n";
 		    print SH "date\n\n";
-		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
+		    push (@bams,"$outputDirectory\/$project\/bam\/$sample.bam");
 		}
 	    }
-	    my $bamString = "I=@bams";
-	    $bamString =~ s/\s/ I=/g;
-	    print SH "# Merge bam files from the same sample $sample\n";
-	    print SH "java -Xmx2g -jar $PICARD MergeSamFiles $bamString O=$outputDirectory\/$project\/bam\/$sample.bam\n";
+	    # I wrote this earlier to except multiple read1fastqs for the same BAM, but I don't have an example of that now, so I will assume there is only one
+	    # pair of reads per bam; this may need to be fixed later. #ebartom 2019-09-03
+#	    my $bamString = "I=@bams";
+#	    $bamString =~ s/\s/ I=/g;
+#	    print SH "# Merge bam files from the same sample $sample\n";
+#	    print SH "java -Xmx2g -jar $PICARD MergeSamFiles $bamString O=$outputDirectory\/$project\/bam\/$sample.bam\n";
+	    #	    print SH "date\n\n";
+	    print SH "echo \"Finished alignment\"\n";
+#	    print SH "# Sort bam file for sample $sample\n";
+#	    print SH "java -Xmx2g -jar $PICARD SortSam \\\n";
+#	    print SH "\tINPUT=$outputDirectory\/$project\/bam\/$sample.bam \\\n";
+#	    print SH "\tOUTPUT=$outputDirectory\/$project\/bam\/$sample.sorted.bam \\\n";
+#	    print SH "\tSORT_ORDER=coordinate\n";
 	    print SH "date\n\n";
 	    print SH "# Mark duplicate reads in the bam file for sample $sample\n";
-	    print SH "java -Xmx2g -jar $PICARD MarkDuplicates I=$outputDirectory\/$project\/bam\/$sample.bam O=$outputDirectory\/$project\/bam\/$sample.mdup.bam M=$outputDirectory\/$project\/bam\/$sample.mdup_metrics.txt\n";
+	    print SH "java -Xmx2g -jar $PICARD MarkDuplicates \\\n";
+	    print SH "\tINPUT=$outputDirectory\/$project\/bam\/$sample.bam \\\n";
+	    print SH "\tOUTPUT=$outputDirectory\/$project\/bam\/$sample.mdup.bam \\\n";
+	    print SH "\tMETRICS_FILE=$outputDirectory\/$project\/bam\/$sample.mdup_metrics.txt\n";
  	    print SH "date\n\n";
-	    print SH "# Replace unmarked bam with marked bam.\n";
- 	    print SH "mv $outputDirectory\/$project\/bam\/$sample.mdup.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
- 	    print SH "date\n";
 	    print SH "# Index bam file and gather flagstats.\n";
-	    #$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
-	    #if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
- 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
-	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.bam.flagstats.txt\n";
+ 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.mdup.bam\n";
+	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.mdup.bam > $outputDirectory\/$project\/bam\/$sample.mdup.bam.flagstats.txt &\n";
  	    print SH "date\n\n";
+	    #Base recalibrator
+	    print SH "# Base recalibrator\n";
+	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6//GenomeAnalysisTK.jar -T BaseRecalibrator \\\n";
+	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+	    print SH "\t-I $outputDirectory/$project/bam/$sample.mdup.bam \\\n";
+	    print SH "\t-knownSites $knownSNPsites{$reference{$sample}} \\\n"; 
+	    print SH "\t-o $outputDirectory/$project/bam/$sample.mdup.recalibration_report.grp\n\n";
+	    
+	    print SH "# Print Recalibrated base quality scores to bam file\n";
+	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T PrintReads \\\n";
+	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+	    print SH "\t-I $outputDirectory/$project/bam/$sample.mdup.bam \\\n";
+	    print SH "\t-BQSR $outputDirectory/$project/bam/$sample.mdup.recalibration_report.grp \\\n";
+	    print SH "\t-o $outputDirectory/$project/bam/$sample.recal.bam\n\n";
+
+	    print SH "# Calculate depth of coverage\n";
+	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T DepthOfCoverage --omitDepthOutputAtEachBase \\\n";
+	    print SH "\t--summaryCoverageThreshold 10 --summaryCoverageThreshold 25 --summaryCoverageThreshold 50 --summaryCoverageThreshold 100 \\\n";
+	    print SH "\t--start 1 --stop 500 --nBins 499 -dt NONE \\\n";
+	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+	    print SH "\t-I $outputDirectory/$project/bam/$sample.recal.bam \\\n";
+	    print SH "\t-o $outputDirectory/$project/bam/$sample.recal.coverage\n\n";
+
+	    print SH "# Identify areas for local realignment\n";
+	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6//GenomeAnalysisTK.jar -T RealignerTargetCreator \\\n";
+	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+	    print SH "\t-I $outputDirectory/$project/bam/$sample.recal.bam \\\n";
+	    print SH "\t-o $outputDirectory/$project/bam/$sample.realign.intervals \n\n";
+
+	    print SH "# Realign problematic areas.\n";
+	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6//GenomeAnalysisTK.jar -T IndelRealigner \\\n";
+	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+	    print SH "\t-known  $knownIndelsites{$reference{$sample}} \\\n";
+	    print SH "\t-I $outputDirectory/$project/bam/$sample.recal.bam \\\n";
+	    print SH "\t-o $outputDirectory/$project/bam/$sample.realigned.bam \\\n";
+	    print SH "\t-targetIntervals $outputDirectory/$project/bam/$sample.realign.intervals \n\n";
+	    
+	 
+	    print SH "# Replace uncorrected bam with corrected bam.\n";
+	    print SH "cp $outputDirectory/$project/bam/$sample.bam  $outputDirectory/$project/bam/$sample.raw.bam\n";
+	    print SH "cp $outputDirectory/$project/bam/$sample.bam.bai  $outputDirectory/$project/bam/$sample.raw.bam.bai\n"; 
+ 	    print SH "cp $outputDirectory\/$project\/bam\/$sample.realigned.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+
+	    print SH "\n# Re-index sample.bam file to make sure the index is up-to-date.\n";
+	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+ 	    print SH "date\n\n";
+	    
 	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
-	    print SH "if [ $outputDirectory\/$project\/bam\/bamlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
+	    print SH "if ! [ -f \"$outputDirectory\/$project\/bam\/bamlist.txt\" ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
 	    print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
  	    if ($type eq "chipseq"){
  		if ($makeTracks == 1){
@@ -1933,7 +2042,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
 			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
 			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
-			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+			    print SH "# Note that these files are not visible to browser unless you \"ake public\" from within the S3 interface\n";
 			    print SH "# To load, paste the following url into the custom tracks field:\n";
 			    print SH "# http://s3-us-west-2.amazonaws.com/ash-tracks/TANGO/$scientist/$scientist.$project/$sample.bam\n";
 			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://$s3path/$scientist.$project/ --region us-west-2\n";
@@ -1964,7 +2073,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  		    }
  		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
  		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
- 		    print SH "if [ $outputDirectory\/$project\/tracks\/bwlist.txt does not exist ];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
+ 		    print SH "if  ! [-f \"$outputDirectory\/$project\/tracks\/bwlist.txt\"];\nthen\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/bwlist.txt \n";
  		    print SH "else\necho \"$outputDirectory\/$project\/tracks\/$sample.bw\" | cat >> $outputDirectory\/$project\/tracks\/bwlist.txt \nfi\n";
  		    print SH "\n# Make header files for tracks.\n";
  		    print SH "echo \"track type=bigWig name=$sample.bw description=$sample.rpm graphtype=bar maxHeightPixels=128:60:11 visibility=full color=0,0,255 itemRGB=on autoScale=on bigDataUrl=https://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bw\" | cat > $outputDirectory\/$project\/tracks\/$sample.bw.header.txt\n";
@@ -2046,17 +2155,17 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	&datePrint ("Starting alignment scripts.");
 	my $result = "";
 	if ($scheduler eq "MOAB"){
-	    $result = `find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;`;
+	    $result = `find $outputDirectory/$project/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec msub {} ./ \\\;`;
 	    $result =~ s/\s+/\:/g;
 	    $result =~ s/^://;
 	    $result =~ s/:$//;
 	} elsif ($scheduler eq "SLURM"){
-	    $result = `find $outputDirectory/*/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec sbatch {} ./ \\\;`;
+	    $result = `find $outputDirectory/$project/scripts/ -iname \"run\_*\_$aligner\_align.sh\" -exec sbatch {} ./ \\\;`;
 	    $result =~ s/Submitted batch job //g;
 	    $result =~ s/\s+/\:/g;
 	    $result =~ s/^://;
 	    $result =~ s/:$//;
-#	    print STDERR "Predicted SLURM job IDs:  $result\n";
+	    print STDERR "Predicted SLURM job IDs:  $result\n";
 	}
 	&datePrint( "Need to wait for the following jobs to finish:\n$result");
 	open (SH, ">$outputDirectory/$project/scripts/AlignmentDependentScript.sh");
@@ -2112,7 +2221,7 @@ if (($buildAlign ==1) && ($runAlign ==1)){
 	    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 	    print SH "\n# Plot ChIP fingerprint\n";
-	    print SH "if [ ! -f $outputDirectory\/$project\/scripts\/plot_fingerprint.sh ];\nthen\npython3 /projects\/p20742\/tools\/bin\/getFingerprint.py -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/scripts\/\nsh $outputDirectory\/$project\/scripts\/plot_fingerprint.sh\n";
+	    print SH "if ! [ -f $outputDirectory\/$project\/scripts\/plot_fingerprint.sh ];\nthen\npython3 /projects\/p20742\/tools\/bin\/getFingerprint.py -i $outputDirectory\/$project\/bam\/ -o $outputDirectory\/$project\/scripts\/\nsh $outputDirectory\/$project\/scripts\/plot_fingerprint.sh\n";
 	    #    print SH "wait\nmv $outputDirectory\/$project\/scripts\/fingerprint.pdf $outputDirectory\/$project\/bam\/\nfi\n";
 	}
 	if ($scheduler eq "SLURM"){
@@ -2222,7 +2331,7 @@ if ($runRNAstats == 1){
 		print SSH "\n# Check splice site saturation for $sample.\n";
 		print SSH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $samplegenebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
 		print SSH "\n# If sorted bam doesn't exist, create it.\n";
-		print SSH "if \[ $outputDirectory\/$project\/bam\/$sample.sorted.bam does not exist ]; then\n";
+		print SSH "if ! [ -f $outputDirectory\/$project\/bam\/$sample.sorted.bam\" ]; then\n";
 		print SSH "\tsamtools sort $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
 		print SSH "\tsamtools index $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
 		print SSH "fi\n";
@@ -2252,16 +2361,29 @@ if ($runRNAstats == 1){
     }
 }
 
+my %exomePairing;
 if ($buildGenotyping ==1) {
-    if ($type eq "RNA"){
+    if (($type eq "RNA") || ($type eq "exome")){
 	foreach my $project (keys(%samples)){
 	    my @samples = uniq(split(/\,/,$samples{$project}));
 	    if (-d "$outputDirectory\/$project\/genotype/") {
 		print STDERR "Genotype Directory found.\n";
 	    }else {system("mkdir $outputDirectory\/$project\/genotype");print STDERR "Genotype directory created.\n";}
+	    if ($exomeDescription ne ""){
+		open(IN,$exomeDescription);
+		print STDERR "Found Exome pairing file $exomeDescription\n";
+	        while(<IN>){
+		    chomp $_;
+		    my($exome,$normal) = split(/\s+/,$_);
+		    $exome =~ s/.bam$//g;
+		    $normal =~ s/.bam$//g;
+#		    print STDERR "Pairing $exome and $normal\n";
+		    $exomePairing{$exome} = $normal;
+		}
+	    }
 	    # Foreach sample within the project:
 	    foreach my $sample (@samples){
-		open (SH, ">$outputDirectory/$project/scripts/$sample\_genotype.sh");
+		open (SH, ">$outputDirectory/$project/scripts/run_$sample\_genotype.sh");
 		my (%modulesLoaded, $moduleText);
 		print SH $header;
 		if ($scheduler eq "MOAB"){
@@ -2271,102 +2393,150 @@ if ($buildGenotyping ==1) {
 		    # and more experimentation is required for optimization.  In
 		    # the meantime, I'm setting a flat number of processors of 6
 		    # for genotyping purposes.
-		    print SH "#MSUB -l nodes=1:ppn=6\n";
+		    # 2019-09-07; removing the flat number of processors.
+#		    print SH "#MSUB -l nodes=1:ppn=6\n";
+		    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
 		} elsif ($scheduler eq "SLURM"){
 		    print SH "#SBATCH --job-name=$sample\_genotype\n";
 		    print SH "#SBATCH --nodes=1\n";
-		    print SH "#SBATCH -n 6\n";
+#		    print SH "#SBATCH -n 6\n";
+		    print SH "#SBATCH -n $numProcessors\n";
 		}
-		print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
-		my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
-		print SH "\n\n";
-		print SH "# Sort BAM file.\n";
-		$moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
-		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
-		print SH "samtools sort -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
-		print SH "date\n\n";
-		$moduleText = &checkLoad("picard/1.131",\%modulesLoaded);
-		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"picard/1.131"} = 1;}
-		print SH "# Mark Duplicates with Picard.\n";
-		print SH "java -jar $PICARD MarkDuplicates \\\n";
-		print SH "\tI=$outputDirectory\/$project\/bam\/$sample.sorted.bam \\\n";
-		print SH "\tO=$outputDirectory\/$project\/bam\/$sample.mdup.bam \\\n";
-		print SH "\tM=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
-		print SH "date\n\n";
-		print SH "# Reorder mdup BAM file with Picard.\n";
-		print SH "java -jar $PICARD ReorderSam \\\n";
-		print SH "\tI=$outputDirectory\/$project\/bam\/$sample.mdup.bam \\\n";
-		print SH "\tO=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam \\\n";
-		print SH "\tR=$gatkRef{$reference{$sample}} \\\n";
-		print SH "\tCREATE_INDEX=true\n";
-		print SH "date\n\n";
-		print SH "# GATK 4 is not working.  Reverting to GATK 3.7\n";
-#		print SH "# Set up path for GATK 3.7\n";
-		$moduleText = &checkLoad("gatk/3.7.0",\%modulesLoaded);
-		if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"gatk/3.7.0"} = 1;}
-		print SH "export PATH=\$PATH:/software/gatk/3.7.0/\n\n";
-		print SH "# Split Reads at splicing events (runs of Ns in CIGAR string)\n";
-		#		print SH "# Note that in earlier versions of gatk / aligners there was a problem with low quality scores \n";
-#		print SH "# at splice junctions but that is now handled automatically by gatk4.\n";
-		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
-		print SH "\t-T SplitNCigarReads \\\n";
-		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
-		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam \\\n";
-		print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
-		print SH "\t-U ALLOW_N_CIGAR_READS -fixNDN\n";
-		print SH "date\n\n";
-		print SH "# Find Target regions for Realignment.\n";  # Not available in gatk4, only gatk3.
-		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
-		print SH "\t-T RealignerTargetCreator \\\n";
-		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
-		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
-		print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.intervals.list \\\n";
-		print SH "\t--known $knownIndelsites{$reference{$sample}}\n";
-		print SH "date\n\n";
-		print SH "# Realign indels in target regions.\n";
-		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
-		print SH "\t-T IndelRealigner \\\n";
-		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
-		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
-		print SH "\t-targetIntervals $outputDirectory\/$project\/bam\/$sample.split.intervals.list \\\n";
-		print SH "\t-known $knownIndelsites{$reference{$sample}} \\\n";
-		print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.real.bam\n";
-		print SH "date\n\n";
-		print SH "# Generating Base Recalibration Table.\n";
-		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
-		print SH "\t-T BaseRecalibrator \\\n";
-		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
-		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.real.bam \\\n";
-		print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.split.real.recal.table \\\n";
-		print SH "\t-knownSites $knownSNPsites{$reference{$sample}}\n";
-		print SH "date\n\n";
-#		print SH "##Commenting out HaplotypeCaller as Mutect2 is working better.\n";
-		print SH "# Calling SNPs and Indels with HaplotypeCaller.\n";
-		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
-		print SH "\t-T HaplotypeCaller \\\n";
-		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
-		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.real.bam \\\n";
-		print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf \\\n";
-		print SH "\t--dbsnp $knownSNPsites{$reference{$sample}}\n";
-		print SH "date\n\n";
-		print SH "# Calling SNPs and Indels with Mutect2.\n";
-		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
-		print SH "\t-T Mutect2 \\\n";
-		print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
-		print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
-		print SH "\t-O $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
-		print SH "\t-tumor $sample\n";
-		print SH "date\n\n";
-		print SH "# Filter Mutect2 calls.\n";
-		print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
-		print SH "\t-T FilterMutectCalls \\\n";
-		print SH "\t--output-mode EMIT_ALL_CONFIDENT_SITES \\\n";
-		print SH "\t-V $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
-		print SH "\t-O $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf\n";
-		print SH "date\n\n";
-		print SH "# Sort and remove duplicates from VCF file.\n";
-		print SH "sort $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf | uniq > $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.sorted.vcf\n";
-		close SH;
+		if ($type eq "RNA"){
+		    print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
+		    my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
+		    print SH "\n\n";
+		    print SH "# Sort BAM file.\n";
+		    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
+		    print SH "samtools sort -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+		    print SH "date\n\n";
+		    $moduleText = &checkLoad("picard/1.131",\%modulesLoaded);
+		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"picard/1.131"} = 1;}
+		    print SH "# Mark Duplicates with Picard.\n";
+		    print SH "java -jar $PICARD MarkDuplicates \\\n";
+		    print SH "\tI=$outputDirectory\/$project\/bam\/$sample.sorted.bam \\\n";
+		    print SH "\tO=$outputDirectory\/$project\/bam\/$sample.mdup.bam \\\n";
+		    print SH "\tM=$outputDirectory\/$project\/bam\/$sample.mdup.metrics.txt\n";
+		    print SH "date\n\n";
+		    print SH "# Reorder mdup BAM file with Picard.\n";
+		    print SH "java -jar $PICARD ReorderSam \\\n";
+		    print SH "\tI=$outputDirectory\/$project\/bam\/$sample.mdup.bam \\\n";
+		    print SH "\tO=$outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam \\\n";
+		    print SH "\tR=$gatkRef{$reference{$sample}} \\\n";
+		    print SH "\tCREATE_INDEX=true\n";
+		    print SH "date\n\n";
+		    print SH "# GATK 4 is not working.  Reverting to GATK 3.7\n";
+		    #		print SH "# Set up path for GATK 3.7\n";
+		    $moduleText = &checkLoad("gatk/3.7.0",\%modulesLoaded);
+		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"gatk/3.7.0"} = 1;}
+		    print SH "export PATH=\$PATH:/software/gatk/3.7.0/\n\n";
+		    print SH "# Split Reads at splicing events (runs of Ns in CIGAR string)\n";
+		    #		print SH "# Note that in earlier versions of gatk / aligners there was a problem with low quality scores \n";
+		    #		print SH "# at splice junctions but that is now handled automatically by gatk4.\n";
+		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		    print SH "\t-T SplitNCigarReads \\\n";
+		    print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		    print SH "\t-I $outputDirectory\/$project\/bam\/$sample.mdup.reordered.bam \\\n";
+		    print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		    print SH "\t-U ALLOW_N_CIGAR_READS -fixNDN\n";
+		    print SH "date\n\n";
+		    print SH "# Find Target regions for Realignment.\n";  # Not available in gatk4, only gatk3.
+		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		    print SH "\t-T RealignerTargetCreator \\\n";
+		    print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		    print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		    print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.intervals.list \\\n";
+		    print SH "\t--known $knownIndelsites{$reference{$sample}}\n";
+		    print SH "date\n\n";
+		    print SH "# Realign indels in target regions.\n";
+		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		    print SH "\t-T IndelRealigner \\\n";
+		    print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		    print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		    print SH "\t-targetIntervals $outputDirectory\/$project\/bam\/$sample.split.intervals.list \\\n";
+		    print SH "\t-known $knownIndelsites{$reference{$sample}} \\\n";
+		    print SH "\t-o $outputDirectory\/$project\/bam\/$sample.split.real.bam\n";
+		    print SH "date\n\n";
+		    print SH "# Generating Base Recalibration Table.\n";
+		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		    print SH "\t-T BaseRecalibrator \\\n";
+		    print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		    print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.real.bam \\\n";
+		    print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.split.real.recal.table \\\n";
+		    print SH "\t-knownSites $knownSNPsites{$reference{$sample}}\n";
+		    print SH "date\n\n";
+		    #		print SH "##Commenting out HaplotypeCaller as Mutect2 is working better.\n";
+		    print SH "# Calling SNPs and Indels with HaplotypeCaller.\n";
+		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		    print SH "\t-T HaplotypeCaller \\\n";
+		    print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		    print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.real.bam \\\n";
+		    print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf \\\n";
+		    print SH "\t--dbsnp $knownSNPsites{$reference{$sample}}\n";
+		    print SH "date\n\n";
+		    print SH "# Calling SNPs and Indels with Mutect2.\n";
+		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		    print SH "\t-T MuTect2 \\\n";
+		    print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		    print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		    print SH "\t-O $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
+		    print SH "\t-tumor $sample\n";
+		    print SH "date\n\n";
+		    print SH "# Filter Mutect2 calls.\n";
+		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		    print SH "\t-T FilterMutectCalls \\\n";
+		    print SH "\t--output-mode EMIT_ALL_CONFIDENT_SITES \\\n";
+		    print SH "\t-V $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
+		    print SH "\t-O $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf\n";
+		    print SH "date\n\n";
+		    print SH "# Sort and remove duplicates from VCF file.\n";
+		    print SH "sort $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf | uniq > $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.sorted.vcf\n";
+		    close SH;
+		} elsif ($type eq "exome"){
+		    ## Return Here.
+		    print SH "# Index BAM file.\n";
+		    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
+		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
+		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"gatk/3.6.0"} = 1;}
+		    print SH "export PATH=\$PATH:/software/gatk/3.6.0/\n\n";
+#		    print SH "samtools index -b $outputDirectory\/$project\/bam\/$sample.bam\n";
+#		    print SH "date\n\n";
+		    my $normal = "";
+		    if (exists($exomePairing{$sample})){
+			$normal = $exomePairing{$sample};
+#			print SH "samtools index -b $outputDirectory\/$project\/bam\/$normal.bam\n";
+#			print SH "date\n\n";
+			print SH "# Call variants with MuTect2\n";
+			print SH "java -Xmx2G -jar /software/gatk/3.6.0/GenomeAnalysisTK.jar -T MuTect2 \\\n";
+			print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+			print SH "\t-I:tumor $outputDirectory\/$project\/bam\/$sample.bam \\\n";
+			print SH "\t-I:normal $outputDirectory\/$project\/bam\/$normal.bam \\\n";
+			print SH "\t--dbsnp $knownSNPsites{$reference{$sample}}\\\n";
+			print SH "\t--cosmic $cosmicSNPsites{$reference{$sample}}\\\n";
+			print SH "\t--output_mode EMIT_VARIANTS_ONLY \\\n";
+			print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.relativeTo$normal.vcf.gz\\\n\n";
+			print SH "# Filter variants\n";
+			print SH "java -Xmx2G -jar /software/gatk/3.6.0/GenomeAnalysisTK.jar -T VariantFiltration \\\n";
+			print SH "\t-V $outputDirectory\/$project\/genotype\/$sample.relativeTo$normal.vcf.gz\\\n";
+			print SH "\t-O $outputDirectory\/$project\/genotype\/$sample.relativeTo$normal.filtered.vcf.gz\\\n";		
+		    } else { 
+			print SH "# No normal control found for sample $sample.\n";
+			print SH "# Call variants with MuTect2\n";
+			print SH "java -Xmx2G -jar /software/gatk/3.6.0/GenomeAnalysisTK.jar -T MuTect2 \\\n";
+			print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+			print SH "\t-I:tumor $outputDirectory\/$project\/bam\/$sample.bam \\\n";
+			print SH "\t--dbsnp $knownSNPsites{$reference{$sample}}\\\n";
+			print SH "\t--cosmic $cosmicSNPsites{$reference{$sample}}\\\n";
+			print SH "\t--output_mode EMIT_VARIANTS_ONLY \\\n";
+			print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.vcf.gz\\\n\n";
+			print SH "# Filter variants\n";
+			print SH "java -Xmx2G -jar /software/gatk/3.6.0/GenomeAnalysisTK.jar -T VariantFiltration \\\n";
+			print SH "\t-V $outputDirectory\/$project\/genotype\/$sample.vcf.gz\\\n";
+			print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+			print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.filtered.vcf.gz\\\n";		
+		    }
+		} else { die "ERR: Genotyping does not appear to be implemented for type $type.\n";}
 	    }
 	    my $result = "";
 	    if ($scheduler eq "MOAB"){
@@ -2384,8 +2554,9 @@ if ($buildGenotyping ==1) {
 		    print STDERR "Not submitting genotype scripts.  To run them use: \`find $outputDirectory/$project/scripts/ -iname \"*genotype.sh\" -exec sbatch \{\} ./ \\\;\`\n";
 		}
 	    }
+#    } else { print "ERR: Genotyping not yet implemented for whole genome or exome sequencing.\n";}
 	}
-    } else { print "ERR: Genotyping not yet implemented for whole genome or exome sequencing.\n";}
+    }
 }
 
 
@@ -2735,6 +2906,8 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			    print SH "rm $outputDirectory\/$project\/peaks\/$ip.ngsplot.defaultConfig.txt\n";
 			}
 			print SH "touch $outputDirectory\/$project\/peaks\/$ip.ngsplot.defaultConfig.txt\n";
+			print SH "if ! [ -f \"$outputDirectory\/$project\/bam\/bamlist.txt\" ];\nthen\nls $outputDirectory\/$project\/bam\/*.bam > $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
+			print SH "date\n\n";
 			print SH "for bam in \`cat $outputDirectory/$project/bam/bamlist.txt\`\n";
 			print SH "do\n";
 			print SH "\techo \$bam\n";
@@ -2881,12 +3054,12 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
     	    &datePrint ("Starting peak calling scripts.");
 	    my $result = "";
 	    if ($scheduler eq "MOAB"){
-		$result = `find $outputDirectory/*/scripts/ -iname \"*callPeaks.sh\" -exec msub {} ./ \\\;`;
+		$result = `find $outputDirectory/$project/scripts/ -iname \"*callPeaks.sh\" -exec msub {} ./ \\\;`;
 		$result =~ s/\s+/\:/g;
 		$result =~ s/^://;
 		$result =~ s/:$//;
 	    } elsif ($scheduler eq "SLURM"){
-		$result = `find $outputDirectory/*/scripts/ -iname \"*callPeaks.sh\" -exec sbatch {} ./ \\\;`;
+		$result = `find $outputDirectory/$project/scripts/ -iname \"*callPeaks.sh\" -exec sbatch {} ./ \\\;`;
 		$result =~ s/Submitted batch job //g;
 		$result =~ s/\s+/\:/g;
 		$result =~ s/^://;
@@ -3037,7 +3210,8 @@ if (($buildDiffPeaks ==1) && ($type eq "chipseq")){
 		if ($#samples > 0){
 #		    &datePrint("Merging peak files for all samples in the same experimental peak set $peakset: @samples");
 		    print SH "\n# Merging peak files for all samples in the same experimental peak set $peakset\n";
-		    print SH "cat @samples | \\\n\tbedtools sort -i - | bedtools merge -i - | \\\n\t";
+		    print SH "cat @samples | \\\nawk \'\{printf \"\%s\\t\%d\\t\%d\\n\",\$1,\$2,\$3\}\' - | \\\n";
+		    print SH "\tbedtools sort -i - | \n bedtools merge -i - | \\\n\t";
 		    print SH "awk \'{printf \"\%s\\t\%d\\t\%d\\t\%s\_\%d\\t\%d\\n\", \$1,\$2,\$3,\"$peakset\",NR,1000}\' \\\n\t";
 		    print SH "> $outputDirectory\/$project\/peaks\/$peakset.bed\n";
 		    print SH "date\n";
