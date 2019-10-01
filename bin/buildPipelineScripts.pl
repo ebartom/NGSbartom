@@ -53,6 +53,7 @@ my $runEdgeR = 0;
 my $makeTracks = 0;
 my $uploadASHtracks = 1;
 my $uploadPulmtracks = 0;
+my $uploadLutracks = 0;
 my $uploadBAM = 0;
 my $buildEdgeR = 0;
 my $runTrim = 1;
@@ -130,6 +131,7 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'makeTracks|mt=i' => \$makeTracks,
 	   'uploadASHtracks|ut=i' => \$uploadASHtracks,
 	   'uploadPulmtracks|upt=i' => \$uploadPulmtracks,
+	   'uploadLutracks|ult=i' => \$uploadLutracks,
 	   'uploadBAM|ub=i' => \$uploadBAM,
 	   'runTrim|rt=i' => \$runTrim,
 	   'runPairedEnd|rpe=i' => \$runPairedEnd,
@@ -208,8 +210,13 @@ if (($uploadPulmtracks == 1) && ($uploadASHtracks == 1)){
     print STDERR "ERROR: Set to upload to both Shilatifard S3 account and Pulmonology S3 account.  Since Shilatifard is default and Pulmonology is manually set, assuming only Pulmonology is desired and resetting flags accordingly.\n";
     $uploadASHtracks = 0;
 }
+if (($uploadLutracks == 1) && ($uploadASHtracks == 1)){
+    print STDERR "ERROR: Set to upload to both Shilatifard S3 account and Lu S3 account.  Since Shilatifard is default and Lu is manually set, assuming only Lu is desired and resetting flags accordingly.\n";
+    $uploadASHtracks = 0;
+}
 if (($s3path eq "") && ($uploadASHtracks == 1)){ $s3path = "ash-tracks/TANGO/$scientist";}
 if (($s3path eq "") && ($uploadPulmtracks == 1)){ $s3path = "m-328-data/$scientist";}
+if (($s3path eq "") && ($uploadLutracks == 1)){ $s3path = "lwwlab/";}
 if ($s3path eq ""){ $s3path = "ash-tracks/TANGO/$scientist";}
 
 
@@ -320,6 +327,8 @@ if ($scheduler eq "MOAB"){
 	$header .= "#SBATCH -p $queue\n";
     } elsif ($account eq "e30258"){
 	$header .= "#SBATCH -p $queue\n";
+    } elsif ($account eq "e30682"){
+	$header .= "#SBATCH -p $queue\n";
     } elsif ($account eq "b1025"){
 	if ($queue eq ""){ $queue = "buyin";}
 	$header .= "#SBATCH -p $queue\n";
@@ -363,6 +372,7 @@ if ($runPeakCaller){ print STDERR "Will run scripts for calling peaks.\n";}
 if ($makeTracks){ print STDERR "Will make tracks appropriate for the UCSC genome browser.\n";
 		  if ($uploadASHtracks){ print STDERR "Will upload tracks to Shilatifard account on Amazon S3 (if user has correct credentials).\n";}
 		  if ($uploadPulmtracks){ print STDERR "Will upload tracks to Pulmonology account on Amazon S3 (if user has correct credentials).\n";}
+		  if ($uploadLutracks){ print STDERR "Will upload tracks to Lu Wang's Lab account on Amazon S3 (if user has correct credentials).\n";}
 		  if ($uploadBAM){ print STDERR "Will upload BAM files to Shilatifard account on Amazon S3 (if user has correct credentials).\n";}
 }
 if ($runRNAstats) { print STDERR "Will launch a script to assess RNAseq quality based on BAM files.\n";}
@@ -1468,6 +1478,17 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 		}
+	    } elsif ($uploadLutracks == 1) {
+		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+		if ($uploadBAM == 1){
+		    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
+		    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+		    print SH "# To load, paste the following url into the custom tracks field:\n";
+		    print SH "# http://s3-us-west-2.amazonaws.com/$s3path/$scientist.$project/$sample.bam\n";
+		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://lwwlab/$scientist.$project/ --region us-west-2\n";
+		    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://lwwlab/$scientist.$project/ --region us-west-2\n";
+		}
 		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
 		if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 		print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
@@ -1682,6 +1703,21 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
 			print SH "cp $bamDirectory\/$sample.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
+		    }
+		    if ($uploadLutracks == 1){
+			if ($uploadBAM == 1){
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
+			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+			    print SH "# To load, paste the following url into the custom tracks field:\n";
+			    print SH "# http://s3-us-west-2.amazonaws.com/lwwlab/$scientist.$project/$sample.bam\n";
+			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://lwwlab/$scientist.$project/ --region us-west-2\n";
+			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://lwwlab/$scientist.$project/ --region us-west-2\n";
+			}
+			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
+			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+			print SH "cp $bamDirectory\/$sample.bw s3://lwwlab/$scientist.$project/ --region us-west-2\n";
 		    }
 		    print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
@@ -2070,6 +2106,23 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
  			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
  			print SH "aws s3 cp $outputDirectory\/$project\/bam\/$sample.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
+ 		    }
+		    if ($uploadLutracks == 1){
+			if ($uploadBAM == 1){
+			    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+			    print SH "\n# Copy bamfiles to Amazon S3, for UCSC genome browser to access.\n";
+			    print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+			    print SH "# To load, paste the following url into the custom tracks field:\n";
+			    print SH "# http://s3-us-west-2.amazonaws.com/lwwlab/$scientist.$project/$sample.bam\n";
+			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam s3://lwwlab/$scientist.$project/ --region us-west-2\n";
+			    print SH "aws s3 cp $outputDirectory/$project/bam/$sample.bam.bai s3://lwwlab/$scientist.$project/ --region us-west-2\n";
+			}
+			$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+			if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+ 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
+ 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
+ 			print SH "aws s3 cp $outputDirectory\/$project\/bam\/$sample.bw s3://lwwlab/$scientist.$project/ --region us-west-2\n";
  		    }
  		    print SH "mv $outputDirectory\/$project\/bam\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
  		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
