@@ -59,6 +59,8 @@ my $buildEdgeR = 0;
 my $runTrim = 1;
 my $buildBcl2fq = 0;
 my $buildAlign = 0;
+my $buildSampleCheck = 0;
+my $runSampleCheck = 0;
 my $buildGenotyping = 0;
 my $runGenotyping = 0;
 my $build4C = 0;
@@ -143,6 +145,8 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'runDiffPeaks|rdp=i' => \$runDiffPeaks,
 	   'buildGenotyping|bg=i' => \$buildGenotyping,
 	   'runGenotyping|rg=i' => \$runGenotyping,
+	   'buildSampleCheck|bsc=i' => \$buildSampleCheck,
+	   'runSampleCheck|rsc=i' => \$runSampleCheck,
 	   'build4C|b4=i' => \$build4C,
 	   'run4C|r4=i' => \$run4C,
 	   'runBcl2fq|rb=i' => \$runBcl2fq,
@@ -240,12 +244,25 @@ if ($aligner eq ""){
     if ($type eq "4C"){ $aligner = "bowtie";}
 } else { $aligner = lc $aligner;}
 
+if (($buildSampleCheck == 0) && ($buildAlign == 1) && (($assembly eq "hg19") || ($assembly eq "hg38") || ($assembly eq "hg38.mp"))){
+    print STDERR "If your assembly is human and you are doing an alignment, turning on sample check by default.\n";
+    $buildSampleCheck = 1;
+}
+if (($buildSampleCheck == 1) && 
+    (($assembly eq "mm9") || ($assembly eq "mm10") || ($assembly eq "dm3") || ($assembly eq "sacCer3") || ($assembly eq "rn6") || ($assembly eq "grcm38"))){
+    print STDERR "ERROR: buildSampleCheck currently only works for human samples. Turning it off.\n";
+    $buildSampleCheck = 0;
+}   
+
 # You can build scripts without running them, but not the reverse.
 if (($runBcl2fq == 1) && ($buildBcl2fq == 0)){
     $buildBcl2fq = 1;
 }
 if (($runAlign == 1) && ($buildAlign == 0)){
     $buildAlign = 1;
+}
+if (($runSampleCheck == 1) && ($buildSampleCheck == 0)){
+    $buildSampleCheck = 1;
 }
 if (($runGenotyping == 1) && ($buildGenotyping == 0)){
     $buildGenotyping = 1;
@@ -367,6 +384,8 @@ if ($runBcl2fq){ print STDERR "Will run scripts for de-multiplexing with Bcl2fq.
 if ($runAlign && $runTrim) { print STDERR "Will trim fastq files according to trailing quality scores with Trimmomatic ($trimString).\n";}
 if ($buildAlign){ print STDERR "Will build scripts for aligning fastq reads with $aligner.\n";}
 if ($runAlign){ print STDERR "Will run scripts for aligning fastq reads with $aligner.\n";}
+if ($buildSampleCheck){ print STDERR "Will build scripts for checking sample identity for $assembly\n";}
+if ($runSampleCheck){ print STDERR "Will run scripts for checking sample identity for $assembly.\n";}
 if ($buildPeakCaller){ print STDERR "Will build scripts for calling peaks according to the experimental plan in $chipDescription.\n";}
 if ($runPeakCaller){ print STDERR "Will run scripts for calling peaks.\n";}
 if ($makeTracks){ print STDERR "Will make tracks appropriate for the UCSC genome browser.\n";
@@ -1702,7 +1721,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			}
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
-			print SH "cp $bamDirectory\/$sample.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
+			print SH "aws s3 cp $bamDirectory\/$sample.bw s3://m-328-data/$scientist.$project/ --region us-west-2\n";
 		    }
 		    if ($uploadLutracks == 1){
 			if ($uploadBAM == 1){
@@ -1717,7 +1736,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			}
 			print SH "\n# Copy bigwigs to Amazon S3, for UCSC genome browser to access.\n";
 			print SH "# Note that these files are not visible to browser unless you \"make public\" from within the S3 interface\n";
-			print SH "cp $bamDirectory\/$sample.bw s3://lwwlab/$scientist.$project/ --region us-west-2\n";
+			print SH "aws s3 cp $bamDirectory\/$sample.bw s3://lwwlab/$scientist.$project/ --region us-west-2\n";
 		    }
 		    print SH "mv $bamDirectory\/$sample.bw $outputDirectory\/$project\/tracks\/\n";
 		    print SH "\n# Check if bwlist file exists, and if not, create it.\n";
@@ -2304,6 +2323,91 @@ if (($buildAlign ==1) && ($runAlign ==1)){
     }
 }
 
+if ($buildSampleCheck == 1){
+    &datePrint("Creating scripts for checking sample identity.");
+    my @samples;
+    # Foreach project (TANGO/MOLNG):
+    foreach my $project (keys(%samples)){
+	my $cmd = "mkdir $outputDirectory\/$project\/SampleID";
+	system($cmd);
+	my $shScript = "$outputDirectory\/$project\/scripts\/run\_$project\_SampleCheck.sh";
+	&datePrint("Printing to $shScript");
+	open (SH,">$shScript");
+	my (%modulesLoaded, $moduleText);
+	print SH "$header";
+	if ($scheduler eq "MOAB"){
+	    print SH "#MSUB -N $project\_sampleCheck\n";
+	    print SH "#MSUB -l nodes=1:ppn=$numProcessors\n";
+	} elsif ($scheduler eq "SLURM"){
+	    print SH "#SBATCH --job-name=$project\_sampleCheck\n";
+	    print SH "#SBATCH --nodes=1\n";
+	    print SH "#SBATCH -n $numProcessors\n";
+	}
+	print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n";
+	print SH "\n# Setup paths for the analysis\n";
+	print SH "export PATH=\$PATH:$NGSbartom/tools/bin/\n";
+	print SH "export NCM_HOME=$NGSbartom/tools/bin/NGSCheckMate/\n\n";
+	$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+	if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+	my $fastqList = "$outputDirectory\/$project\/SampleID\/$project.fastqList.txt";
+	open (FQL,">$fastqList");
+	@samples = uniq(split(/\,/,$samples{$project}));
+	# Foreach sample within the project:
+	foreach my $sample (@samples){
+	    my @fastqs = split(/\,/,$fastqs{$sample});
+	    my $cmd = "";
+	    if (!(-e "$outputDirectory\/$project\/fastq")){
+		$cmd .= "mkdir $outputDirectory\/$project\/fastq\n";
+	    }
+	    my $oldfastqs = "@fastqs";
+	    my @newfastqs = "";
+	    for my $fastq (@fastqs){
+		my $basefilename = basename($fastq);
+		$fastq = "$outputDirectory\/$project\/fastq\/$basefilename";
+		push (@newfastqs, $fastq);
+	    }
+	    my $newfastqs = "@newfastqs";
+	    #	    $newfastqs =~ s/ /,/g;
+	    if ($oldfastqs ne $newfastqs){
+		print STDERR "Old fastqs: $oldfastqs\nNew fastqs: $newfastqs\n";
+		system($cmd);
+	    }
+	    @fastqs = split(/\s+/,$newfastqs);
+	    for my $fastq (@fastqs){
+		my $fastqLabel = basename($fastq);
+		$fastqLabel =~ s/\.fastq.gz$//g;
+		$fastqLabel =~ s/\.fq.gz$//g;
+		$fastqLabel =~ s/\.fastq$//g;
+		$fastqLabel =~ s/\.fq$//g;
+		if ($fastq ne ""){
+		    print FQL "$fastq\t$fastqLabel\n";
+		}
+	    }
+	    print SH "\n# Run NGSCheckmate on the fastq files listed in  $outputDirectory\/$project\/SampleID\/$project.fastqList.txt\n";
+	    print SH "python \$NCM_HOME/ncm_fastq.py -l $outputDirectory\/$project\/SampleID\/$project.fastqList.txt -pt \$NCM_HOME/SNP/SNP.pt -O $outputDirectory\/$project\/SampleID/NGSCheckmateResults >& $outputDirectory\/$project\/SampleID\/$project.ncm.fq.log\n\n";
+	    close(SH);
+	}
+	if ($runSampleCheck == 0){
+	    # Print tips on running the tophat shell scripts.
+	    print STDERR "To execute all scripts, use the following command:\n";
+	    # "$outputDirectory\/$project\/scripts\/run\_$project\_SampleCheck.sh";
+	    if ($scheduler eq "MOAB"){
+		print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_$project\_SampleCheck.sh\" -exec msub {} ./ \\\;\n";
+	    } elsif ($scheduler eq "SLURM"){
+		print STDERR "find $outputDirectory/*/scripts/ -iname \"run\_$project\_SampleCheck.sh\" -exec sbatch {} ./ \\\;\n";
+	    }
+	} elsif ($runSampleCheck == 1){
+	    &datePrint("Submitting job for SampleCheck.");
+	    if ($scheduler eq "MOAB"){
+		$cmd = "msub $outputDirectory/$project/scripts/run\_$project\_SampleCheck.sh";
+	    } elsif ($scheduler eq "SLURM"){
+		$cmd = "sbatch $outputDirectory/$project/scripts/run\_$project\_SampleCheck.sh";
+	    }
+	    system($cmd);
+	}
+    }
+}
+
 if ($runRNAstats == 1){
     if ($type eq "RNA"){
 	foreach my $project (keys(%samples)){
@@ -2528,24 +2632,33 @@ if ($buildGenotyping ==1) {
 		    print SH "\t-o $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf \\\n";
 		    print SH "\t--dbsnp $knownSNPsites{$reference{$sample}}\n";
 		    print SH "date\n\n";
+		    print SH "# Filter HC calls.\n";
+		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
+		    print SH "\t-T SelectVariants \\\n";
+		    print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		    print SH "\t--excludeFiltered \\\n";
+		    print SH "\t--variant $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.vcf \\\n";
+		    print SH "\t--out $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.hc.vcf\n";
+		    print SH "date\n\n";
 		    print SH "# Calling SNPs and Indels with Mutect2.\n";
 		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
 		    print SH "\t-T MuTect2 \\\n";
 		    print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
-		    print SH "\t-I $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
-		    print SH "\t-O $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
-		    print SH "\t-tumor $sample\n";
+		    print SH "\t-I:tumor $outputDirectory\/$project\/bam\/$sample.split.bam \\\n";
+		    print SH "\t--out $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
+		    print SH "\t--dbsnp $knownSNPsites{$reference{$sample}}\n";
 		    print SH "date\n\n";
 		    print SH "# Filter Mutect2 calls.\n";
 		    print SH "java -jar /software/gatk/3.7.0/GenomeAnalysisTK.jar \\\n";
-		    print SH "\t-T FilterMutectCalls \\\n";
-		    print SH "\t--output-mode EMIT_ALL_CONFIDENT_SITES \\\n";
-		    print SH "\t-V $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
-		    print SH "\t-O $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf\n";
+		    print SH "\t-T SelectVariants \\\n";
+		    print SH "\t-R $gatkRef{$reference{$sample}} \\\n";
+		    print SH "\t--excludeFiltered \\\n";
+		    print SH "\t--variant $outputDirectory\/$project\/genotype\/$sample.raw.snps.indels.m2.vcf \\\n";
+		    print SH "\t--out $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf\n";
 		    print SH "date\n\n";
-		    print SH "# Sort and remove duplicates from VCF file.\n";
-		    print SH "sort $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf | uniq > $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.sorted.vcf\n";
-		    close SH;
+#		    print SH "# Sort and remove duplicates from VCF file.\n";
+#		    print SH "sort $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf | uniq > $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.sorted.vcf\n";
+#		    close SH;
 		} elsif ($type eq "exome"){
 		    ## Return Here.
 		    print SH "# Index BAM file.\n";
@@ -3373,6 +3486,7 @@ if (-e "$outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt"){
     `sort $outputDirectory\/metadata\/Ceto.run.$type.$timestamp.txt | uniq > $outputDirectory\/metadata\/Ceto.run.$type.$timestamp.uniq.txt`;
 }
 &datePrint("Finished.");
+
 
 sub datePrint{
     my $printString = $_[0];
