@@ -2349,6 +2349,8 @@ if ($buildSampleCheck == 1){
 	print SH "export NCM_HOME=$NGSbartom/tools/bin/NGSCheckMate/\n\n";
 	$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
 	if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
+	$moduleText = &checkLoad("R/3.2.2",\%modulesLoaded);
+	if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"R/3.2.2"} = 1;}
 	my $fastqList = "$outputDirectory\/$project\/SampleID\/$project.fastqList.txt";
 	open (FQL,">$fastqList");
 	@samples = uniq(split(/\,/,$samples{$project}));
