@@ -316,7 +316,6 @@ if (($type eq "RNA") && ($granges == 1) && ($bamDirectory eq "")) {
 
 $scheduler = uc($scheduler);
 print STDERR "Setting up scripts for $scheduler scheduler.\n";
-print STDERR "Account: $account\nQueue/Partition: $queue\n";
 
 my $header = "#!/bin/bash\n";
 if ($scheduler eq "MOAB"){
@@ -329,6 +328,11 @@ if ($scheduler eq "MOAB"){
     } elsif ($account eq "b1025"){
 	if ($queue eq ""){ $queue = "buyin";}
 	$header .= "#MSUB -q $queue\n";
+    } elsif ($account eq "w10001"){
+	if (($queue eq "") || ($queue eq "genomics")){ 
+	    $queue = "w10001";
+	    $header .= "#MSUB -q $queue\n";
+	}
     }
     $header .= "#MSUB -l walltime=$walltime\n";
     $header .= "#MSUB -m a\n"; # only email user if job aborts
@@ -349,6 +353,11 @@ if ($scheduler eq "MOAB"){
     } elsif ($account eq "b1025"){
 	if ($queue eq ""){ $queue = "buyin";}
 	$header .= "#SBATCH -p $queue\n";
+    } elsif ($account eq "w10001"){
+	if (($queue eq "") || ($queue eq "genomics")){ 
+	    $queue = "w10001";
+	    $header .= "#SBATCH -p $queue\n";
+	}
     }
     $header .= "#SBATCH -t $walltime\n";
     $header .= "#SBATCH -m a\n"; # only email user if job aborts
@@ -368,6 +377,7 @@ if ($scheduler eq "MOAB"){
 } else {
     print STDERR "ERR: Unrecognized scheduler $scheduler.\n";
 }
+print STDERR "Account: $account\nQueue/Partition: $queue\n";
 
 
 print STDERR "=====================================\n";
@@ -722,6 +732,10 @@ if (($sampleSheet ne "")){
 				}
 				$cmd .= "rmdir $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\n";
 				system($cmd);
+				my $md5sum = `md5sum $outputDirectory\/$sample_project\/fastq/$fastq`;
+				my ($md5sumString,$filename) = split(/\s+/,$md5sum);
+				$md5sum = $md5sumString;
+				print VER2 "$ENV{LOGNAME}\t$type\tFASTQ\t$timestamp\t$md5sum\t$reference{$sample_project}\n";
 			    }
 			}
 			if (-e "$outputDirectory\/$sample_project\/fastq\/$fastq") {
@@ -1007,6 +1021,14 @@ foreach my $project (keys(%samples)){
 	    $cmd = "mv $baseSpaceDirectory/Data/Intensities/BaseCalls/$project/*/*.fastq.gz $outputDirectory\/$project\/fastq\/";
 	    print STDERR "$cmd\n";
 	    system($cmd);
+	    my $fastqlist = `ls $outputDirectory\/$sample_project\/fastq/*.fastq.gz`;
+	    my @fastqlist = split(/\s+/,$fastqlist);
+	    foreach my $fastq (@fastqlist){
+		my $md5sum = `md5sum $fastq`;
+		my ($md5sumString,$filename) = split(/\s+/,$md5sum);
+		$md5sum = $md5sumString;
+		print VER2 "$ENV{LOGNAME}\t$type\tFASTQ\t$timestamp\t$md5sum\t$reference{$sample_project}\n";
+	    }
 	} else { &datePrint("Not over-writing fastqs in $outputDirectory\/$project\/fastq");}
     }
 }
@@ -2029,25 +2051,39 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    #if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 		    print SH "\n# Align Paired End Fastq with BWA\n";
 		    #		    print SH "# Line L1909\n";
-		    $rgString = "\@RG\\tID:$sample\\tSM:$sample\\tPU:nextseq\\tCN:NUSeq\\tPL:ILLUMINA";
+		    $rgString = "\@RG\\tID:$prefix\\tSM:$sample\\tPU:nextseq\\tCN:NUSeq\\tPL:ILLUMINA";
 		    print SH "# Adding Readgroups from rgstring $rgString\n";
 		    print SH "bwa mem -M -t $numProcessors -R \"$rgString\" $bwaIndex{$reference{$sample}} $read1fastqs[$i] $read2fastqs[$i] | \\\n";
 		    print SH "\t$NGSbartom/tools/bin/samblaster/samblaster | \\\n";
 		    print SH "\tsamtools view -b -h - | \\\n";
-		    print SH "\tsamtools sort -o $outputDirectory\/$project\/bam/$sample.bam - && \\\n";
-		    print SH "\tsamtools index $outputDirectory\/$project\/bam\/$sample.bam && \\\n";
-		    print SH "\tsamtools flagstat $outputDirectory\/$project\/bam\/$sample.bam && \n";
+		    print SH "\tsamtools sort -o $outputDirectory\/$project\/bam/$prefix.bam - && \\\n";
+		    print SH "\tsamtools index $outputDirectory\/$project\/bam\/$prefix.bam && \\\n";
+		    print SH "\tsamtools flagstat $outputDirectory\/$project\/bam\/$prefix.bam && \n";
 		    print SH "date\n\n";
-		    push (@bams,"$outputDirectory\/$project\/bam\/$sample.bam");
+		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
 		}
+		# I wrote this earlier to except multiple read1fastqs for the same BAM, but I don't have an example of that now, so I will assume there is only one
+		# pair of reads per bam; this may need to be fixed later. #ebartom 2019-09-03
+		# This is now reinstated and hopefully fixed, at least for paired end.  #ebartom 2020-07-24
+		
+		print STDERR "Bams: @bams\nNewBam: $sample.bam";
+		if ($#bams > 0){
+		    my $bamString = "I=@bams";
+		    $bamString =~ s/\s/ I=/g;
+		    print SH "# Merge bam files from the same sample $sample\n";
+		    print SH "java -Xmx2g -jar $PICARD MergeSamFiles $bamString O=$outputDirectory\/$project\/bam\/$sample.bam\n";
+		    print SH "date\n\n";
+		} else {
+		    my $prefix = "";
+		    if ($read1fastqs[0] =~ /\/?([\d\_\-\w\.]+)\_R1\.fastq\.gz$/){
+			$prefix = $1;
+		    } elsif ($read1fastqs[0] =~ /\/?([\d\_\-\w\.]+)\_R1\_001\.fastq\.gz$/){
+			$prefix = $1;
+		    } else { $prefix = $read1fastqs[0];}
+		    print SH "cp $outputDirectory\/$project\/bam\/$prefix.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+		}		    
 	    }
-	    # I wrote this earlier to except multiple read1fastqs for the same BAM, but I don't have an example of that now, so I will assume there is only one
-	    # pair of reads per bam; this may need to be fixed later. #ebartom 2019-09-03
-#	    my $bamString = "I=@bams";
-#	    $bamString =~ s/\s/ I=/g;
-#	    print SH "# Merge bam files from the same sample $sample\n";
-#	    print SH "java -Xmx2g -jar $PICARD MergeSamFiles $bamString O=$outputDirectory\/$project\/bam\/$sample.bam\n";
-	    #	    print SH "date\n\n";
+
 	    print SH "echo \"Finished alignment\"\n";
 #	    print SH "# Sort bam file for sample $sample\n";
 #	    print SH "java -Xmx2g -jar $PICARD SortSam \\\n";
