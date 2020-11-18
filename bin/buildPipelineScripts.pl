@@ -1056,6 +1056,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	    #$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 	    #if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    print SH "module load pigz/2.4\n";
+	    print VER "EXEC module load pigz/2.4\n";
 	    print SH "module load boost/1.56.0\n";
 	    print VER "EXEC module load boost/1.56.0\n";
 	    print SH "module load gcc/4.8.3\n";
@@ -1114,7 +1116,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			    print SH "\n# Trim SE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 			    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $outputDirectory\/$project\/fastq\/$fastqname.trimmed $trimString\n";
 			    print VER "EXEC $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
-			    print SH "gzip $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
+			    print SH "pigz $outputDirectory\/$project\/fastq\/$fastqname.trimmed\n";
 			    if ($newfastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.t?gz$/){
 				if ((-e "$1\_fastqc.html") && !(-z "$1\_fastqc.html")){
 				    print SH "\# FastQC file already exists\n";
@@ -1182,7 +1184,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			#$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 			#if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 			print SH "# Sort the output of STAR (outputting sorted BAMs from STAR took too much memory)\n";
-			print SH "samtools sort -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam\n";
+			print SH "samtools sort -@ $numProcessors  -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam\n";
 		    }
 		}
 	    } elsif ($runPairedEnd == 1){
@@ -1288,7 +1290,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 			#$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 			#if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
-			print SH "samtools sort -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam\n";
+			print SH "samtools sort -@ $numProcessors -o $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.sortedByCoord.out.bam $outputDirectory\/$project\/STAR_aln\/$sample"."Aligned.out.bam\n";
 		    }
 		}
 		if ($rsem == 1){ # AND runpaired = 1
@@ -1298,6 +1300,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"perl/5.1.6"} = 1;}
 		    print SH "module load gcc/6.4.0\n";
 		    print VER "EXEC module load gcc/6.4.0\n";
+		    print SH "module load pigz/2.4\n";
+		    print VER "EXEC module load pigz/2.4\n";
 		    print SH "export PATH=$NGSbartom/tools/bin/RSEM-1.3.0/:\$PATH\n";
 		    print VER "EXEC $NGSbartom/tools/bin/RSEM-1.3.0\n";
 		    print SH "date\n";
@@ -1319,8 +1323,8 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 			#		    print SH "echo $read2fastqs\n";
 			print SH "cat $read1fastqs > $outputDirectory/$project/fastq/$sample.read1.fastq\n";
 			print SH "cat $read2fastqs > $outputDirectory/$project/fastq/$sample.read2.fastq\n";
-			print SH "gzip $read1fastqs &\n";
-			print SH "gzip $read2fastqs &\n";
+			print SH "pigz $read1fastqs &\n";
+			print SH "pigz $read2fastqs &\n";
 			print SH "\n# Then calculate expression for $sample.\n";
 			print SH "which rsem-calculate-expression\n";
 			print SH "rsem-calculate-expression --star --paired-end $outputDirectory/$project/fastq/$sample.read1.fastq $outputDirectory/$project/fastq/$sample.read2.fastq $rsemTx{$reference{$sample}} $outputDirectory/$project/bam/$sample --no-bam-output -p $numProcessors $strandstring >& $outputDirectory/$project/bam/$sample.rsem.log\n";
@@ -1353,11 +1357,11 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 	    #if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    if (($runPairedEnd == 1) && ($htseq == 1)) {
 		print SH "cd $outputDirectory\/$project\/bam\n";
-		print SH "samtools sort -n -T $sample -o $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+		print SH "samtools sort -n -T -@ $numProcessors $sample -o $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 		print SH "mv $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
-		print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+		print SH "samtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    } else {
-		print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+		print SH "samtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    }
 	    if (($rsem == 1)&& ($runPairedEnd == 0)){ # Single End RSEM analysis
 		print SH "\n# Use RSEM to analyze isoform abundance.\n";
@@ -1382,7 +1386,7 @@ if (($buildAlign == 1) && ($type eq "RNA")){
 		    print SH "echo $fastqstring\n";
 		    print SH "cat $fastqstring > $outputDirectory/$project/fastq/$sample.fastq\n";
 		    print SH "ls $outputDirectory/$project/fastq/$sample.fastq\n";
-		    print SH "gzip $fastqstring &\n";
+		    print SH "pigz $fastqstring &\n";
 		    print SH "\n# Then calculate expression for $sample.\n";
 		    $moduleText = &checkLoad("STAR/2.5.2",\%modulesLoaded);
 		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"STAR/2.5.2"} = 1;}
@@ -1658,7 +1662,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    print SH "\n# Trim SE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
 		    print VER "EXEC  $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
-		    print SH "gzip $fastq.trimmed\n";
+		    print SH "pigz $fastq.trimmed\n";
 		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
 			if (-f "$1\_fastqc.html"){
 			    print SH "\# FastQC file already exists\n";
@@ -1699,17 +1703,17 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    #if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    print SH "# Align fastqs with Bowtie\n";
 	    if ($multiMap == 0){
-		print SH "\ngunzip -c $fastqs | bowtie -p $numProcessors -m 1 -v 2 -S $bowtieIndex{$reference{$sample}} 2> $outputDirectory\/$project\/bam\/$sample.bowtie.log - | samtools view -bS - > $outputDirectory\/$project\/bam\/$sample.bam \n";
+		print SH "\npigz -dc $fastqs | bowtie -p $numProcessors -m 1 -v 2 -S $bowtieIndex{$reference{$sample}} 2> $outputDirectory\/$project\/bam\/$sample.bowtie.log - | samtools view -bS -@ $numProcessors - > $outputDirectory\/$project\/bam\/$sample.bam \n";
 	    } elsif ($multiMap ==1) {
-		print SH "\ngunzip -c $fastqs | bowtie -p $numProcessors -v 2 -S $bowtieIndex{$reference{$sample}} 2> $outputDirectory\/$project\/bam\/$sample.bowtie.log - | samtools view -bS - > $outputDirectory\/$project\/bam\/$sample.bam \n";
+		print SH "\npigz -dc $fastqs | bowtie -p $numProcessors -v 2 -S $bowtieIndex{$reference{$sample}} 2> $outputDirectory\/$project\/bam\/$sample.bowtie.log - | samtools view -bS -@ $numProcessors - > $outputDirectory\/$project\/bam\/$sample.bam \n";
 	    }
 	    print SH "date\n\n";
 	    print SH "# Sort and rearrange bam files\n";
-	    print SH "samtools sort -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    print SH "samtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "date\n";
 	    print SH "mv $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "date\n";
-	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    print SH "samtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
 	    print SH "if ! [ -f \"$outputDirectory\/$project\/bam\/bamlist.txt\" ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
 	    print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
@@ -1798,7 +1802,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			  #  $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 			  #  if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 			    print SH "\n# Remove Viewpoint from Bam files.\n";
-			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n";
+			    print SH "samtools view -@ $numProcessors -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb -@ $numProcessors - > $bamDirectory\/$sample.noVP.bam\n";
 			    print SH "\n# Make 4C tracks.\n";
 			    # The multi mapping argument is not used right now.
 			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
@@ -1922,7 +1926,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    print SH "\n# Trim SE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
 		    print VER "EXEC  $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
-		    print SH "gzip $fastq.trimmed\n";
+		    print SH "pigz $fastq.trimmed\n";
 		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
 			if (-f "$1\_fastqc.html"){
 			    print SH "\# FastQC file already exists\n";
@@ -1958,7 +1962,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		    $rgString = "\@RG\\\tID:$sample\\\tSM:$sample\\\tPU:nextseq\\\tCN:NUSeq\\\tPL:ILLUMINA";
 		    print SH "# Adding Readgroups from rgstring $rgString\n";
-		    print SH "bwa mem -M -t $numProcessors -R \"$rgString\" $bwaIndex{$reference{$sample}} $fastq |  $NGSbartom/tools/bin/samblaster/samblaster | samtools view -bS - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
+		    print SH "bwa mem -M -t $numProcessors -R \"$rgString\" $bwaIndex{$reference{$sample}} $fastq |  $NGSbartom/tools/bin/samblaster/samblaster | samtools view -bS -@ $numProcessors - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
 		    print SH "date\n\n";
 		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
 		}
@@ -2033,9 +2037,9 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    print SH "# Adding Readgroups from rgstring $rgString\n";
 		    print SH "bwa mem -M -t $numProcessors -R \"$rgString\" $bwaIndex{$reference{$sample}} $read1fastqs[$i] $read2fastqs[$i] | \\\n";
 		    print SH "\t$NGSbartom/tools/bin/samblaster/samblaster | \\\n";
-		    print SH "\tsamtools view -b -h - | \\\n";
-		    print SH "\tsamtools sort -o $outputDirectory\/$project\/bam/$sample.bam - && \\\n";
-		    print SH "\tsamtools index $outputDirectory\/$project\/bam\/$sample.bam && \\\n";
+		    print SH "\tsamtools view -b -h -@ $numProcessors - | \\\n";
+		    print SH "\tsamtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam/$sample.bam - && \\\n";
+		    print SH "\tsamtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam && \\\n";
 		    print SH "\tsamtools flagstat $outputDirectory\/$project\/bam\/$sample.bam && \n";
 		    print SH "date\n\n";
 		    push (@bams,"$outputDirectory\/$project\/bam\/$sample.bam");
@@ -2064,7 +2068,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    print SH "# Index bam file and gather flagstats.\n";
 	    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
- 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.mdup.bam\n";
+ 	    print SH "samtools index -@ $numProcessors  $outputDirectory\/$project\/bam\/$sample.mdup.bam\n";
 	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.mdup.bam > $outputDirectory\/$project\/bam\/$sample.mdup.bam.flagstats.txt &\n";
  	    print SH "date\n\n";
 	    #Base recalibrator
@@ -2111,7 +2115,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
  	    print SH "cp $outputDirectory\/$project\/bam\/$sample.realigned.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 
 	    print SH "\n# Re-index sample.bam file to make sure the index is up-to-date.\n";
-	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    print SH "samtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam\n";
  	    print SH "date\n\n";
 	    
 	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
@@ -2204,7 +2208,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 #			    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 #			    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
- 			    print SH "samtools view -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb - > $bamDirectory\/$sample.noVP.bam\n";
+ 			    print SH "samtools view -@ $numProcessors -h $bamDirectory\/$sample.bam | awk '!(\$3 == \"$chr\" && \$4 > $start && \$4 < $stop){print \$0}' | samtools view -Sb -@ $numProcessors - > $bamDirectory\/$sample.noVP.bam\n";
  			    print SH "\n# Make 4C tracks.\n";
  			    # The multi mapping argument is not used right now.
  			    # This is because Bowtie doesn't fill in the NH tag in the BAM file.
@@ -2531,8 +2535,8 @@ if ($runRNAstats == 1){
 		print SSH "\njunction_saturation.py -i $outputDirectory\/$project\/bam\/$sample.bam -r $samplegenebed{$reference{$project}} -o $outputDirectory\/$project\/bam\/$sample\n";
 		print SSH "\n# If sorted bam doesn't exist, create it.\n";
 		print SSH "if ! [ -f $outputDirectory\/$project\/bam\/$sample.sorted.bam\" ]; then\n";
-		print SSH "\tsamtools sort $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
-		print SSH "\tsamtools index $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
+		print SSH "\tsamtools sort -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam > $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
+		print SSH "\tsamtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
 		print SSH "fi\n";
 		print SSH "\n# Estimate TIN (transcript integrity number) for each transcript.\n";
 		print SSH "tin.py -i $outputDirectory\/$project\/bam\/$sample.sorted.bam -r $samplegenebed{$reference{$project}} \n";
@@ -2608,7 +2612,7 @@ if ($buildGenotyping ==1) {
 		    print SH "# Sort BAM file.\n";
 		    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
-		    print SH "samtools sort -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+		    print SH "samtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 		    print SH "date\n\n";
 		    $moduleText = &checkLoad("picard/1.131",\%modulesLoaded);
 		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"picard/1.131"} = 1;}
@@ -2708,12 +2712,12 @@ if ($buildGenotyping ==1) {
 		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"gatk/3.6.0"} = 1;}
 		    print SH "export PATH=\$PATH:/software/gatk/3.6.0/\n\n";
-#		    print SH "samtools index -b $outputDirectory\/$project\/bam\/$sample.bam\n";
+#		    print SH "samtools index -@ $numProcessors -b $outputDirectory\/$project\/bam\/$sample.bam\n";
 #		    print SH "date\n\n";
 		    my $normal = "";
 		    if (exists($exomePairing{$sample})){
 			$normal = $exomePairing{$sample};
-#			print SH "samtools index -b $outputDirectory\/$project\/bam\/$normal.bam\n";
+#			print SH "samtools index -@ $numProcessors -b $outputDirectory\/$project\/bam\/$normal.bam\n";
 #			print SH "date\n\n";
 			print SH "# Call variants with MuTect2\n";
 			print SH "java -Xmx2G -jar /software/gatk/3.6.0/GenomeAnalysisTK.jar -T MuTect2 \\\n";
