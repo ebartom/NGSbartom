@@ -417,7 +417,7 @@ print STDERR "=====================================\n";
 
 # Define references.
 my (%bowtieIndex,%starIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx,%genebed,%samplegenebed);
-my (%gatkRef,%knownSNPsites,%knownIndelsites,%cosmicSNPsites);
+my (%gatkRef,%knownSNPsites,%knownIndelsites,%cosmicSNPsites,%chromSizes,%genomeSize);
 
 $bowtieIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38";
 $bwaIndex{"hg38"} = "$NGSbartom/anno/bwa_indexes/hg38.fa";
@@ -433,6 +433,8 @@ $gatkRef{"hg38"} = "$NGSbartom/anno/picardDict/hg38.fa";
 $knownSNPsites{"hg38"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
 $cosmicSNPsites{"hg38"} = "$NGSbartom/anno/Cosmic/CosmicCodingMuts.vcf.gz";
 $knownIndelsites{"hg38"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_standard.indels.hg38.vcf";
+$chromSizes{"hg38"} = "$NGSbartom/anno/chromSizes/hg38.chrom.sizes";
+$genomeSize{"hg38"} = 2913022398;
 
 $bowtieIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/Bowtie2Index/genome";
 $bwaIndex{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Sequence/BWAIndex/genome.fa";
@@ -446,8 +448,10 @@ $gff{"hg38.mp"} = "$NGSbartom/anno/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes
 $rsemTx{"hg38.mp"} = "NEEDS TO BE UPDATED $NGSbartom/anno/rsemTx/hg38.Ens_78";
 $gatkRef{"hg38.mp"} = "$NGSbartom/anno/picardDict/hg38.fa";
 $knownSNPsites{"hg38.mp"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
-$cosmicSNPsites{"hg38"} = "$NGSbartom/anno/Cosmic/CosmicCodingMuts.vcf.gz";
+$cosmicSNPsites{"hg38.mp"} = "$NGSbartom/anno/Cosmic/CosmicCodingMuts.vcf.gz";
 $knownIndelsites{"hg38.mp"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_standard.indels.hg38.vcf";
+$chromSizes{"hg38.mp"} = "$NGSbartom/anno/chromSizes/hg38.chrom.sizes";
+$genomeSize{"hg38.mp"} = 2913022398;
 
 $bowtieIndex{"hg19"} = "$NGSbartom/anno/bowtie_indexes/hg19";
 $bwaIndex{"hg19"} = "$NGSbartom/anno/bwa_indexes/hg19.fa";
@@ -462,6 +466,8 @@ $rsemTx{"hg19"} = "$NGSbartom/anno/rsemTx/hg19.Ens_75";
 $gatkRef{"hg19"} = "$NGSbartom/anno/picardDict/hg19.fa";
 $knownSNPsites{"hg19"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg19.sites.noContigs.vcf";
 $knownIndelsites{"hg19"} = "$NGSbartom/anno/picardDict/1000G_phase1.indels.hg19.sites.noContigs.vcf";
+$chromSizes{"hg19"} = "$NGSbartom/anno/chromSizes/hg19.chrom.sizes";
+$genomeSize{"hg19"} = 2864785220;
 
 $bowtieIndex{"dm3"} = "$NGSbartom/anno/bowtie_indexes/dm3";
 $bwaIndex{"dm3"} = "$NGSbartom/anno/bwa_indexes/dm3.fa";
@@ -473,6 +479,8 @@ $genebed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.cuff.bed";
 $samplegenebed{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.r1k.cuff.bed";
 $gff{"dm3"} = "$NGSbartom/anno/Ens/dm3.Ens_74/dm3.Ens_74.cuff.gtf";
 $rsemTx{"dm3"} = "$NGSbartom/anno/rsemTx/dm3.Ens_74";
+$chromSizes{"dm3"} = "$NGSbartom/anno/chromSizes/dm3.chrom.sizes";
+$genomeSize{"dm3"} = 162367812;
 
 $bowtieIndex{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Sequence/Bowtie2Index/genome";
 $bwaIndex{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Sequence/BWAIndex/genome.fa";
@@ -484,6 +492,7 @@ $rsemTx{"grcm38"} = "$NGSbartom/anno/rsemTx/mouse_GRCm38";
 $gatkRef{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Sequence/WholeGenomeFasta/genome.fa";
 $knownSNPsites{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annotation/Variation/Mus_musculus.reordered2.vcf";
 $knownIndelsites{"grcm38"} = "$NGSbartom/anno/Mus_musculus/Ensembl/GRCm38/Annotation/Variation/Mus_musculus.reordered2.vcf";
+$genomeSize{"grcm38"} = 2652783500;
 
 $bowtieIndex{"rn6"} = "$NGSbartom/anno/bowtie_indexes/rn6";
 $bwaIndex{"rn6"} = "$NGSbartom/anno/bwa_indexes/rn6.fa";
@@ -508,6 +517,8 @@ $genebed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.cuff.bed";
 $samplegenebed{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.r1k.cuff.bed";
 $gff{"mm10"} = "$NGSbartom/anno/Ens/mm10.Ens_78/mm10.Ens_78.cuff.gtf";
 $rsemTx{"mm10"} = "$NGSbartom/anno/rsemTx/mm10.Ens_78";
+$chromSizes{"mm10"} = "$NGSbartom/anno/chromSizes/mm10.chrom.sizes";
+$genomeSize{"mm10"} = 2652783500;
 
 $bowtieIndex{"mm9"} = "$NGSbartom/anno/bowtie_indexes/mm9";
 $bwaIndex{"mm9"} = "$NGSbartom/anno/bwa_indexes/mm9.fa";
@@ -519,6 +530,8 @@ $genebed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.cuff.bed";
 $samplegenebed{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.r1k.cuff.bed";
 $gff{"mm9"} = "$NGSbartom/anno/Ens/mm9.Ens_67/mm9.Ens_67.cuff.gtf";
 $rsemTx{"mm9"} = "$NGSbartom/anno/rsemTx/mm9.Ens_67";
+$chromSizes{"mm9"} = "$NGSbartom/anno/chromSizes/mm9.chrom.sizes";
+$genomeSize{"mm9"} = 2620345972;
 
 $bowtieIndex{"sacCer3"} = "$NGSbartom/anno/bowtie_indexes/sacCer3";
 $bwaIndex{"sacCer3"} = "$NGSbartom/anno/bwa_indexes/sacCer3.fa";
@@ -532,6 +545,7 @@ $genebed{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.cuff.be
 $samplegenebed{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.r1k.cuff.bed";
 $gff{"sacCer3"} = "$NGSbartom/anno/Ens/sacCer3.Ens_78/sacCer3.Ens_78.cuff.gtf";
 $rsemTx{"sacCer3"} = "$NGSbartom/anno/rsemTx/sacCer3.Ens_72";
+$chromSizes{"sacCer3"} = "$NGSbartom/anno/chromSizes/sacCer3.chrom.sizes";
 
 if (-d "$outputDirectory") {
     print STDERR "Output Directory found.\n";
@@ -1457,7 +1471,22 @@ if (($buildAlign == 1) && (($aligner eq "star") || ($aligner eq "tophat"))){
 		if ($stranded == 1){
 		    my $assembly = $reference{$sample};
 		    if ($assembly eq "hg38.mp"){$assembly="hg38";}
-		    print SH "Rscript $NGSbartom/tools/bin/createRNAseqTracks3.R --assembly=$assembly --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --multiMap=$multiMap --stranded=$stranded\n";
+		    if ($runPairedEnd == 0){
+			print SH "Rscript $NGSbartom/tools/bin/createRNAseqTracks3.R --assembly=$assembly --bamDir=$outputDirectory\/$project\/bam\/ --sample=$sample --multiMap=$multiMap --stranded=$stranded\n";
+		    } elsif ($runPairedEnd == 1){
+			print SH "# Build stranded paired end tracks with deeptools.\n";
+			print SH "module load deeptools/3.1.1\n";
+			print VER "EXEC module load deeptools/3.1.1\n";
+			print SH "module load deeptools/3.1.1\n";
+			print VER "EXEC module load samtools/1.10.1\n";
+			print SH "samtools sort $sample.bam > $sample.sorted.bam\n";
+			print SH "samtools index $sample.sorted.bam\n";
+			print SH "bamCoverage --bam $sample.sorted.bam --outFileFormat bedgraph --normalizeUsing CPM --effectiveGenomeSize ".$genomeSize{"hg38"}." --filterRNAstrand reverse --outFileName $sample.minus.bdg\n";
+			print SH "awk \'\{printf \"\%s\\t\%d\\t\%d\\t\%f\\n\",\$1,\$2,\$3,\(0-\$4\)\}\' $sample.minus.bdg > temp.bdg\n";
+			print SH "$NGSbartom/tools/bin/bedGraphToBigWig temp.bdg ".$chromSizes{"hg38"}." $sample.minus.bw\n";
+			print SH "rm temp.bdg\n";
+			print SH "bamCoverage --bam $sample.sorted.bam --outFileFormat bigwig --normalizeUsing CPM --effectiveGenomeSize ".$genomeSize{"hg38"}." --filterRNAstrand forward --outFileName $sample.plus.bw \n";
+		    }
 		} else {
 		    my $assembly = $reference{$sample};
 		    if ($assembly eq "hg38.mp"){$assembly="hg38";}
@@ -1667,6 +1696,9 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    #if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
+	    print SH "module load picard/1.131\n";
+	    print VER "EXEC module load picard/1.131\n";
+	    my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    my @newFastqs;
 	    ### ==>> HERE Bowtie, traditionally for ChIP alignment. Not currently working PE Aug 2021
@@ -1810,8 +1842,13 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "date\n\n";
 	    print SH "# Sort and rearrange bam files\n";
 	    print SH "samtools sort -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    print SH "\n# Index and remove PCR duplicates (added 10/4/2021).\n";
+	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
+	    print SH "java -jar $PICARD MarkDuplicates INPUT=$outputDirectory\/$project\/bam\/$sample.sorted.bam OUTPUT=$outputDirectory\/$project\/bam\/$sample.markdup.bam ASSUME_SORTED=true METRICS_FILE=$outputDirectory\/$project\/bam\/$sample.markdup.metrics.txt VALIDATION_STRINGENCY=SILENT\n";
+	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.markdup.bam\n";
+	    print SH "samtools view -b -F 0x400 $outputDirectory\/$project\/bam\/$sample.markdup.bam > $outputDirectory\/$project\/bam\/$sample.rmdup.bam\n";	
 	    print SH "date\n";
-	    print SH "mv $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    print SH "mv $outputDirectory\/$project\/bam\/$sample.rmdup.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "date\n";
 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
@@ -2154,7 +2191,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    print SH "date\n\n";
 		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
 		}
-		# I wrote this earlier to except multiple read1fastqs for the same BAM, but I don't have an example of that now, so I will assume there is only one
+		# I wrote this earlier to accept multiple read1fastqs for the same BAM, but I don't have an example of that now, so I will assume there is only one
 		# pair of reads per bam; this may need to be fixed later. #ebartom 2019-09-03
 		# This is now reinstated and hopefully fixed, at least for paired end.  #ebartom 2020-07-24
 		
@@ -2529,6 +2566,7 @@ if ($buildSampleCheck == 1){
 	foreach my $sample (@samples){
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    my $cmd = "";
+	    print STDERR "$sample: \t \"@fastqs\"\n";
 	    if (!(-e "$outputDirectory\/$project\/fastq")){
 		$cmd .= "mkdir $outputDirectory\/$project\/fastq\n";
 	    }
@@ -2542,19 +2580,28 @@ if ($buildSampleCheck == 1){
 	    my $newfastqs = "@newfastqs";
 	    #	    $newfastqs =~ s/ /,/g;
 	    if ($oldfastqs ne $newfastqs){
-		print STDERR "Old fastqs: $oldfastqs\nNew fastqs: $newfastqs\n";
+#		print STDERR "Old fastqs: $oldfastqs\nNew fastqs: $newfastqs\n";
 		system($cmd);
 	    }
 	    @fastqs = split(/\s+/,$newfastqs);
+	    my $fastqString = "";
+	    my $fastqLabel = "";
 	    for my $fastq (@fastqs){
-		my $fastqLabel = basename($fastq);
+#		print STDERR "$fastq\t@fastqs\n";
+		$fastqLabel = basename($fastq);
 		$fastqLabel =~ s/\.fastq.gz$//g;
 		$fastqLabel =~ s/\.fq.gz$//g;
 		$fastqLabel =~ s/\.fastq$//g;
 		$fastqLabel =~ s/\.fq$//g;
-		if ($fastq ne ""){
-		    print FQL "$fastq\t$fastqLabel\n";
-		}
+		if ($runPairedEnd == 1){
+		    $fastqLabel =~ s/\_S\d+\_R\d\_\d+//g;
+		}	
+		if ($fastqString eq ""){
+		    $fastqString = $fastq;
+		} else {$fastqString = "$fastqString\t$fastq";}
+	    }
+	    if ($fastqString ne ""){
+		print FQL "$fastqString\t$fastqLabel\n";
 	    }
 	    print SH "\n# Run NGSCheckmate on the fastq files listed in  $outputDirectory\/$project\/SampleID\/$project.fastqList.txt\n";
 	    print SH "python \$NCM_HOME/ncm_fastq.py -l $outputDirectory\/$project\/SampleID\/$project.fastqList.txt -pt \$NCM_HOME/SNP/SNP.pt -O $outputDirectory\/$project\/SampleID/NGSCheckmateResults >& $outputDirectory\/$project\/SampleID\/$project.ncm.fq.log\n\n";
@@ -2608,8 +2655,8 @@ if ($runRNAstats == 1){
 	    #if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    print SH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
 	    print VER "EXEC module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
-	    $moduleText = &checkLoad("python/anaconda3",\%modulesLoaded);
-	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda3"} = 1;}
+	    $moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 	    print SH "module load parallel\n";
 	    print VER "EXEC RSeQC\n";
 	    my $strandrule = "";
@@ -2643,8 +2690,8 @@ if ($runRNAstats == 1){
 		if ($moduleText ne ""){ print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 		#$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 		#if ($moduleText ne ""){ print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
-		$moduleText = &checkLoad("python/anaconda3",\%modulesLoaded);
-		if ($moduleText ne ""){ print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda3"} = 1;}
+		$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
+		if ($moduleText ne ""){ print SSH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
 		print SSH "module unload mpi/openmpi-1.6.3-gcc-4.6.3\n";
 		print SSH "module load parallel\n";
 		if (!(-e "$outputDirectory\/$project\/bam\/$sample.bam")){
@@ -2994,11 +3041,27 @@ if ($buildEdgeR ==1) {
 		    my @samples = uniq(split(/\,/,$samples{$project}));
 		    # Foreach sample within the project:
 		    foreach my $sample (@samples){
-		    # if the user wants tracks, put that in the downstream analysis script.
+			# if the user wants tracks, put that in the downstream analysis script.
 			print SH "# Create RNA seq Tracks\n";
 			my $assembly = $reference{$sample};
 			if ($assembly eq "hg38.mp"){$assembly="hg38";}
-			print SH "Rscript $NGSbartom/tools/bin/createRNAseqTracks3.R --assembly=$assembly --bamDir=$bamDirectory\/ --sample=$sample --stranded=$stranded  --multiMap=$multiMap\n";
+			# Distinguish between paired end stranded and single end stranded.
+			if ($runPairedEnd == 0){
+			    print SH "Rscript $NGSbartom/tools/bin/createRNAseqTracks3.R --assembly=$assembly --bamDir=$bamDirectory\/ --sample=$sample --multiMap=$multiMap --stranded=$stranded\n";
+			} elsif ($runPairedEnd == 1){
+			    print SH "# Build stranded paired end tracks with deeptools.\n";
+			    print SH "module load deeptools/3.1.1\n";
+			    print VER "EXEC module load deeptools/3.1.1\n";
+			    print SH "module load samtools/1.10.1\n";
+			    print VER "EXEC module load samtools/1.10.1\n";
+			    print SH "samtools sort $sample.bam > $sample.sorted.bam\n";
+			    print SH "samtools index $sample.sorted.bam\n";
+			    print SH "bamCoverage --bam $sample.sorted.bam --outFileFormat bedgraph --normalizeUsing CPM --effectiveGenomeSize ".$genomeSize{"hg38"}." --filterRNAstrand reverse --outFileName $sample.minus.bdg\n";
+			    print SH "awk \'\{printf \"\%s\\t\%d\\t\%d\\t\%f\\n\",\$1,\$2,\$3,\(0-\$4\)\}\' $sample.minus.bdg > temp.bdg\n";
+			    print SH "$NGSbartom/tools/bin/bedGraphToBigWig temp.bdg ".$chromSizes{"hg38"}." $sample.minus.bw\n";
+			    print SH "rm temp.bdg\n";
+			    print SH "bamCoverage --bam $sample.sorted.bam --outFileFormat bigwig --normalizeUsing CPM --effectiveGenomeSize ".$genomeSize{"hg38"}." --filterRNAstrand forward --outFileName $sample.plus.bw \n";
+			}
 			print SH "date\n\n";
 			print SH "mkdir $outputDirectory\/$project\/tracks\n";
 			print SH "\n# Make Headers for UCSC genome browser.\n";
@@ -3178,7 +3241,10 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 	    }
 	    open(CHIP,$chipDescription);
 	    while(<CHIP>){
-		if (($_ !~ /^IP/)&& ($_ !~ /^ChIP/)){
+		# Once, sample names started with ChIP, and consequently all lines were interpreted as header.
+		# In that case, I removed the classification of lines starting with ChIP as header.
+		if (($_ !~ /^IP/)){
+		#if (($_ !~ /^IP/)&& ($_ !~ /^ChIP/)){
 		    chomp $_;
 		    my ($ip,$input,$peakType,$sample,$peakset) = split(/\,/,$_);
 		    $peakType = lc $peakType;
@@ -3197,6 +3263,8 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			}
 			print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
 			#print SH "module load R/3.2.2\n";
+			print SH "module load picard/1.131\n";
+			print SH "export PICARD=/software/picard/1.131/picard-tools-1.131/picard.jar\n";
 			print SH "export PATH=\$PATH:$NGSbartom/tools/bin/MACS-1.4.2/bin\n";
 			print VER "EXEC $NGSbartom/tools/bin/MACS-1.4.2\n";
 			print SH "export PYTHONPATH=$NGSbartom/tools/bin/MACS-1.4.2/lib/python2.6/site-packages:\$PYTHONPATH\n";
@@ -3238,7 +3306,7 @@ if (($buildPeakCaller ==1) && ($type eq "chipseq")){
 			print SH "\n# Annotate peaks with nearby genes.\n";
 			print VER "EXEC module load R/3.2.2\n";
 			print SH "module load R/3.2.2\n";
-			print SH "grep -v random $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.nonRandomChr.bed\n";
+			print SH "grep -v random $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed | grep -v chrUn > $outputDirectory\/$project\/peaks\/$ip.macsPeaks.nonRandomChr.bed\n";
 			print SH "Rscript $NGSbartom/tools/bin/addGenesToBed.R --peakFile=$outputDirectory\/$project\/peaks\/$ip.macsPeaks.nonRandomChr.bed --outputDirectory=$outputDirectory\/$project\/peaks --assembly=$reference{$project} --txdbfile=$txdbfile{$reference{$project}}\n";
 			print SH "\n# Center peaks and sort by peak width, from large to small.\n";
 			print SH "perl $NGSbartom/tools/bin/NGSplotPipeline/NGSplotFilesScripts/convertToNGSplotSortedCenteredBED.pl $outputDirectory\/$project\/peaks\/$ip.macsPeaks.bed $outputDirectory\/$project\/peaks\/$ip.sorted.centered.bed\n";
