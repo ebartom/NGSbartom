@@ -237,7 +237,7 @@ if (($sampleSheet eq "") && ($baseSpaceDirectory ne "")){
 if ($aligner eq ""){
     if (($type eq "exome" ) || ($type eq "WGS")){ $aligner = "bwa";}
     if ($type eq "DNA"){ $aligner = "bowtie";}
-    if ($type eq "RNA"){ $aligner = "tophat";}
+    if ($type eq "RNA"){ $aligner = "star";}
     if ($type eq "chipseq"){ $aligner = "bowtie";}
     if ($type eq "proseq"){ $aligner = "bowtie";}
     if ($type eq "4su"){ $aligner = "bowtie";}
@@ -418,6 +418,32 @@ print STDERR "=====================================\n";
 # Define references.
 my (%bowtieIndex,%starIndex,%txIndex,%txdbfile,%bwaIndex,%gff,%exonbed,%rsemTx,%genebed,%samplegenebed);
 my (%gatkRef,%knownSNPsites,%knownIndelsites,%cosmicSNPsites,%chromSizes,%genomeSize);
+
+$bowtieIndex{"T2Tv2"} = "$NGSbartom/anno/bowtie_indexes/chm13v2_bt2";
+$bwaIndex{"T2Tv2"} = "$NGSbartom/anno/bwa_indexes/chm13v2.0.fa";
+$genomeSize{"T2Tv2"} = 3117275501;
+$genebed{"T2Tv2"} = "$NGSbartom/anno/bowtie_indexes/chm13v2.bed";
+$gtf{"T2Tv2"} = "$NGSbartom/anno/bowtie_indexes/chm13v2.gtf";
+
+#$starIndex{"T2Tv2"} = "$NGSbartom/anno/STAR_indexes/hg38/";
+#$txIndex{"T2Tv2"} ="$NGSbartom/anno/tophat_tx/hg38.Ens_78.remap";
+#$txdbfile{"T2Tv2"} = "$NGSbartom/anno/Txdb/hsapiens_gene_ensembl_Ens78.txdb";
+#$exonbed{"T2Tv2"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.exons.bed";
+#$gff{"T2Tv2"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.gtf";
+#$genebed{"T2Tv2"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.cuff.bed"; # Created with gtf2bed tool
+#$samplegenebed{"T2Tv2"} = "$NGSbartom/anno/Ens/hg38.Ens_78/hg38.Ens_78.r1k.cuff.bed"; # 1000 genes picked at random from gene bed.
+#$rsemTx{"T2Tv2"} = "$NGSbartom/anno/rsemTx/hg38.Ens_78";
+#$gatkRef{"T2Tv2"} = "$NGSbartom/anno/picardDict/hg38.fa";
+#$knownSNPsites{"T2Tv2"} = "$NGSbartom/anno/picardDict/1000G_phase1.snps.high_confidence.hg38.vcf";
+#$cosmicSNPsites{"T2Tv2"} = "$NGSbartom/anno/Cosmic/CosmicCodingMuts.vcf.gz";
+#$knownIndelsites{"T2Tv2"} = "$NGSbartom/anno/picardDict/Mills_and_1000G_gold_standard.indels.hg38.vcf";
+#$chromSizes{"T2Tv2"} = "$NGSbartom/anno/chromSizes/hg38.chrom.sizes";
+
+$bowtieIndex{"T2Tv1.1"} = "$NGSbartom/anno/bowtie_indexes/chm13_v1.1";
+$bwaIndex{"T2Tv1.1"} = "$NGSbartom/anno/T2T_chm13_1.1/chm13.draft_v1.1.fasta";
+$starIndex{"T2Tv1.1"} = "$NGSbartom/anno/STAR_indexes/chm13_v1.1";
+$gff{"T2Tv1.1"} = "$NGSbartom/anno/T2T_chm13_1.1/chm13.draft_v1.1.gene_annotation.v4.gff3";
+$genomeSize{"T2Tv1.1"} = 3054832041;
 
 $bowtieIndex{"hg38"} = "$NGSbartom/anno/bowtie_indexes/hg38";
 $bwaIndex{"hg38"} = "$NGSbartom/anno/bwa_indexes/hg38.fa";
