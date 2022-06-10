@@ -2604,7 +2604,7 @@ if ($buildSampleCheck == 1){
 		print FQL "$fastqString\t$fastqLabel\n";
 	    }
 	    print SH "\n# Run NGSCheckmate on the fastq files listed in  $outputDirectory\/$project\/SampleID\/$project.fastqList.txt\n";
-	    print SH "python \$NCM_HOME/ncm_fastq.py -l $outputDirectory\/$project\/SampleID\/$project.fastqList.txt -pt \$NCM_HOME/SNP/SNP.pt -O $outputDirectory\/$project\/SampleID/NGSCheckmateResults >& $outputDirectory\/$project\/SampleID\/$project.ncm.fq.log\n\n";
+	    print SH "python \$NCM_HOME/ncm_fastq.py -p $numProcessors -l $outputDirectory\/$project\/SampleID\/$project.fastqList.txt -pt \$NCM_HOME/SNP/SNP.pt -O $outputDirectory\/$project\/SampleID/NGSCheckmateResults >& $outputDirectory\/$project\/SampleID\/$project.ncm.fq.log\n\n";
 	    close(SH);
 	}
 	if ($runSampleCheck == 0){
