@@ -1395,7 +1395,8 @@ if (($buildAlign == 1) && (($aligner eq "star") || ($aligner eq "tophat"))){
 	    #if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
 	    if (($runPairedEnd == 1) && ($htseq == 1)) {
 		print SH "cd $outputDirectory\/$project\/bam\n";
-		print SH "samtools sort -n -T -@ $numProcessors $sample -o $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+		# Removed -n flag to change sort type.  #2022-06-10 ETB
+		print SH "samtools sort -T -@ $numProcessors $sample -o $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 		print SH "mv $outputDirectory\/$project\/bam\/$sample.sorted.names.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 		print SH "samtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    } else {
@@ -1483,8 +1484,8 @@ if (($buildAlign == 1) && (($aligner eq "star") || ($aligner eq "tophat"))){
 			print VER "EXEC module load deeptools/3.1.1\n";
 			print SH "module load deeptools/3.1.1\n";
 			print VER "EXEC module load samtools/1.10.1\n";
-			print SH "samtools sort $sample.bam > $sample.sorted.bam\n";
-			print SH "samtools index $sample.sorted.bam\n";
+			print SH "samtools sort -@ $numProcessors $sample.bam > $sample.sorted.bam\n";
+			print SH "samtools index -@ $numProcessors $sample.sorted.bam\n";
 			print SH "bamCoverage --bam $sample.sorted.bam --outFileFormat bedgraph --normalizeUsing CPM --effectiveGenomeSize ".$genomeSize{"hg38"}." --filterRNAstrand reverse --outFileName $sample.minus.bdg\n";
 			print SH "awk \'\{printf \"\%s\\t\%d\\t\%d\\t\%f\\n\",\$1,\$2,\$3,\(0-\$4\)\}\' $sample.minus.bdg > temp.bdg\n";
 			print SH "$NGSbartom/tools/bin/bedGraphToBigWig temp.bdg ".$chromSizes{"hg38"}." $sample.minus.bw\n";
@@ -3145,8 +3146,8 @@ if ($buildEdgeR ==1) {
 			    print VER "EXEC module load deeptools/3.1.1\n";
 			    print SH "module load samtools/1.10.1\n";
 			    print VER "EXEC module load samtools/1.10.1\n";
-			    print SH "samtools sort $sample.bam > $sample.sorted.bam\n";
-			    print SH "samtools index $sample.sorted.bam\n";
+			    print SH "samtools sort -@ $numProcessors $sample.bam > $sample.sorted.bam\n";
+			    print SH "samtools index -@ $numProcessors $sample.sorted.bam\n";
 			    print SH "bamCoverage --bam $sample.sorted.bam --outFileFormat bedgraph --normalizeUsing CPM --effectiveGenomeSize ".$genomeSize{"hg38"}." --filterRNAstrand reverse --outFileName $sample.minus.bdg\n";
 			    print SH "awk \'\{printf \"\%s\\t\%d\\t\%d\\t\%f\\n\",\$1,\$2,\$3,\(0-\$4\)\}\' $sample.minus.bdg > temp.bdg\n";
 			    print SH "$NGSbartom/tools/bin/bedGraphToBigWig temp.bdg ".$chromSizes{"hg38"}." $sample.minus.bw\n";
