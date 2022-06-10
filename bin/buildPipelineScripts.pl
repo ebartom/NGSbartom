@@ -1705,7 +1705,7 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    my $PICARD = "/software/picard/1.131/picard-tools-1.131/picard.jar";
 	    my @fastqs = split(/\,/,$fastqs{$sample});
 	    my @newFastqs;
-<<<<<<< HEAD
+#<<<<<<< HEAD
 	    ### ==>> HERE Bowtie, traditionally for ChIP alignment. Not currently working PE Aug 2021
 	    if ($runPairedEnd == 0){
 		if ($runTrim == 1){
@@ -1717,33 +1717,34 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 			if ($fastq =~ /\/?([\d\_\-\w\.\.]+)\.fastq\.gz$/){
 			    $fastq = "$outputDirectory/$project/fastq/$1.fastq.gz";
 			    push(@newFastqs,$fastq);
-=======
-	    if ($runTrim == 1){
-		# Pascal says this is unnecessary as java is loaded by default.  2018-07-05
-#		print SH "module load java/jdk1.8.0_25\n";
-		foreach my $fastq (@fastqs){
-		    print SH "\n# Copy fastq files into outputDirectory.\n";
-		    print SH "cp $fastq $outputDirectory/$project/fastq/\n";
-		    if ($fastq =~ /\/?([\d\_\-\w\.\.]+)\.fastq\.gz$/){
-			$fastq = "$outputDirectory/$project/fastq/$1.fastq.gz";
-			push(@newFastqs,$fastq);
-		    }
-		    print SH "\n# Trim SE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
-		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
-		    print VER "EXEC  $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
-		    print SH "pigz $fastq.trimmed\n";
-		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
-			if (-f "$1\_fastqc.html"){
-			    print SH "\# FastQC file already exists\n";
-			} else {
-			    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
-			    print SH "mv $fastq*fastqc* $outputDirectory/$project/fastqc/\n";
->>>>>>> 8e897b7c514d0746b4f50cad85f487b0fb461a5e
 			}
+# =======
+# 	    if ($runTrim == 1){
+# 		# Pascal says this is unnecessary as java is loaded by default.  2018-07-05
+# #		print SH "module load java/jdk1.8.0_25\n";
+# 		foreach my $fastq (@fastqs){
+# 		    print SH "\n# Copy fastq files into outputDirectory.\n";
+# 		    print SH "cp $fastq $outputDirectory/$project/fastq/\n";
+# 		    if ($fastq =~ /\/?([\d\_\-\w\.\.]+)\.fastq\.gz$/){
+# 			$fastq = "$outputDirectory/$project/fastq/$1.fastq.gz";
+# 			push(@newFastqs,$fastq);
+# 		    }
+# 		    print SH "\n# Trim SE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
+# 		    print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
+# 		    print VER "EXEC  $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
+# 		    print SH "pigz $fastq.trimmed\n";
+# 		    if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
+# 			if (-f "$1\_fastqc.html"){
+# 			    print SH "\# FastQC file already exists\n";
+# 			} else {
+# 			    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc $fastq $fastq.trimmed.gz\n";
+# 			    print SH "mv $fastq*fastqc* $outputDirectory/$project/fastqc/\n";
+# >>>>>>> 8e897b7c514d0746b4f50cad85f487b0fb461a5e
+			
 			print SH "\n# Trim SE poor quality sequence with $trimString (see Trimmomatic documentation)\n";
 			print SH "java -jar $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar SE -threads $numProcessors -phred33 $fastq $fastq.trimmed $trimString\n";
 			print VER "EXEC  $NGSbartom/tools/bin/Trimmomatic-0.33/trimmomatic-0.33.jar\n";
-			print SH "gzip $fastq.trimmed\n";
+			print SH "pigz $fastq.trimmed\n";
 			if ($fastq =~ /^([\d\_\-\w\.\/.]+)\.fastq\.gz$/){
 			    if (-f "$1\_fastqc.html"){
 				print SH "\# FastQC file already exists\n";
@@ -1868,16 +1869,16 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    }
 	    print SH "date\n\n";
 	    print SH "# Sort and rearrange bam files\n";
-<<<<<<< HEAD
-	    print SH "samtools sort -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+#<<<<<<< HEAD
+	    print SH "samtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "\n# Index and remove PCR duplicates (added 10/4/2021).\n";
 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
 	    print SH "java -jar $PICARD MarkDuplicates INPUT=$outputDirectory\/$project\/bam\/$sample.sorted.bam OUTPUT=$outputDirectory\/$project\/bam\/$sample.markdup.bam ASSUME_SORTED=true METRICS_FILE=$outputDirectory\/$project\/bam\/$sample.markdup.metrics.txt VALIDATION_STRINGENCY=SILENT\n";
 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.markdup.bam\n";
 	    print SH "samtools view -b -F 0x400 $outputDirectory\/$project\/bam\/$sample.markdup.bam > $outputDirectory\/$project\/bam\/$sample.rmdup.bam\n";	
-=======
-	    print SH "samtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
->>>>>>> 8e897b7c514d0746b4f50cad85f487b0fb461a5e
+#=======
+#	    print SH "samtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+#>>>>>>> 8e897b7c514d0746b4f50cad85f487b0fb461a5e
 	    print SH "date\n";
 	    print SH "mv $outputDirectory\/$project\/bam\/$sample.rmdup.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "date\n";
@@ -2215,17 +2216,17 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    print SH "# Adding Readgroups from rgstring $rgString\n";
 		    print SH "bwa mem -M -t $numProcessors -R \"$rgString\" $bwaIndex{$reference{$sample}} $read1fastqs[$i] $read2fastqs[$i] | \\\n";
 		    print SH "\t$NGSbartom/tools/bin/samblaster/samblaster | \\\n";
-<<<<<<< HEAD
-		    print SH "\tsamtools view -b -h - | \\\n";
-		    print SH "\tsamtools sort -o $outputDirectory\/$project\/bam/$prefix.bam - && \\\n";
-		    print SH "\tsamtools index $outputDirectory\/$project\/bam\/$prefix.bam && \\\n";
+#<<<<<<< HEAD
+		    print SH "\tsamtools view -b -h -@ $numProcessors- | \\\n";
+		    print SH "\tsamtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam/$prefix.bam - && \\\n";
+		    print SH "\tsamtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$prefix.bam && \\\n";
 		    print SH "\tsamtools flagstat $outputDirectory\/$project\/bam\/$prefix.bam && \n";
-=======
-		    print SH "\tsamtools view -b -h -@ $numProcessors - | \\\n";
-		    print SH "\tsamtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam/$sample.bam - && \\\n";
-		    print SH "\tsamtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam && \\\n";
-		    print SH "\tsamtools flagstat $outputDirectory\/$project\/bam\/$sample.bam && \n";
->>>>>>> 8e897b7c514d0746b4f50cad85f487b0fb461a5e
+#=======
+#		    print SH "\tsamtools view -b -h -@ $numProcessors - | \\\n";
+#		    print SH "\tsamtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam/$sample.bam - && \\\n";
+#		    print SH "\tsamtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam && \\\n";
+#		    print SH "\tsamtools flagstat $outputDirectory\/$project\/bam\/$sample.bam && \n";
+#>>>>>>> 8e897b7c514d0746b4f50cad85f487b0fb461a5e
 		    print SH "date\n\n";
 		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
 		}
@@ -2271,7 +2272,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    print SH "samtools flagstat $outputDirectory\/$project\/bam\/$sample.mdup.bam > $outputDirectory\/$project\/bam\/$sample.mdup.bam.flagstats.txt &\n";
  	    print SH "date\n\n";
 	    #Base recalibrator
-<<<<<<< HEAD
+#<<<<<<< HEAD
 	    if (($type eq "exome") || ($type eq "WGS")){
 		# Recalibrating quality scores to optimize variant calling.
 		print SH "# Base recalibrator\n";
@@ -2317,66 +2318,65 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		print SH "cp $outputDirectory\/$project\/bam\/$sample.realigned.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 		
 		print SH "\n# Re-index sample.bam file to make sure the index is up-to-date.\n";
-		print SH "samtools index $outputDirectory\/$project\/bam\/$sample.bam\n";
+		print SH "samtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam\n";
 		print SH "date\n\n";
 		
 		print SH "\n# Check if bamlist file exists, and if not, create it.\n";
 		print SH "if ! [ -f \"$outputDirectory\/$project\/bam\/bamlist.txt\" ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
 		print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
 	    }
-	    if ($type eq "chipseq"){
-=======
-	    print SH "# Base recalibrator\n";
-	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6//GenomeAnalysisTK.jar -T BaseRecalibrator \\\n";
-	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
-	    print SH "\t-I $outputDirectory/$project/bam/$sample.mdup.bam \\\n";
-	    print SH "\t-knownSites $knownSNPsites{$reference{$sample}} \\\n"; 
-	    print SH "\t-o $outputDirectory/$project/bam/$sample.mdup.recalibration_report.grp\n\n";
+# #=======
+# 	    print SH "# Base recalibrator\n";
+# 	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6//GenomeAnalysisTK.jar -T BaseRecalibrator \\\n";
+# 	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+# 	    print SH "\t-I $outputDirectory/$project/bam/$sample.mdup.bam \\\n";
+# 	    print SH "\t-knownSites $knownSNPsites{$reference{$sample}} \\\n"; 
+# 	    print SH "\t-o $outputDirectory/$project/bam/$sample.mdup.recalibration_report.grp\n\n";
 	    
-	    print SH "# Print Recalibrated base quality scores to bam file\n";
-	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T PrintReads \\\n";
-	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
-	    print SH "\t-I $outputDirectory/$project/bam/$sample.mdup.bam \\\n";
-	    print SH "\t-BQSR $outputDirectory/$project/bam/$sample.mdup.recalibration_report.grp \\\n";
-	    print SH "\t-o $outputDirectory/$project/bam/$sample.recal.bam\n\n";
+# 	    print SH "# Print Recalibrated base quality scores to bam file\n";
+# 	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T PrintReads \\\n";
+# 	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+# 	    print SH "\t-I $outputDirectory/$project/bam/$sample.mdup.bam \\\n";
+# 	    print SH "\t-BQSR $outputDirectory/$project/bam/$sample.mdup.recalibration_report.grp \\\n";
+# 	    print SH "\t-o $outputDirectory/$project/bam/$sample.recal.bam\n\n";
 
-	    print SH "# Calculate depth of coverage\n";
-	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T DepthOfCoverage --omitDepthOutputAtEachBase \\\n";
-	    print SH "\t--summaryCoverageThreshold 10 --summaryCoverageThreshold 25 --summaryCoverageThreshold 50 --summaryCoverageThreshold 100 \\\n";
-	    print SH "\t--start 1 --stop 500 --nBins 499 -dt NONE \\\n";
-	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
-	    print SH "\t-I $outputDirectory/$project/bam/$sample.recal.bam \\\n";
-	    print SH "\t-o $outputDirectory/$project/bam/$sample.recal.coverage\n\n";
+# 	    print SH "# Calculate depth of coverage\n";
+# 	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6/GenomeAnalysisTK.jar -T DepthOfCoverage --omitDepthOutputAtEachBase \\\n";
+# 	    print SH "\t--summaryCoverageThreshold 10 --summaryCoverageThreshold 25 --summaryCoverageThreshold 50 --summaryCoverageThreshold 100 \\\n";
+# 	    print SH "\t--start 1 --stop 500 --nBins 499 -dt NONE \\\n";
+# 	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+# 	    print SH "\t-I $outputDirectory/$project/bam/$sample.recal.bam \\\n";
+# 	    print SH "\t-o $outputDirectory/$project/bam/$sample.recal.coverage\n\n";
 
-	    print SH "# Identify areas for local realignment\n";
-	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6//GenomeAnalysisTK.jar -T RealignerTargetCreator \\\n";
-	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
-	    print SH "\t-I $outputDirectory/$project/bam/$sample.recal.bam \\\n";
-	    print SH "\t-o $outputDirectory/$project/bam/$sample.realign.intervals \n\n";
+# 	    print SH "# Identify areas for local realignment\n";
+# 	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6//GenomeAnalysisTK.jar -T RealignerTargetCreator \\\n";
+# 	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+# 	    print SH "\t-I $outputDirectory/$project/bam/$sample.recal.bam \\\n";
+# 	    print SH "\t-o $outputDirectory/$project/bam/$sample.realign.intervals \n\n";
 
-	    print SH "# Realign problematic areas.\n";
-	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6//GenomeAnalysisTK.jar -T IndelRealigner \\\n";
-	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
-	    print SH "\t-known  $knownIndelsites{$reference{$sample}} \\\n";
-	    print SH "\t-I $outputDirectory/$project/bam/$sample.recal.bam \\\n";
-	    print SH "\t-o $outputDirectory/$project/bam/$sample.realigned.bam \\\n";
-	    print SH "\t-targetIntervals $outputDirectory/$project/bam/$sample.realign.intervals \n\n";
+# 	    print SH "# Realign problematic areas.\n";
+# 	    print SH "java -Xmx2G -jar /projects/p20742/tools/bin/GATK_v3.6//GenomeAnalysisTK.jar -T IndelRealigner \\\n";
+# 	    print SH "\t-R $bwaIndex{$reference{$project}} \\\n";
+# 	    print SH "\t-known  $knownIndelsites{$reference{$sample}} \\\n";
+# 	    print SH "\t-I $outputDirectory/$project/bam/$sample.recal.bam \\\n";
+# 	    print SH "\t-o $outputDirectory/$project/bam/$sample.realigned.bam \\\n";
+# 	    print SH "\t-targetIntervals $outputDirectory/$project/bam/$sample.realign.intervals \n\n";
 	    
 	 
-	    print SH "# Replace uncorrected bam with corrected bam.\n";
-	    print SH "cp $outputDirectory/$project/bam/$sample.bam  $outputDirectory/$project/bam/$sample.raw.bam\n";
-	    print SH "cp $outputDirectory/$project/bam/$sample.bam.bai  $outputDirectory/$project/bam/$sample.raw.bam.bai\n"; 
- 	    print SH "cp $outputDirectory\/$project\/bam\/$sample.realigned.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+# 	    print SH "# Replace uncorrected bam with corrected bam.\n";
+# 	    print SH "cp $outputDirectory/$project/bam/$sample.bam  $outputDirectory/$project/bam/$sample.raw.bam\n";
+# 	    print SH "cp $outputDirectory/$project/bam/$sample.bam.bai  $outputDirectory/$project/bam/$sample.raw.bam.bai\n"; 
+#  	    print SH "cp $outputDirectory\/$project\/bam\/$sample.realigned.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 
-	    print SH "\n# Re-index sample.bam file to make sure the index is up-to-date.\n";
-	    print SH "samtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam\n";
- 	    print SH "date\n\n";
+# 	    print SH "\n# Re-index sample.bam file to make sure the index is up-to-date.\n";
+# 	    print SH "samtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam\n";
+#  	    print SH "date\n\n";
 	    
-	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
-	    print SH "if ! [ -f \"$outputDirectory\/$project\/bam\/bamlist.txt\" ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
-	    print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
- 	    if ($type eq "chipseq"){
->>>>>>> 8e897b7c514d0746b4f50cad85f487b0fb461a5e
+# 	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
+# 	    print SH "if ! [ -f \"$outputDirectory\/$project\/bam\/bamlist.txt\" ];\nthen\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat > $outputDirectory\/$project\/bam\/bamlist.txt \n";
+	    # 	    print SH "else\necho \"$outputDirectory\/$project\/bam\/$sample.bam\" | cat >> $outputDirectory\/$project\/bam\/bamlist.txt \nfi\n";
+	    #>>>>>>> 8e897b7c514d0746b4f50cad85f487b0fb461a5e
+	    if ($type eq "chipseq"){
  		if ($makeTracks == 1){
  		    print SH "# Make ChIPseq tracks.\n";
  		    # The multi mapping argument is not used right now.
