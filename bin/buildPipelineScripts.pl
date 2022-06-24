@@ -1,4 +1,4 @@
-#!/software/activeperl/5.16/bin/perl -w
+!/software/activeperl/5.16/bin/perl -w
 use Getopt::Long qw(GetOptions);
 use List::Util qw(max);
 use List::MoreUtils qw(uniq);
@@ -658,9 +658,9 @@ if ($buildBcl2fq == 1){
 	print SH "#SBATCH --job-name=bcl2fastq\n";
     }
     print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
-    print SH "\nmodule load bcl2fastq/2.17.1.14\n";
-    print VER "module load bcl2fastq/2.17.1.14\n";
-    print SH "bcl2fastq -R $baseSpaceDirectory -r $numProcessors -d $numProcessors -p $numProcessors -w $numProcessors\n";
+    print SH "\nmodule load bcl2fastq/2.19.1\n";
+    print VER "module load bcl2fastq/2.19.1\n";
+    print SH "bcl2fastq -R $baseSpaceDirectory -r $numProcessors -p $numProcessors -w $numProcessors\n";
     # If runBcl2fq == 1, then run the shell script (only works if buildBcl2fq == 1)
     if ($runBcl2fq == 1){
 	&datePrint("Running Bcl2fq job and waiting for it to finish.");
@@ -1734,6 +1734,8 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	   #$moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 	    #if ($moduleText ne ""){	print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    print SH "module load pigz/2.4\n";
+	    print VER "EXEC module load pigz/2.4\n";
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load picard/1.131\n";
