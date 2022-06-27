@@ -1,4 +1,4 @@
-!/software/activeperl/5.16/bin/perl -w
+#!/software/activeperl/5.16/bin/perl -w
 use Getopt::Long qw(GetOptions);
 use List::Util qw(max);
 use List::MoreUtils qw(uniq);
