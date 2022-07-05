@@ -40,8 +40,8 @@ my $sampleSheet = "";
 my $comparisons = "";
 my $type = "";
 my $scheduler = "SLURM";
-my $numProcessors = 8;
-my $memory = 50000;
+my $numProcessors = 24;
+my $memory = 100000;
 my $multiMap = 0;
 my $aligner = "";
 my $stranded = 1;
@@ -88,6 +88,7 @@ my $rgString = "";
 my $runRNAstats = 0;
 my $buildNGSplot = 0;
 my $ngsFCcomparison = "";
+my $removeDuplicates = 1;
 
 # S3path is not working properly right now for non-standard s3path values.  This needs fixing.
 
@@ -147,6 +148,7 @@ GetOptions('samplesheet|ss=s' => \$sampleSheet,
 	   'runGenotyping|rg=i' => \$runGenotyping,
 	   'buildSampleCheck|bsc=i' => \$buildSampleCheck,
 	   'runSampleCheck|rsc=i' => \$runSampleCheck,
+	   'removeDuplicates|rdup=i' => \$removeDuplicates,
 	   'build4C|b4=i' => \$build4C,
 	   'run4C|r4=i' => \$run4C,
 	   'runBcl2fq|rb=i' => \$runBcl2fq,
@@ -1179,6 +1181,7 @@ if (($buildAlign == 1) && (($aligner eq "star") || ($aligner eq "tophat"))){
 			    } elsif ( ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/) || ($fastq =~ /\/?([\w\d\-\_\.]+\.fastq$)/)){
 				$fastqname = $1;
 			    }
+#			    if ($fastq =~ /\,/){ print STDERR "ERR: Uh-Oh.  Trimmomatic doesn't like commas.\n$fastq\n";}
 			    $newfastq = "$outputDirectory\/$project\/fastq\/$fastqname";
 			    if (!(-e $newfastq) || (-z $newfastq)){
 				&datePrint("Copying $fastq to $newfastq\n");
@@ -1290,9 +1293,9 @@ if (($buildAlign == 1) && (($aligner eq "star") || ($aligner eq "tophat"))){
 		my $read1fastqs = "@read1fastqs";
 		my $read2fastqs = "@read2fastqs";
 		my $read3fastqs = "@read3fastqs";
-		print STDERR "Read1fastqs: $read1fastqs\n";
-		print STDERR "Read2fastqs: $read2fastqs\n";
-		print STDERR "Read3fastqs: $read3fastqs\n";
+		print STDERR "Read1fastqs: $read1fastqs\t$#read1fastqs\n";
+		print STDERR "Read2fastqs: $read2fastqs\t$#read2fastqs\n";
+		print STDERR "Read3fastqs: $read3fastqs\t$#read3fastqs\n";
 		if (length($read3fastqs)>length($read2fastqs)){
 		    $read2fastqs = $read3fastqs;
 		}
@@ -1913,12 +1916,14 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.sorted.bam\n";
 	    print SH "java -jar $PICARD MarkDuplicates INPUT=$outputDirectory\/$project\/bam\/$sample.sorted.bam OUTPUT=$outputDirectory\/$project\/bam\/$sample.markdup.bam ASSUME_SORTED=true METRICS_FILE=$outputDirectory\/$project\/bam\/$sample.markdup.metrics.txt VALIDATION_STRINGENCY=SILENT\n";
 	    print SH "samtools index $outputDirectory\/$project\/bam\/$sample.markdup.bam\n";
-	    print SH "samtools view -b -F 0x400 $outputDirectory\/$project\/bam\/$sample.markdup.bam > $outputDirectory\/$project\/bam\/$sample.rmdup.bam\n";	
 #=======
 #	    print SH "samtools sort -@ $numProcessors -o $outputDirectory\/$project\/bam\/$sample.sorted.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
 #>>>>>>> 8e897b7c514d0746b4f50cad85f487b0fb461a5e
 	    print SH "date\n";
-	    print SH "mv $outputDirectory\/$project\/bam\/$sample.rmdup.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    if ($removeDuplicates == 1){
+		print SH "samtools view -b -F 0x400 $outputDirectory\/$project\/bam\/$sample.markdup.bam > $outputDirectory\/$project\/bam\/$sample.rmdup.bam\n";		    
+		print SH "mv $outputDirectory\/$project\/bam\/$sample.rmdup.bam $outputDirectory\/$project\/bam\/$sample.bam\n";
+	    }
 	    print SH "date\n";
 	    print SH "samtools index -@ $numProcessors $outputDirectory\/$project\/bam\/$sample.bam\n";
 	    print SH "\n# Check if bamlist file exists, and if not, create it.\n";
@@ -2151,7 +2156,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    my $prefix = "";
 	    foreach my $fastq (@fastqs){
 		print SH "\n# Copy fastq files into outputDirectory.\n";
-		print SH "cp $fastq $outputDirectory/$project/fastq/\n";
+		print SH "cp $fastq $outputDirectory/$project/fastq/\n\n";
 		if ($fastq =~ /\/?([\d\_\-\w\.]+).fastq\.gz$/){
 		    $prefix = $1;
 		} else { $prefix = $fastq;}
@@ -2198,10 +2203,25 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		if (length($read3fastqs)>length($read2fastqs)){
 		    @read2fastqs = @read3fastqs;
 		}
-		$read1fastqs =~ s/\ /,/g;
-		$read2fastqs =~ s/\ /,/g;
-		print SH "\n# R1: $read1fastqs\n";
-				print SH "\n# R2: $read2fastqs\n";
+		print STDERR "$#read1fastqs Read1fastqs: $read1fastqs\n";
+		print STDERR "$#read2fastqs Read2fastqs: $read2fastqs\n";
+		if ($#read1fastqs > 0){
+		    print STDERR "Concatenating read1fastqs and read2fastqs before proceeding.\n\n";
+		    print SH "\# Concatenating $read1fastqs into $sample\_R1.fastq.gz\n";
+		    print SH "cat $read1fastqs > $outputDirectory/$project/fastq/$sample\_R1.fastq.gz\n\n";
+		    print SH "\# Concatenating $read2fastqs into $sample\_R2.fastq.gz\n";
+		    print SH "cat $read2fastqs > $outputDirectory/$project/fastq/$sample\_R2.fastq.gz\n\n";
+		    print SH "\n# R1: from $read1fastqs to $outputDirectory/$project/fastq/$sample\_R1.fastq.gz\n";
+		    print SH "\n# R2: from $read2fastqs to $outputDirectory/$project/fastq/$sample\_R2.fastq.gz\n\n";
+		    $read1fastqs = "$outputDirectory/$project/fastq/$sample\_R1.fastq.gz";
+		    $read2fastqs = "$outputDirectory/$project/fastq/$sample\_R2.fastq.gz";
+		    # This is no longer relevant.
+		    #$read1fastqs =~ s/\ /,/g;
+		    #$read2fastqs =~ s/\ /,/g;
+		} else {
+		    print SH "\n# R1: $read1fastqs\n";
+		    print SH "\n# R2: $read2fastqs\n";
+		}
 		if ($runTrim == 1){
 		    &datePrint("Setting up trimming for sample $sample for paired end reads.");
 		    print SH "# Setting up trimming for sample $sample for paired end reads.\n";
@@ -2227,6 +2247,7 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		@read2fastqs = split(/\,/,$read2fastqs);
 		# This is somewhat half set up to deal with multiple fastqs for the same sample.  It works if there is only one read1 fastq per sample.  It
 		# would need to be updated for two or more read1 fastqs per sample.  #ebartom 2019-09-03
+		# This should be resolved now, by concatenating multiple read1 fastqs and multiple read2 fastqs each into a single file. #ebartom 2022-06-30
 		for (my $i=0;$i <= $#read1fastqs;$i++){
 		    my $prefix = "";
 		    if ($read1fastqs[$i] =~ /\/?([\d\_\-\w\.]+)\_R1\.fastq\.gz$/){
