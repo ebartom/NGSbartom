@@ -56,7 +56,8 @@ my $uploadPulmtracks = 0;
 my $uploadLutracks = 0;
 my $uploadBAM = 0;
 my $buildEdgeR = 0;
-my $runTrim = 1;
+# As of 2022-10-06, turning off trimming by default.
+my $runTrim = 0;
 my $buildBcl2fq = 0;
 my $buildAlign = 0;
 my $buildSampleCheck = 0;
@@ -2772,10 +2773,12 @@ if ($buildSampleCheck == 1){
 	    }
 	    print SH "\n# Run NGSCheckmate on the fastq files listed in  $outputDirectory\/$project\/SampleID\/$project.fastqList.txt\n";
 	    print SH "python \$NCM_HOME/ncm_fastq.py -p $numProcessors -l $outputDirectory\/$project\/SampleID\/$project.fastqList.txt -pt \$NCM_HOME/SNP/SNP.pt -O $outputDirectory\/$project\/SampleID/NGSCheckmateResults >& $outputDirectory\/$project\/SampleID\/$project.ncm.fq.log\n\n";
+	    print SH "\n# Compare NCM files to each other and Cancer Cell Line Encyclopedia.\n";
+	    print SH "Rscript $NGSbartom/tools/bin/testAgainstCCLE.R --queryDir=$outputDirectory\/$project\/SampleID/NGSCheckmateResults >&  $outputDirectory\/$project\/SampleID\/$project.ccleTest.log\n\n";
 	    close(SH);
 	}
 	if ($runSampleCheck == 0){
-	    # Print tips on running the tophat shell scripts.
+	    # Print tips on running the sample check scripts.
 	    print STDERR "To execute all scripts, use the following command:\n";
 	    # "$outputDirectory\/$project\/scripts\/run\_$project\_SampleCheck.sh";
 	    if ($scheduler eq "MOAB"){
