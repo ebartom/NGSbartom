@@ -362,7 +362,8 @@ if ($scheduler eq "MOAB"){
 	}
     }
     $header .= "#SBATCH -t $walltime\n";
-    $header .= "#SBATCH -m a\n"; # only email user if job aborts
+    # This fails after the newest update to Slurm.
+#    $header .= "#SBATCH -m a\n"; # only email user if job aborts
     $header .= "#SBATCH --mem=$memory\n";
     # Run the scripts from $outputDirectory/metadata, which will put the stdout / stderr files there for debugging.
     # First check for metadata directory existence, and create if absent
@@ -662,7 +663,7 @@ if ($buildBcl2fq == 1){
     print SH "\n#If there are any modules loaded, remove them.\nmodule purge\n\n";
     print SH "\nmodule load bcl2fastq/2.19.1\n";
     print VER "module load bcl2fastq/2.19.1\n";
-    print SH "bcl2fastq -R $baseSpaceDirectory -r $numProcessors -p $numProcessors -w $numProcessors\n";
+    print SH "bcl2fastq -R $baseSpaceDirectory --no-lane-splitting -r $numProcessors -p $numProcessors -w $numProcessors\n";
     # If runBcl2fq == 1, then run the shell script (only works if buildBcl2fq == 1)
     if ($runBcl2fq == 1){
 	&datePrint("Running Bcl2fq job and waiting for it to finish.");
@@ -1323,13 +1324,18 @@ if (($buildAlign == 1) && (($aligner eq "star") || ($aligner eq "tophat"))){
 		    my $trimmedUnpaired2 = $read2fastqs;
 		    $trimmedUnpaired1 =~ s/R1.fastq/R1U.fastq.trimmed/g;
 		    $trimmedUnpaired2 =~ s/R2.fastq/R2U.fastq.trimmed/g;
+		    $trimmedUnpaired1 =~ s/R1_001.fastq/R1U.fastq.trimmed/g;
+		    $trimmedUnpaired2 =~ s/R2_001.fastq/R2U.fastq.trimmed/g;
 		    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $trimmedUnpaired1 $trimmedUnpaired2\n";
 		    my $trimmedPaired1 = $read1fastqs;
 		    my $trimmedPaired2 = $read2fastqs;
 		    $trimmedPaired1 =~ s/R1.fastq/R1.fastq.trimmed/g;
 		    $trimmedPaired2 =~ s/R2.fastq/R2.fastq.trimmed/g;
+		    $trimmedPaired1 =~ s/R1_001.fastq/R1.fastq.trimmed/g;
+		    $trimmedPaired2 =~ s/R2_001.fastq/R2.fastq.trimmed/g;
 		    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $trimmedPaired1 $trimmedPaired2\n";
 		    print SH "date\n\n";
+		    #print STDERR "\nFastqNames:\nR1 $read1fastqs\nR2 $read2fastqs\nR1U:$trimmedUnpaired1\nR2U:$trimmedUnpaired2\nR1P:$trimmedPaired1\nR2P:$trimmedPaired2\n\n";
 		    $read1fastqs = $trimmedPaired1;
 		    $read2fastqs = $trimmedPaired2;
 		}
@@ -1879,11 +1885,15 @@ if (($buildAlign == 1) && ($aligner eq "bowtie")){
 		    my $trimmedUnpaired2 = $read2fastqs;
 		    $trimmedUnpaired1 =~ s/R1.fastq/R1U.fastq.trimmed/g;
 		    $trimmedUnpaired2 =~ s/R2.fastq/R2U.fastq.trimmed/g;
+		    $trimmedUnpaired1 =~ s/R1_001.fastq/R1U.fastq.trimmed/g;
+		    $trimmedUnpaired2 =~ s/R2_001.fastq/R2U.fastq.trimmed/g;
 		    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $trimmedUnpaired1 $trimmedUnpaired2\n";
 		    my $trimmedPaired1 = $read1fastqs;
 		    my $trimmedPaired2 = $read2fastqs;
 		    $trimmedPaired1 =~ s/R1.fastq/R1.fastq.trimmed/g;
 		    $trimmedPaired2 =~ s/R2.fastq/R2.fastq.trimmed/g;
+		    $trimmedPaired1 =~ s/R1_001.fastq/R1.fastq.trimmed/g;
+		    $trimmedPaired2 =~ s/R2_001.fastq/R2.fastq.trimmed/g;
 		    print SH "date\n$NGSbartom/tools/bin/FastQC/fastqc -o $outputDirectory\/$project\/fastqc $trimmedPaired1 $trimmedPaired2\n";
 		    print SH "date\n\n";
 		    $read1fastqs = $trimmedPaired1;
@@ -2104,6 +2114,8 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 	    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
 	#    $moduleText = &checkLoad("samtools/1.2",\%modulesLoaded);
 	#    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.2"} = 1;}
+	    print SH "module load pigz/2.4\n";
+	    print VER "EXEC module load pigz/2.4\n";
 	    print SH "module load R/3.2.2\n";
 	    print VER "EXEC module load R/3.2.2\n";
 	    print SH "module load picard/1.131\n";
@@ -2172,9 +2184,14 @@ if (($buildAlign == 1) && ($aligner eq "bwa")){
 		    print SH "\n# Align Single End Fastq with BWA\n";
 		    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
 		    if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"samtools/1.6"} = 1;}
-		    $rgString = "\@RG\\\tID:$sample\\\tSM:$sample\\\tPU:nextseq\\\tCN:NUSeq\\\tPL:ILLUMINA";
-		    print SH "# Adding Readgroups from rgstring $rgString\n";
-		    print SH "bwa mem -M -t $numProcessors -R \"$rgString\" $bwaIndex{$reference{$sample}} $fastq |  $NGSbartom/tools/bin/samblaster/samblaster | samtools view -bS -@ $numProcessors - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
+		    if ($type ne "chipseq"){
+			$rgString = "\@RG\\\tID:$sample\\\tSM:$sample\\\tPU:nextseq\\\tCN:NUSeq\\\tPL:ILLUMINA";
+			print SH "# Adding Readgroups from rgstring $rgString\n";
+			print SH "bwa mem -M -t $numProcessors -R \"$rgString\" $bwaIndex{$reference{$sample}} $fastq |  $NGSbartom/tools/bin/samblaster/samblaster | samtools view -bS -@ $numProcessors - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
+		    } else {
+			print SH "# Aligning chipseq data without readgroups.\n";
+			print SH "bwa mem -M -t $numProcessors $bwaIndex{$reference{$sample}} $fastq |  $NGSbartom/tools/bin/samblaster/samblaster | samtools view -bS -@ $numProcessors - > $outputDirectory\/$project\/bam\/$prefix.bam\n";
+		    }
 		    print SH "date\n\n";
 		    push (@bams,"$outputDirectory\/$project\/bam\/$prefix.bam");
 		}
@@ -2890,7 +2907,7 @@ if ($runRNAstats == 1){
 
 my %exomePairing;
 if ($buildGenotyping ==1) {
-    if (($type eq "RNA") || ($type eq "exome")){
+    if (($type eq "RNA") || ($type eq "rna") || ($type eq "exome")){
 	foreach my $project (keys(%samples)){
 	    my @samples = uniq(split(/\,/,$samples{$project}));
 	    if (-d "$outputDirectory\/$project\/genotype/") {
@@ -2904,7 +2921,7 @@ if ($buildGenotyping ==1) {
 		    my($exome,$normal) = split(/\s+/,$_);
 		    $exome =~ s/.bam$//g;
 		    $normal =~ s/.bam$//g;
-#		    print STDERR "Pairing $exome and $normal\n";
+		    print STDERR "Pairing $exome and $normal\n";
 		    $exomePairing{$exome} = $normal;
 		}
 	    }
@@ -3028,8 +3045,10 @@ if ($buildGenotyping ==1) {
 		    print SH "date\n\n";
 #		    print SH "# Sort and remove duplicates from VCF file.\n";
 #		    print SH "sort $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.vcf | uniq > $outputDirectory\/$project\/genotype\/$sample.filtered.snps.indels.m2.sorted.vcf\n";
-#		    close SH;
-		} elsif ($type eq "exome"){
+		    #		    close SH;
+		   
+		} elsif (($type eq "exome") || ($type eq "RNA")){
+		    # Adding RNA on 8/26/22, to try to get variant calling or tumor RNA relative to normal.
 		    ## Return Here.
 		    print SH "# Index BAM file.\n";
 		    $moduleText = &checkLoad("samtools/1.6",\%modulesLoaded);
