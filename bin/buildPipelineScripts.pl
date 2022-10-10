@@ -56,8 +56,7 @@ my $uploadPulmtracks = 0;
 my $uploadLutracks = 0;
 my $uploadBAM = 0;
 my $buildEdgeR = 0;
-# As of 2022-10-06, turning off trimming by default.
-my $runTrim = 0;
+my $runTrim = 1;
 my $buildBcl2fq = 0;
 my $buildAlign = 0;
 my $buildSampleCheck = 0;
@@ -765,9 +764,11 @@ if (($sampleSheet ne "")){
 		# For Nova-seq, there are only two lanes, L001 and L002
 		foreach my $lane ("L001","L002","L003","L004"){
 		    # Build fastq file names.
-		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.fastq.gz";
+		    #Updated to remove lane on 10-11-2022
+#		    $fastq = "$sample_name\_S$sampleNum\_$lane\_R1\_001.fastq.gz";
+		    $fastq = "$sample_name\_S$sampleNum\_R1\_001.fastq.gz";
 		    if ($runPairedEnd == 1){
-			$fastq2 = "$sample_name\_S$sampleNum\_$lane\_R2\_001.fastq.gz";
+			$fastq2 = "$sample_name\_S$sampleNum\_R2\_001.fastq.gz";
 		    }
 		    #		    print STDERR "Looking for $fastq\n";
 		    print STDERR "Looking for $baseSpaceDirectory\/Data\/Intensities\/BaseCalls\/$sample_project\/$sample_ID\/$fastq or $outputDirectory\/$sample_project\/fastq\/$fastq\n";
@@ -2725,8 +2726,8 @@ if ($buildSampleCheck == 1){
 	print SH "export NCM_HOME=$NGSbartom/tools/bin/NGSCheckMate/\n\n";
 	$moduleText = &checkLoad("python/anaconda",\%modulesLoaded);
 	if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"python/anaconda"} = 1;}
-	$moduleText = &checkLoad("R/3.2.2",\%modulesLoaded);
-	if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"R/3.2.2"} = 1;}
+	$moduleText = &checkLoad("R/4.2.0",\%modulesLoaded);
+	if ($moduleText ne ""){ print SH $moduleText; print VER "EXEC $moduleText"; $modulesLoaded{"R/4.2.0"} = 1;}
 	my $fastqList = "$outputDirectory\/$project\/SampleID\/$project.fastqList.txt";
 	open (FQL,">$fastqList");
 	@samples = uniq(split(/\,/,$samples{$project}));
